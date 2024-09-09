@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "internal/api";
+
+import "google/protobuf/timestamp.proto";
+
+// Api represents the public graph service.
+service Api {
+    rpc GetVertex(VID) returns (Vertex);
+    rpc SetVertex(VID) returns (Status);
+    rpc DelVertex(VID) returns (Status);
+    rpc GetEdge(EID) returns (Edge);
+    rpc SetEdge(EID) returns (Status);
+    rpc DelEdge(EID) returns (Status);
+}
+
+message VID {
+    uint64 type = 1;
+    bytes value = 2;
+}
+
+message EID {
+    VID head = 1;
+    VID tail = 2;
+    uint32 type = 3;
+}
+
+message Vertex {
+    VID id = 1;
+    map<uint32, Value> properties = 2;
+    google.protobuf.Timestamp last_changed = 3;
+}
+
+message Edge {
+    EID id = 1;
+    map<uint32, Value> properties = 2;
+    google.protobuf.Timestamp last_changed = 3;
+}
+
+message Value {
+    oneof value {
+        Scalar scalar = 1;
+        List list = 2;
+        Map map = 3;
+    }
+}
+
+message Scalar {
+    oneof value {
+        bool bool = 1;
+        string str = 2;
+        int32 int32 = 3;
+        uint32 uint32 = 4;
+        int64 int64 = 5;
+        uint64 uint64 = 6;
+        float float32 = 7;
+        double float64 = 8;
+        bytes bytes = 9;
+    }
+}
+
+message List {
+    repeated Scalar items = 1;
+}
+
+message Map {
+    map <string, Value> items = 1;
+}
+
+message Status {
+    uint64 tx_id = 1; 
+}

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package storage;
+
+option go_package = "internal/control/server/storage";
+
+import "google/protobuf/timestamp.proto";
+
+enum ServerType {
+    Unknown = 0;
+    Control = 1;
+    Data = 2;
+    Api = 3;
+}
+
+message Command {
+    oneof payload {
+        Bootstrap bootstrap = 1;
+        Register register = 2;
+    }
+}
+
+message Bootstrap {
+    message Server {
+        uint64 id = 1;
+        string name = 2;
+    }
+
+    string cluster_name = 1;
+    repeated Server servers = 2;
+}
+
+message Register {
+    ServerType type = 1;
+
+    // Unique token.
+    string token = 2;
+
+    // The addres where the server will be contacted. 
+    string address = 3; // TODO: should address be persisted in the FSM?
+}
+
+message Snapshot {
+    uint64 index = 1;
+    string cluster_name = 2;
+    google.protobuf.Timestamp created_time = 3;
+    uint64 last_server_id = 4;
+    map<string, uint64> tokens = 5;
+    map<uint64, string> server_names = 6;
+    map<uint64, google.protobuf.Timestamp> server_first_seen = 7;
+    map<uint64, google.protobuf.Timestamp> server_last_seen = 8;
+}

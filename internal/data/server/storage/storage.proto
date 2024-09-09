@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package storage;
+
+option go_package = "internal/data/server/storage";
+
+message Command {
+    oneof payload {
+        CommandSet set = 1;
+        CommandDelete delete = 2;
+    }
+}
+
+message Snapshot {
+    uint64 index = 1;
+    map<string, bytes> items = 2;
+}
+
+message CommandSet {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+message CommandDelete {
+    bytes key = 1;
+}

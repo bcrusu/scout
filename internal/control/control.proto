@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package control;
+
+option go_package = "internal/control";
+
+// Control represents the control plane service.
+service Control {
+    // Discover is used early by clients to discover the control
+    // plane cluster servers and it is the only method that can be
+    // invoked both on leader and followers. All the other methods
+    // below must be invoked on the control plane leader.
+    rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+
+    // Register adds a new server to the control or data planes.
+    // It is the first operation performed by all new servers.
+    // Once registered, a Control plane server is added to the
+    // control plane Raft group and will receive replicated state
+    // from the leader. For Data and API servers, they need to start
+    // a new session to receive configuration and tasks.
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+
+    // NewSession starts a new long-lived session between a data
+    // plane server and the control plane. It is the main
+    // way for servers to advertise their presence/liveness status
+    // and to receive configuration updates and tasks from the
+    // control plane. A server must first register itself before
+    // starting a new session.
+    rpc NewSession(stream SessionIn) returns (stream SessionOut);
+}
+
+message DiscoverRequest {
+    string cluster_name = 1;
+}
+
+message DiscoverResponse {
+    message Server {
+        string address = 1;
+        bool leader = 2;
+    }
+
+    repeated Server servers = 1;
+    string service_config_json = 2;
+}
+
+message RegisterRequest {
+    message ControlReq {}
+    message DataReq {}
+    message ApiReq {}
+
+    string cluster_name = 1;
+
+    // Unique token to mitigate failure scenarios where
+    // the same server registers itself multiple times,
+    // like in crash-restart loop cases. Could act as
+    // auth token in the future.
+    string token = 2;
+    
+    // The addres where the server will be contacted. 
+    string address = 3;
+
+    oneof payload {
+        ControlReq control = 4;
+        DataReq data = 5;
+        ApiReq api = 6;
+    }
+}
+
+message RegisterResponse {
+    // Unique identifier that the server will store on disk.
+    // All further interactions between this server and the
+    // control plane must include it.
+    uint64 server_id = 1;
+
+    // Equivalent to the id above. It can be used in places
+    // where strings are expected. Servers are expected to
+    // store both id and name pair and do the translation
+    // between the two on their own.
+    string server_name = 2;
+}
+
+message SessionIn {
+    message ControlReq {}
+    message DataReq {}
+    message ApiReq {}
+
+    string cluster_name = 1;
+
+    string server_id = 2;
+
+    oneof payload {
+        ControlReq control = 3;
+        DataReq data = 4;
+        ApiReq api = 5;
+    }
+}
+
+message SessionOut {
+    message ControlReq {}
+    message DataReq {}
+    message ApiReq {}
+
+    oneof payload {
+        ControlReq control = 1;
+        DataReq data = 2;
+        ApiReq api = 3;
+    }
+}

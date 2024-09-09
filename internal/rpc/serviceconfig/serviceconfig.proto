@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package serviceconfig;
+
+option go_package = "github.com/bcrusu/graph/internal/rpc/serviceconfig";
+
+import "google/protobuf/duration.proto";
+
+message ServiceConfig {
+    message RetryThrottlingPolicy {
+        uint32 max_tokens = 1;
+        float tokenRatio = 2;
+    }
+
+    repeated LBConfig load_balancing_config = 1;
+    repeated MethodConfig method_config = 2;
+    RetryThrottlingPolicy retry_throttling = 3;
+}
+
+message MethodConfig {
+    message Name {
+        string service = 1;
+        string method = 2; 
+    }
+
+    message RetryPolicy {
+        uint32 maxAttempts = 1;
+        google.protobuf.Duration initial_backoff = 2;
+        google.protobuf.Duration max_backoff = 3;
+        float backoff_multiplier = 4;
+        repeated uint32 retryable_status_codes = 5;
+    }
+
+    repeated Name name = 1;
+    bool waitForReady = 2;
+    google.protobuf.Duration timeout = 3;
+    uint32 max_request_message_bytes = 4;
+    uint32 max_response_message_bytes = 5;
+    RetryPolicy retry_policy = 6;
+}
+
+message LBConfig {
+    oneof policy {
+        LBConfigPickFirst pick_first = 1 [json_name = "pick_first"];
+        LBConfigRoundRobin round_robin = 2 [json_name = "round_robin"];
+        LBConfigGraphControl graph_control = 3 [json_name = "graph_control"];
+        LBConfigGraphApi graph_api = 4 [json_name = "graph_api"];
+        LBConfigGraphData graph_data = 5 [json_name = "graph_data"];
+    }
+}
+
+message LBConfigPickFirst {
+    bool shuffleAddressList = 1;
+}
+
+message LBConfigRoundRobin {}
+
+message LBConfigGraphControl {}
+
+message LBConfigGraphApi {}
+
+message LBConfigGraphData {}
