@@ -23,31 +23,38 @@ var (
 type Leader struct {
 	control.UnsafeControlServer
 	*common.Shared
-	raft  *multiraft.Raft
-	store storage.Store
+	raft      *multiraft.Raft
+	store     storage.Store
+	commandCh chan command
+	mainCtx   context.Context
+	stopFunc  context.CancelFunc
 }
 
 func New(raft *multiraft.Raft, store storage.Store) *Leader {
 	return &Leader{
-		Shared: common.New(raft),
-		raft:   raft,
-		store:  store,
+		Shared:    common.New(raft, store),
+		raft:      raft,
+		store:     store,
+		commandCh: make(chan command),
 	}
 }
 
 func (n *Leader) Start(ctx context.Context) error {
+	n.mainCtx, n.stopFunc = context.WithCancel(context.Background())
+	go n.mainLoop()
+
 	log.Debug(ctx, "Started leader")
 	return nil
 }
 
 func (n *Leader) Stop(ctx context.Context) {
+	n.stopFunc()
 	log.Debug(ctx, "Stopped leader")
 }
 
 func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {
-	if req == nil || req.ClusterName == "" || len(req.ClusterName) > storage.MaxClusterNameLen || req.Address == "" ||
-		len(req.Address) > storage.MaxAddressLen || req.Token == "" || len(req.Token) > storage.MaxTokenLen || req.Payload == nil ||
-		req.ClusterName != n.store.ClusterName() {
+	if req == nil || !storage.IsValidClusterName(req.ClusterName) || !storage.IsValidAddress(req.Address) ||
+		!storage.IsValidToken(req.Token) || n.store.IsEmpty() || req.ClusterName != n.store.ClusterName() {
 		return nil, errors.InvalidRequest
 	}
 
@@ -56,15 +63,15 @@ func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*c
 		Address: req.Address,
 	}
 
-	switch req.Payload.(type) {
-	case *control.RegisterRequest_Control:
+	switch req.Type {
+	case control.RegisterRequest_Control:
 		cmd.Type = storage.ServerType_Control
-	case *control.RegisterRequest_Data:
+	case control.RegisterRequest_Data:
 		cmd.Type = storage.ServerType_Data
-	case *control.RegisterRequest_Api:
+	case control.RegisterRequest_Api:
 		cmd.Type = storage.ServerType_Api
 	default:
-		log.Warnf(ctx, "Unknown register request type %T", req.Payload)
+		log.Warnf(ctx, "Unknown server type %v", req.Type)
 		return nil, errors.InvalidRequest
 	}
 
@@ -90,5 +97,79 @@ func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*c
 }
 
 func (n *Leader) NewSession(stream grpc.BidiStreamingServer[control.SessionIn, control.SessionOut]) error {
-	return nil // TODO
+	hello, err := stream.Recv()
+	if err != nil {
+		return errors.Wrap(err, "new session failed before hello")
+	}
+
+	if hello == nil || hello.ClusterName != n.store.ClusterName() || hello.ServerId == 0 || hello.Address == "" {
+		return errors.InvalidRequest
+	}
+
+	server := n.store.Server(hello.ServerId)
+	if server == nil {
+		return errors.NotRegistered
+	}
+
+	// TODO
+	return nil
+	//	session := newSession(stream)
+
+	// if err := n.sendToMainLoop(sessionStart{
+	// 	hello:   hello,
+	// 	server:  server,
+	// 	session: session,
+	// }); err != nil {
+	// 	return err
+	// }
+
+	// runErr := session.run(stream.Context())
+
+	// n.sendToMainLoop(sessionEnd{
+	// 	hello:   hello,
+	// 	server:  server,
+	// 	session: session,
+	// })
+
+	// return runErr
+}
+
+func (n *Leader) mainLoop() {
+	sessions := map[*session]bool{}
+	sessionsByServer := map[uint64]*session{}
+
+	for {
+		select {
+		case cmd := <-n.commandCh:
+			var result error
+
+			switch x := cmd.payload.(type) {
+			case sessionStarting:
+				if existing := sessionsByServer[x.server.Id]; existing != nil {
+					existing.close()
+					delete(sessions, existing)
+					delete(sessionsByServer, x.server.Id)
+				}
+
+				sessions[x.session] = true
+				sessionsByServer[x.server.Id] = x.session
+			case sessionEnded:
+				delete(sessions, x.session)
+			default:
+				result = errors.Errorf("unknown command type %T", cmd)
+			}
+
+			cmd.resultCh <- result
+		}
+	}
+}
+
+func (n *Leader) sendToMainLoop(payload any) error {
+	cmd := command{
+		payload:  payload,
+		resultCh: make(chan error),
+	}
+
+	n.commandCh <- cmd
+	return <-cmd.resultCh
 }

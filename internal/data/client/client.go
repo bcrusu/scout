@@ -27,8 +27,6 @@ type DataClient interface {
 	utils.Lifecycle
 }
 
-type Option func(*options)
-
 type dataClient struct {
 	conn   *rpc.Conn
 	client data.DataClient

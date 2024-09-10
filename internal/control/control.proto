@@ -44,9 +44,12 @@ message DiscoverResponse {
 }
 
 message RegisterRequest {
-    message ControlReq {}
-    message DataReq {}
-    message ApiReq {}
+    enum ServerType {
+        Unknown = 0;
+        Control = 1;
+        Data = 2;
+        Api = 3;
+    }
 
     string cluster_name = 1;
 
@@ -56,14 +59,10 @@ message RegisterRequest {
     // auth token in the future.
     string token = 2;
     
-    // The addres where the server will be contacted. 
+    // The addres where the server will be contacted.
     string address = 3;
 
-    oneof payload {
-        ControlReq control = 4;
-        DataReq data = 5;
-        ApiReq api = 6;
-    }
+    ServerType type = 4;
 }
 
 message RegisterResponse {
@@ -85,13 +84,13 @@ message SessionIn {
     message ApiReq {}
 
     string cluster_name = 1;
-
-    string server_id = 2;
+    uint64 server_id = 2;
+    string address = 3;
 
     oneof payload {
-        ControlReq control = 3;
-        DataReq data = 4;
-        ApiReq api = 5;
+        ControlReq control = 4;
+        DataReq data = 5;
+        ApiReq api = 6;
     }
 }
 

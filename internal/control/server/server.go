@@ -53,7 +53,7 @@ func (n *Server) Start(ctx context.Context) (err error) {
 }
 
 func (n *Server) getComponents() ([]utils.Lifecycle, error) {
-	idStore, err := identity.NewStore()
+	idStore, err := identity.NewStore(n.config.DataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (n *Server) getComponents() ([]utils.Lifecycle, error) {
 }
 
 func (n *Server) getComponentsForBootstrap() ([]utils.Lifecycle, error) {
-	idStore, err := identity.NewStore()
+	idStore, err := identity.NewStore(n.config.DataDir)
 	if err != nil {
 		return nil, err
 	}

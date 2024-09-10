@@ -57,3 +57,12 @@ func TimeMapFromProto[T comparable](in map[T]*timestamppb.Timestamp) map[T]time.
 
 	return out
 }
+
+func CloneProto[T proto.Message](orig T) T {
+	clone := proto.Clone(orig)
+	t, ok := clone.(T)
+	if !ok {
+		panic("CloneProto failed")
+	}
+	return t
+}

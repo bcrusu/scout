@@ -16,6 +16,9 @@ var (
 
 	// UnknownLeader is a transient error which signals that the group leader is not known.
 	UnknownLeader = Error("unknown leader")
+
+	// NotRegistered signals that the accessed resource requires registration.
+	NotRegistered = Error("not registered")
 )
 
 // ValidationError is a validation error that carries extra information to callers.

@@ -64,8 +64,8 @@ func (r *resolverImpl) Close() {
 func (r *resolverImpl) mainLoop() {
 	var last time.Time
 	resolving := false
-	timer := time.NewTicker(resolveInterval)
-	defer timer.Stop()
+	ticker := time.NewTicker(resolveInterval)
+	defer ticker.Stop()
 
 	reqCh := make(chan bool)
 	resCh := make(chan bool)
@@ -99,7 +99,7 @@ func (r *resolverImpl) mainLoop() {
 			resolve()
 		case <-resCh:
 			resolving = false
-		case <-timer.C:
+		case <-ticker.C:
 			resolve()
 		}
 	}

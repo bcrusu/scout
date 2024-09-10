@@ -5,6 +5,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+type Option func(*options)
+
 // WithTarget sets the connecton target.
 func WithTarget(target discovery.Target) Option {
 	return func(o *options) {

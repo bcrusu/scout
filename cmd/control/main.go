@@ -5,14 +5,13 @@ import (
 	"os"
 
 	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
 	"github.com/spf13/cobra"
 )
 
 func main() {
 	cobra.EnableTraverseRunHooks = true
 	cmd := newRootCmd()
-	ctx := utils.WithCancelOnSignal(context.Background())
+	ctx := context.Background()
 	log := logging.WithComponent("main")
 
 	if err := cmd.ExecuteContext(ctx); err != nil {

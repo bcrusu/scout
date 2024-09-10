@@ -11,12 +11,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const (
-	MaxClusterNameLen = 100
-	MaxAddressLen     = 128
-	MaxTokenLen       = 1024
-)
-
 var (
 	_   multiraft.FSM = (*FSM)(nil)
 	_   Store         = (*FSM)(nil)
@@ -24,29 +18,30 @@ var (
 )
 
 // Store exposes read-only operations executed directly on the FSM backing storage.
+// All returned values are clones of stored values.
 type Store interface {
 	IsEmpty() bool
 	ClusterName() string
+	Server(id uint64) *Server
+	ChangedChan() <-chan bool
 }
 
 type FSM struct {
-	lock            sync.Mutex
-	index           uint64               // last applied raft log index
-	clusterName     string               // read-only cluster name set during bootstrap
-	createdTime     time.Time            // records the time when the cluster was created (UTC)
-	lastServerID    uint64               // ensures unique server id generation
-	tokens          map[string]uint64    // map[token]server_id: all seen server tokens (could be pruned based on first seen ts)
-	serverNames     map[uint64]string    // map[server_id]name: unique server name
-	serverFirstSeen map[uint64]time.Time // map[server_id]Time: time of server registration (UTC)
-	serverLastSeen  map[uint64]time.Time // map[server_id]Time: time of server last activity (UTC). Writes should be throttled.
+	lock         sync.Mutex
+	changedChan  chan bool
+	index        uint64            // last applied raft log index
+	clusterName  string            // read-only cluster name set during bootstrap
+	createdTime  time.Time         // records the time when the cluster was created (UTC)
+	lastServerID uint64            // ensures unique server id generation
+	tokens       map[string]uint64 // map[token]server_id: all seen server tokens (could be pruned later)
+	servers      *Servers
+	partitions   *Partitions
 }
 
 func NewFSM() *FSM {
 	return &FSM{
-		tokens:          map[string]uint64{},
-		serverNames:     map[uint64]string{},
-		serverFirstSeen: map[uint64]time.Time{},
-		serverLastSeen:  map[uint64]time.Time{},
+		changedChan: make(chan bool, 1),
+		tokens:      map[string]uint64{},
 	}
 }
 
@@ -84,6 +79,7 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 		return err
 	} else {
 		log.Debugf("Applying command %T success", payload)
+		f.changedChan <- true // TODO: review
 		return result
 	}
 }
@@ -93,14 +89,13 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	defer f.lock.Unlock()
 
 	snap := &Snapshot{
-		Index:           f.index,
-		ClusterName:     f.clusterName,
-		CreatedTime:     timestamppb.New(f.createdTime),
-		LastServerId:    f.lastServerID,
-		Tokens:          f.tokens,
-		ServerNames:     f.serverNames,
-		ServerFirstSeen: utils.TimeMapToProto(f.serverFirstSeen),
-		ServerLastSeen:  utils.TimeMapToProto(f.serverLastSeen),
+		Index:        f.index,
+		ClusterName:  f.clusterName,
+		CreatedTime:  timestamppb.New(f.createdTime),
+		LastServerId: f.lastServerID,
+		Tokens:       f.tokens,
+		Servers:      f.servers,
+		Partitions:   f.partitions,
 	}
 
 	return utils.MarshalProto(snap)
@@ -120,9 +115,8 @@ func (f *FSM) Restore(data []byte) error {
 	f.createdTime = snap.CreatedTime.AsTime()
 	f.lastServerID = snap.LastServerId
 	f.tokens = snap.Tokens
-	f.serverNames = snap.ServerNames
-	f.serverFirstSeen = utils.TimeMapFromProto(snap.ServerFirstSeen)
-	f.serverLastSeen = utils.TimeMapFromProto(snap.ServerLastSeen)
+	f.servers = snap.Servers
+	f.partitions = snap.Partitions
 
 	return nil
 }
@@ -137,4 +131,20 @@ func (f *FSM) IsEmpty() bool {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.clusterName == "" || f.createdTime.IsZero()
+}
+
+func (f *FSM) ChangedChan() <-chan bool {
+	return f.changedChan
+}
+
+func (f *FSM) Server(id uint64) *Server {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	s, ok := f.servers.Items[id]
+	if !ok {
+		return nil
+	}
+
+	return utils.CloneProto(s)
 }

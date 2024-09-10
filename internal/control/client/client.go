@@ -27,8 +27,6 @@ type ControlClient interface {
 	utils.Lifecycle
 }
 
-type Option func(*options)
-
 type controlClient struct {
 	conn   *rpc.Conn
 	client control.ControlClient

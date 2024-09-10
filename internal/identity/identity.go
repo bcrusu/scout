@@ -37,7 +37,7 @@ type identityStore struct {
 }
 
 // NewStore returns an IdentityStore instance.
-func NewStore() (IdentityStore, error) {
+func NewStore(dataDir string) (IdentityStore, error) {
 	return &identityStore{
 		token: uuid.New().String(),
 	}, nil

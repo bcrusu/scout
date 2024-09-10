@@ -19,6 +19,13 @@ type Target struct {
 	Discovery   DiscoveryTarget
 }
 
+func NewTarget(clusterName string, discovery DiscoveryTarget) Target {
+	return Target{
+		ClusterName: clusterName,
+		Discovery:   discovery,
+	}
+}
+
 // DNS uses dns to discover the control plane cluster.
 // The expected target format is 'dns:[//authority/]host[:port]'.
 func DNS(target string) DiscoveryTarget {

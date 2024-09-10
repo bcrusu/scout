@@ -41,7 +41,7 @@ func NewControlService(raft *multiraft.Raft, store storage.Store) *ControlServic
 		raft:   raft,
 		store:  store,
 		stopCh: make(chan any),
-		role:   follower.New(raft), // always start as follower
+		role:   follower.New(raft, store), // always start as follower
 	}
 }
 
@@ -72,7 +72,7 @@ func (s *ControlService) watchLeaderChan(ctx context.Context) {
 			if isLeader {
 				new = leader.New(s.raft, s.store)
 			} else {
-				new = follower.New(s.raft)
+				new = follower.New(s.raft, s.store)
 			}
 
 			s.roleLock.Lock()

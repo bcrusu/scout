@@ -2,6 +2,8 @@ package storage
 
 import (
 	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapResult, error) {
@@ -11,17 +13,22 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 
 	f.clusterName = cmd.ClusterName
 	f.createdTime = appendedAt
+	f.servers = &Servers{Version: 1}
 
 	for _, server := range cmd.Servers {
-		id := server.Id
-
-		if id > f.lastServerID {
-			f.lastServerID = id
+		if server.Id > f.lastServerID {
+			f.lastServerID = server.Id
 		}
 
-		f.serverNames[id] = server.Name
-		f.serverFirstSeen[id] = appendedAt
-		f.serverLastSeen[id] = appendedAt
+		f.servers.Items[server.Id] = &Server{
+			Version:     1,
+			Id:          server.Id,
+			Name:        server.Name,
+			Type:        ServerType_Control,
+			FirstSeen:   timestamppb.New(appendedAt),
+			LastSeen:    timestamppb.New(appendedAt),
+			LastAddress: server.Address,
+		}
 	}
 
 	return &BootstrapResult{

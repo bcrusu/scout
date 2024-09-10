@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/errors"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -28,7 +29,9 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 	// Trying to register using the same token. Will return previous member
 	// info only if token is still valid.
 	if id, ok := f.tokens[cmd.Token]; ok {
-		firstSeen := f.serverFirstSeen[id]
+		server := f.servers.Items[id]
+
+		firstSeen := server.FirstSeen.AsTime()
 		validFrom := appendedAt.Add(-tokenValidityWindow)
 		if firstSeen.Before(validFrom) {
 			return nil, errors.ValidationError{Message: "Token expired."}
@@ -36,7 +39,7 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 
 		return &RegisterResult{
 			ServerID:   id,
-			ServerName: f.serverNames[id],
+			ServerName: server.Name,
 		}, nil
 	}
 
@@ -46,9 +49,17 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 	name := fmt.Sprintf("%s%d", serverNamePrefix[cmd.Type], id)
 
 	f.tokens[cmd.Token] = id
-	f.serverNames[id] = name
-	f.serverFirstSeen[id] = appendedAt
-	f.serverLastSeen[id] = appendedAt
+
+	f.servers.Version++
+	f.servers.Items[id] = &Server{
+		Version:     1,
+		Id:          id,
+		Name:        name,
+		Type:        cmd.Type,
+		FirstSeen:   timestamppb.New(appendedAt),
+		LastSeen:    timestamppb.New(appendedAt),
+		LastAddress: cmd.Address,
+	}
 
 	return &RegisterResult{
 		ServerID:   id,

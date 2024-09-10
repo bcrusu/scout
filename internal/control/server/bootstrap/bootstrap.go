@@ -60,8 +60,7 @@ func NewBootstrapper(raft *multiraft.Raft, store storage.Store, params Params) *
 
 // ValidateParams ensures that we have everything required to start the show.
 func ValidateParams(p *Params) error {
-	if p == nil || p.ClusterName == "" || len(p.ClusterName) > storage.MaxClusterNameLen ||
-		p.LocalAddress == "" || len(p.LocalAddress) > storage.MaxAddressLen {
+	if p == nil || !storage.IsValidClusterName(p.ClusterName) || storage.IsValidAddress(p.LocalAddress) {
 		return errors.InvalidRequest
 	}
 
@@ -153,8 +152,9 @@ func (b *Bootstrapper) performInitialWrite(ctx context.Context, p Params) error 
 	servers := make([]*storage.Bootstrap_Server, len(p.ids))
 	for i, id := range p.ids {
 		servers[i] = &storage.Bootstrap_Server{
-			Id:   id,
-			Name: p.names[i],
+			Id:      id,
+			Name:    p.names[i],
+			Address: p.peers[i],
 		}
 	}
 

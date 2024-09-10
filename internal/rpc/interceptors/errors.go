@@ -73,6 +73,8 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.NotFound, "Not found")
 	case errors.InvalidRequest:
 		return status.Error(codes.InvalidArgument, "Invalid Request")
+	case errors.NotRegistered:
+		return status.Error(codes.Unauthenticated, "Not Registered")
 	case errInternal:
 		return errInternal
 	}
@@ -113,6 +115,10 @@ func getGoError(err error) error {
 			return errors.UnknownLeader
 		}
 		return errors.NotFound
+	case codes.Unauthenticated:
+		if s.Message() == "Not Registered" {
+			return errors.NotRegistered
+		}
 	}
 
 	return err

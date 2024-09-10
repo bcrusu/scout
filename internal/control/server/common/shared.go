@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/control"
+	"github.com/bcrusu/graph/internal/control/server/storage"
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
@@ -16,14 +18,16 @@ var (
 // Shared implements common functionality for both leader and follower roles.
 type Shared struct {
 	raft              *multiraft.Raft
+	store             storage.Store
 	serviceConfigJson string
 }
 
-func New(raft *multiraft.Raft) *Shared {
+func New(raft *multiraft.Raft, store storage.Store) *Shared {
 	scfg := serviceconfig.DefaultServiceConfig().WithLBGraphControl()
 
 	return &Shared{
 		raft:              raft,
+		store:             store,
 		serviceConfigJson: scfg.ToJson(),
 	}
 }
@@ -31,8 +35,9 @@ func New(raft *multiraft.Raft) *Shared {
 // Discover is used early by control plane clients to discover the cluster servers.
 // Can be invoked on leader and followers.
 func (n *Shared) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
-	// TODO: read state from FSM and validate cluster name.
-	// This ensures that the cluster has completed bootstrapping process
+	if n.store.IsEmpty() || req.ClusterName != n.store.ClusterName() {
+		return nil, errors.InvalidRequest
+	}
 
 	leaderID, _, err := n.raft.GetLeader()
 	if err != nil {

@@ -2,6 +2,8 @@ package utils
 
 import (
 	"context"
+	"os"
+	"os/signal"
 
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
@@ -46,15 +48,24 @@ func LifecycleStop[T Lifecycle](ctx context.Context, log logging.Logger, instanc
 
 // LifecycleRun starts the instance and runs until the context is done.
 func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, instance T) error {
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt)
+
 	if err := LifecycleStart(ctx, log, instance); err != nil {
 		return err
 	}
 
 	log.Info(ctx, "Running...")
 
-	<-ctx.Done()
+	select {
+	case <-signalCh:
+		logging.Debug(ctx, "Received interrupt signal.")
+	case <-ctx.Done():
+		logging.Debug(ctx, "Context canceled.")
+	}
+
 	log.Info(ctx, "Stopping...")
 
-	LifecycleStop(ctx, log, instance)
+	LifecycleStop(ctx, log, instance) // TODO: use diff ctx?
 	return nil
 }
