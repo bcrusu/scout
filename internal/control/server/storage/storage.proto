@@ -7,9 +7,23 @@ option go_package = "internal/control/server/storage";
 import "google/protobuf/timestamp.proto";
 
 message Command {
+    // [optional] The FSM checks its last applied index with the one
+    // provided here and rejects the write if they do not match. Will
+    // be used for scenarios where changes in state between read and
+    // write are not allowed. For example, the partition assignment
+    // component will read the current server list from the FSM, perform
+    // the partition placement logic, and then write the changes back
+    // to the FSM. Any modifications in the server list between the read
+    // and write can result in unexpected state where missing servers are
+    // assigned paritions. For this kind of scenarios it is preferable
+    // to reject the write and have the component retry by reading
+    // latest state, restarting the process from beginning.
+    uint64 match_index = 1;
+
     oneof payload {
-        Bootstrap bootstrap = 1;
-        Register register = 2;
+        Bootstrap bootstrap = 2;
+        Register register = 3;
+        UpdateServers update_servers = 4;
     }
 }
 
@@ -34,14 +48,23 @@ message Register {
     string address = 3;
 }
 
+message UpdateServers {
+    message Server {
+        uint64 id = 1;
+        google.protobuf.Timestamp last_seen = 2;
+        string last_address = 3;
+    }
+
+    repeated Server servers = 1;
+}
+
 message Snapshot {
     uint64 index = 1;
     string cluster_name = 2;
-    uint64 last_server_id = 3;
-    google.protobuf.Timestamp created_time = 4;
-    map<string, uint64> tokens = 5;
-    Servers servers = 6;
-    Partitions partitions = 7;
+    google.protobuf.Timestamp cluster_created_time = 3;
+    map<string, uint64> tokens = 4;
+    Servers servers = 5;
+    Partitions partitions = 6;
 }
 
 enum ServerType {
@@ -64,6 +87,7 @@ message Server {
 message Servers {
     uint64 version = 1;
     map<uint64, Server> items = 2;
+    uint64 last_server_id = 3;
 }
 
 // Partition represents a data storage partition/shard which has a one-to-one

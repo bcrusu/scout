@@ -17,6 +17,7 @@ import (
 
 const (
 	sessionSendBufferChSize = 16
+	updateServersInterval   = 5 * time.Second
 )
 
 var (
@@ -96,6 +97,9 @@ func (t *sessionTracker) NewSession(stream sessionStream) error {
 }
 
 func (t *sessionTracker) mainLoop(ctx context.Context) {
+	updateServersTicker := time.NewTicker(updateServersInterval)
+	defer updateServersTicker.Stop()
+
 	sessionCounter := uint64(0)
 	sessionsById := map[uint64]*session{}
 	sessionsByServer := map[uint64]*session{}
@@ -194,6 +198,9 @@ func (t *sessionTracker) mainLoop(ctx context.Context) {
 			default:
 				logS.Errorf(ctx, "Unknown message type %T", msg)
 			}
+		case <-updateServersTicker.C:
+			// TODO
+			//t.store.ApplyUpdateServersAsync()
 		}
 	}
 }
@@ -239,8 +246,10 @@ func (t *sessionTracker) sessionRecvLoop(sess *session) {
 			sess.log.Errorf(sess.ctx, "Session request with bad type %v. Closing...", in.ServerType())
 			t.sessionCh <- sessionLoopEnd{session: sess}
 			return
-		case in.IsHeartbeat():
-			t.sessionCh <- sessionHeartbeat{session: sess}
+		}
+
+		t.sessionCh <- sessionHeartbeat{session: sess}
+		if in.IsHeartbeat() {
 			continue
 		}
 

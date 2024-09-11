@@ -66,7 +66,7 @@ func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*c
 		return nil, errors.InvalidRequest
 	}
 
-	result, err := storage.ApplyR[storage.RegisterResult](n.raft, cmd)
+	result, err := n.store.Register(cmd)
 	if err != nil {
 		return nil, err
 	}

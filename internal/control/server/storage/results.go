@@ -8,3 +8,5 @@ type RegisterResult struct {
 	ServerID   uint64
 	ServerName string
 }
+
+type emptyResult struct{}

@@ -43,14 +43,14 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 		}, nil
 	}
 
-	f.lastServerID++
+	f.servers.Version++
+	f.servers.LastServerId++
 
-	id := f.lastServerID
+	id := f.servers.LastServerId
 	name := fmt.Sprintf("%s%d", serverNamePrefix[cmd.Type], id)
 
 	f.tokens[cmd.Token] = id
 
-	f.servers.Version++
 	f.servers.Items[id] = &Server{
 		Version:     1,
 		Id:          id,

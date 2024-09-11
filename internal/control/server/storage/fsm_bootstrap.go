@@ -7,17 +7,17 @@ import (
 )
 
 func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapResult, error) {
-	if !f.IsEmpty() {
+	if f.clusterName != "" {
 		return &BootstrapResult{Success: false}, nil
 	}
 
 	f.clusterName = cmd.ClusterName
-	f.createdTime = appendedAt
+	f.clusterCreatedTime = appendedAt
 	f.servers = &Servers{Version: 1}
 
 	for _, server := range cmd.Servers {
-		if server.Id > f.lastServerID {
-			f.lastServerID = server.Id
+		if server.Id > f.servers.LastServerId {
+			f.servers.LastServerId = server.Id
 		}
 
 		f.servers.Items[server.Id] = &Server{

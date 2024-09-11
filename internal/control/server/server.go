@@ -77,8 +77,9 @@ func (n *Server) getComponents() ([]utils.Lifecycle, error) {
 	}
 
 	raft := multiraft.NewRaft(cfg)
+	store := storage.NewStore(raft, fsm)
 
-	controlService := NewControlService(raft, fsm)
+	controlService := NewControlService(raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
 
 	return []utils.Lifecycle{
@@ -123,10 +124,11 @@ func (n *Server) getComponentsForBootstrap() ([]utils.Lifecycle, error) {
 	}
 
 	raft := multiraft.NewRaft(cfg)
+	store := storage.NewStore(raft, fsm)
 
-	controlService := NewControlService(raft, fsm)
+	controlService := NewControlService(raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
-	bootstrapper := bootstrap.NewBootstrapper(raft, fsm, params)
+	bootstrapper := bootstrap.NewBootstrapper(raft, store, params)
 
 	return []utils.Lifecycle{
 		controlService,

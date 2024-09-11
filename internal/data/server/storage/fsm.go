@@ -12,19 +12,11 @@ import (
 
 var (
 	_   multiraft.FSM = (*FSM)(nil)
-	_   Store         = (*FSM)(nil)
 	log               = logging.WithComponent("data_storage").NoContext()
 )
 
-// Store exposes read-only operations executed directly on the FSM backing
-// storage, bypassing the Raft algorithm, which are not guaranteed to return
-// the latest commited data.
-type Store interface {
-	Get(key []byte) ([]byte, bool)
-}
-
 type FSM struct {
-	lock  sync.Mutex
+	lock  sync.RWMutex
 	index uint64
 	items map[string][]byte
 }
@@ -38,6 +30,7 @@ func NewFSM() *FSM {
 func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	f.lock.Lock()
 	defer f.lock.Unlock()
+	f.index = index
 
 	cmd, err := utils.UnmarshalProto[Command](data)
 	if err != nil {
@@ -72,13 +65,12 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 		return errors.Errorf("FSM.Apply: unhandled payload type %T", payload)
 	}
 
-	f.index = index
 	return nil
 }
 
 func (f *FSM) Snapshot() ([]byte, error) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
+	f.lock.RLock()
+	defer f.lock.RUnlock()
 
 	snap := &Snapshot{
 		Index: f.index,
@@ -101,12 +93,4 @@ func (f *FSM) Restore(data []byte) error {
 	f.index = snap.Index
 	f.items = snap.Items
 	return nil
-}
-
-func (f *FSM) Get(key []byte) ([]byte, bool) {
-	f.lock.Lock()
-	defer f.lock.Unlock()
-
-	value, ok := f.items[string(key)]
-	return value, ok
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/bcrusu/graph/internal/data/server/common"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
 )
 
@@ -21,13 +20,11 @@ var (
 type Follower struct {
 	data.UnsafeServiceServer
 	*common.Shared
-	raft *multiraft.Raft
 }
 
-func New(raft *multiraft.Raft) *Follower {
+func New() *Follower {
 	return &Follower{
-		Shared: common.New(raft),
-		raft:   raft,
+		Shared: common.New(),
 	}
 }
 

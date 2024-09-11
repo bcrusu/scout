@@ -172,14 +172,14 @@ func (r *Raft) RemoveServer(ctx context.Context, id string) error {
 	return nil
 }
 
-// Apply is used to apply a command to the FSM.
+// Apply is used to apply a command to the FSM and waits for the result.
 // Must be invoked on the leader.
 func (r *Raft) Apply(cmd []byte) (any, error) {
 	if err := r.checkLeader(); err != nil {
 		return nil, err
 	}
 
-	future := r.raft.Apply(cmd, r.config.RequestTimeout)
+	future := r.raft.Apply(cmd, 0)
 	if err := future.Error(); err != nil {
 		return nil, r.convertError(err)
 	}
@@ -190,6 +190,17 @@ func (r *Raft) Apply(cmd []byte) (any, error) {
 	}
 
 	return resp, nil
+}
+
+// ApplyAsync is used to apply a command to the FSM and do not wait for the result.
+// Must be invoked on the leader.
+func (r *Raft) ApplyAsync(cmd []byte) error {
+	if err := r.checkLeader(); err != nil {
+		return err
+	}
+
+	r.raft.Apply(cmd, 0)
+	return nil
 }
 
 func (r *Raft) checkLeader() error {

@@ -24,7 +24,7 @@ var (
 type DataService struct {
 	data.UnimplementedServiceServer
 	raft       *multiraft.MultiRaft
-	store      storage.Store
+	fsm        *storage.FSM
 	cancelFunc context.CancelFunc
 	rolesLock  sync.RWMutex
 	roles      map[uint]role // maps partition to role
@@ -36,11 +36,11 @@ type role interface {
 }
 
 // NewDataService returns a new DataService instance
-func NewDataService(raft *multiraft.MultiRaft, store storage.Store) *DataService {
+func NewDataService(raft *multiraft.MultiRaft, fsm *storage.FSM) *DataService {
 	return &DataService{
 		raft:  raft,
-		store: store,
-		roles: make(map[uint]role),
+		fsm:   fsm,
+		roles: map[uint]role{},
 	}
 }
 
@@ -65,13 +65,15 @@ func (s *DataService) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case x := <-s.raft.GetLeaderChan():
+			store := storage.NewStore(x.Raft, s.fsm)
+
 			var old role
 			var new role
 
 			if x.IsLeader {
-				new = leader.New(x.Raft, s.store)
+				new = leader.New(store)
 			} else {
-				new = follower.New(x.Raft)
+				new = follower.New()
 			}
 
 			s.rolesLock.Lock()

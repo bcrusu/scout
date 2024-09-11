@@ -19,6 +19,10 @@ var (
 
 	// NotRegistered signals that the accessed resource requires registration.
 	NotRegistered = Error("not registered")
+
+	// FailedPrecondition signals that the operation was rejected because the resource
+	// state does not match the expected state.
+	FailedPrecondition = Error("precondition failed")
 )
 
 // ValidationError is a validation error that carries extra information to callers.

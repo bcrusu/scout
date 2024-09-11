@@ -175,15 +175,22 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 			return nil
 		}
 
-		res, err := storage.ApplyR[storage.BootstrapResult](b.raft, cmd)
+		res, err := b.store.Bootstrap(cmd)
 		if err != nil {
 			log.WithError(err).Error(ctx, "Initial write failed. Retrying...")
 			return err
 		} else if res.Success {
 			log.Info(ctx, "Initial write completed successfully.")
 		} else {
-			// this scenario should never happen, but if it does, we have a bug.
-			log.Error(ctx, "Initial write was declined by the FSM.")
+			// this scenario is unlikeley, but if it does happen, it means that:
+			//  - the current server lost the leadership,
+			//  - then another server was elected group leader,
+			//  - it performed successfully the initial write to the FSM,
+			//  - then lost its leadership,
+			//  - then the current node was elected leader back again,
+			//  - and then performed the write above,
+			//  - with all of this happening between the IsEmpty and the ApplyBootstrap calls.
+			log.Warn(ctx, "Initial write was declined by the FSM.")
 		}
 		return nil
 	})

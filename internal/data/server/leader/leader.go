@@ -8,7 +8,6 @@ import (
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
 )
 
@@ -22,14 +21,12 @@ var (
 type Leader struct {
 	data.UnsafeServiceServer
 	*common.Shared
-	raft  *multiraft.Raft
 	store storage.Store
 }
 
-func New(raft *multiraft.Raft, store storage.Store) *Leader {
+func New(store storage.Store) *Leader {
 	return &Leader{
-		Shared: common.New(raft),
-		raft:   raft,
+		Shared: common.New(),
 		store:  store,
 	}
 }
@@ -53,7 +50,7 @@ func (n *Leader) Set(ctx context.Context, req *data.SetRequest) (*data.SetRespon
 		Value: req.Value,
 	}
 
-	if err := storage.Apply(n.raft, payload); err != nil {
+	if err := n.store.Set(payload); err != nil {
 		return nil, err
 	}
 
@@ -84,7 +81,7 @@ func (n *Leader) Del(ctx context.Context, req *data.DelRequest) (*data.DelRespon
 		Key: req.Key,
 	}
 
-	if err := storage.Apply(n.raft, payload); err != nil {
+	if err := n.store.Del(payload); err != nil {
 		return nil, err
 	}
 
