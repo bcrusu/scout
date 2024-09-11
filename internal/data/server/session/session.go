@@ -16,24 +16,24 @@ import (
 )
 
 var (
+	_                 utils.Lifecycle = (*Session)(nil)
+	heartbeatInterval                 = utils.AddJitter(8*time.Second, 0.2) // TODO: make configurable
+	requestChSize                     = 100
+	log                               = logging.WithComponent("data_session").NoContext()
+
 	retryBackoff = &utils.Backoff{
 		MinDelay: 3 * time.Second,
 		MaxDelay: 10 * time.Second,
 	}
-	requestChSize                     = 100
-	heartbeatInterval                 = utils.AddJitter(8*time.Second, 0.2) // TODO: make configurable
-	_                 utils.Lifecycle = (*Session)(nil)
-	log                               = logging.WithComponent("data_session").NoContext()
 )
 
 type Session struct {
-	client    client.ControlClient
-	raft      *multiraft.MultiRaft
-	id        identity.Identity
-	address   string
-	requestCh chan *control.SessionIn
-	mainCtx   context.Context
-	stopFunc  context.CancelFunc
+	client     client.ControlClient
+	raft       *multiraft.MultiRaft
+	id         identity.Identity
+	address    string
+	requestCh  chan *control.SessionIn
+	cancelFunc context.CancelFunc
 }
 
 type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
@@ -48,20 +48,22 @@ func New(client client.ControlClient, raft *multiraft.MultiRaft, id identity.Ide
 	}
 }
 
-func (m *Session) Start(context.Context) error {
-	m.mainCtx, m.stopFunc = context.WithCancel(context.Background())
-	go m.mainLoop()
+func (m *Session) Start(ctx context.Context) error {
+	mainLoop, cancelFunc := utils.WithCancelAndWait(m.mainLoop)
+	m.cancelFunc = cancelFunc
+
+	go mainLoop(ctx)
 	return nil
 }
 
 func (m *Session) Stop(ctx context.Context) {
-	m.stopFunc()
+	m.cancelFunc()
 }
 
-func (m *Session) mainLoop() {
+func (m *Session) mainLoop(ctx context.Context) {
 	for {
-		streamCtx, streamCancel := context.WithCancel(context.Background())
-		stream, err := m.newStream(streamCtx)
+		streamCtx, streamCancel := context.WithCancel(ctx)
+		stream, err := m.newStreamWithRetry(streamCtx)
 		if err != nil {
 			streamCancel()
 			return
@@ -76,14 +78,14 @@ func (m *Session) mainLoop() {
 			streamCancel()
 			<-doneCh // wait for partner
 
-			if err != nil && err != io.EOF {
+			if err != nil && !errors.Is(err, io.EOF) {
 				log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
 			} else {
 				log.Debug("Session stream ended. Reconnecting...")
 			}
 
 			// TODO: add some random backoff
-		case <-m.mainCtx.Done():
+		case <-ctx.Done():
 			streamCancel()
 			<-doneCh
 			<-doneCh
@@ -145,9 +147,9 @@ func (m *Session) newHello() *control.SessionIn {
 	}
 }
 
-func (m *Session) newStream(streamCtx context.Context) (stream, error) {
-	return utils.RetryR(m.mainCtx, retryBackoff, func() (stream, error) {
-		stream, err := m.client.NewSession(streamCtx)
+func (m *Session) newStreamWithRetry(ctx context.Context) (stream, error) {
+	return utils.RetryR(ctx, retryBackoff, func() (stream, error) {
+		stream, err := m.client.NewSession(ctx)
 		if err != nil {
 			log.WithError(err).Error("NewSession call failed. Retrying...")
 			return nil, err

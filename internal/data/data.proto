@@ -4,33 +4,35 @@ package data;
 
 option go_package = "internal/data";
 
-// Data represents the data storage service.
-service Data {
+// Service represents the data storage service.
+service Service {
     rpc Get(GetRequest) returns (GetResponse);
     rpc Set(SetRequest) returns (SetResponse);
-    rpc Delete(DeleteRequest) returns (DeleteResponse); 
+    rpc Del(DelRequest) returns (DelResponse); 
 }
 
 message SetRequest {
-    // TODO: string "keyspace"
-    bytes key = 1;
-    bytes value = 2;
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
 }
 
 message SetResponse {}
 
 message GetRequest {
-    bytes key = 1;
+    uint64 keyspace = 1;
+    bytes key = 2;
 }
 
 message GetResponse {
     bytes value = 1;
 }
 
-message DeleteRequest {
-    bytes key = 1;
+message DelRequest {
+    uint64 keyspace = 1;
+    bytes key = 2;
 }
 
-message DeleteResponse {
+message DelResponse {
 }
 

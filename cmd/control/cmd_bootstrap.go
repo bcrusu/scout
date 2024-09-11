@@ -38,7 +38,7 @@ func newBootstrapCmd() *cobra.Command {
 			}
 
 			s := server.NewServerForBootstrap(serverConfig(config), bconfig)
-			return utils.LifecycleRun(c.Context(), log, s)
+			return utils.LifecycleRun(c.Context(), log, config.ShutdownTimeout, s)
 		},
 	}
 

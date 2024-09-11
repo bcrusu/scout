@@ -24,7 +24,6 @@ type ServerConfig struct {
 	MaxConcurrentStreams uint32
 	MaxRecvMsgSize       uint64
 	MaxSendMsgSize       uint64
-	ShutdownTimeout      time.Duration
 }
 
 // Server represents the gRPC server
@@ -94,13 +93,12 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Stop(ctx context.Context) {
 	stopped := make(chan any)
 	go func() {
-		s.server.GracefulStop()
+		s.server.GracefulStop() // TODO: it will not return, waiting for long-lived streams
 		close(stopped)
 	}()
 
 	select {
-	case <-time.After(s.config.ShutdownTimeout):
-		logRS.Warn(ctx, "Failed to stop in the configured shutdown timeout")
+	case <-ctx.Done():
 		s.server.Stop()
 	case <-stopped:
 	}

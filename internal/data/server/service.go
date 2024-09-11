@@ -22,43 +22,46 @@ var (
 
 // DataService represents the data service.
 type DataService struct {
-	data.UnimplementedDataServer
-	raft      *multiraft.MultiRaft
-	store     storage.Store
-	stopCh    chan any
-	rolesLock sync.Mutex
-	roles     map[uint]role // maps partition to role
+	data.UnimplementedServiceServer
+	raft       *multiraft.MultiRaft
+	store      storage.Store
+	cancelFunc context.CancelFunc
+	rolesLock  sync.RWMutex
+	roles      map[uint]role // maps partition to role
 }
 
 type role interface {
-	data.DataServer
+	data.ServiceServer
 	utils.Lifecycle
 }
 
 // NewDataService returns a new DataService instance
 func NewDataService(raft *multiraft.MultiRaft, store storage.Store) *DataService {
 	return &DataService{
-		raft:   raft,
-		store:  store,
-		stopCh: make(chan any),
-		roles:  make(map[uint]role),
+		raft:  raft,
+		store: store,
+		roles: make(map[uint]role),
 	}
 }
 
 func (s *DataService) RegisterToServer(server *grpc.Server) {
-	data.RegisterDataServer(server, s)
+	data.RegisterServiceServer(server, s)
 }
 
 func (s *DataService) Start(ctx context.Context) error {
-	go s.watchLeaderChan(ctx)
+	mainLoop, cancelFunc := utils.WithCancelAndWait(s.mainLoop)
+
+	s.cancelFunc = cancelFunc
+	go mainLoop(ctx)
 	return nil
 }
 
 func (s *DataService) Stop(ctx context.Context) {
-	close(s.stopCh)
+	s.cancelFunc()
 }
 
-func (s *DataService) watchLeaderChan(ctx context.Context) {
+// TODO: handle also the case when a raft group is removed from this server
+func (s *DataService) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case x := <-s.raft.GetLeaderChan():
@@ -73,16 +76,30 @@ func (s *DataService) watchLeaderChan(ctx context.Context) {
 
 			s.rolesLock.Lock()
 			old = s.roles[x.GroupID]
-			s.roles[x.GroupID] = new
+			s.roles[x.GroupID] = nil
 			s.rolesLock.Unlock()
+
+			old.Stop(ctx) // TODO: drain in-flight requests?
 
 			if err := new.Start(ctx); err != nil {
 				log.WithError(err).Errorf(ctx, "Failed to start %T. Shutting down...", new)
-				panic("TODO: trigger server shutdown")
+				utils.LifecycleShutdown(ctx)
+				return
 			}
 
-			old.Stop(ctx) // TODO: drain in-flight requests?
-		case <-s.stopCh:
+			s.rolesLock.Lock()
+			s.roles[x.GroupID] = new
+			s.rolesLock.Unlock()
+		case <-ctx.Done():
+			s.rolesLock.Lock()
+			roles := s.roles
+			s.roles = map[uint]role{}
+			s.rolesLock.Unlock()
+
+			for _, role := range roles {
+				role.Stop(ctx)
+			}
+
 			return
 		}
 	}
@@ -91,11 +108,11 @@ func (s *DataService) watchLeaderChan(ctx context.Context) {
 func (s *DataService) getRole() (role, error) {
 	var groupID uint // TODO
 
-	s.rolesLock.Lock()
+	s.rolesLock.RLock()
 	role, ok := s.roles[groupID]
-	s.rolesLock.Unlock()
+	s.rolesLock.RUnlock()
 
-	if !ok {
+	if !ok || role == nil {
 		return nil, errors.Unavailable
 	}
 	return role, nil
@@ -117,10 +134,10 @@ func (s *DataService) Get(ctx context.Context, req *data.GetRequest) (*data.GetR
 	}
 }
 
-func (s *DataService) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
+func (s *DataService) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
 	if role, err := s.getRole(); err != nil {
 		return nil, err
 	} else {
-		return role.Delete(ctx, req)
+		return role.Del(ctx, req)
 	}
 }

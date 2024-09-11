@@ -13,11 +13,12 @@ import (
 )
 
 type Config struct {
-	Server      rpc.ServerConfig
-	ClusterName string
-	DataDir     string
-	LogLevel    string
-	Discovery   discovery.DiscoveryTarget
+	Server          rpc.ServerConfig
+	ClusterName     string
+	DataDir         string
+	LogLevel        string
+	Discovery       discovery.DiscoveryTarget
+	ShutdownTimeout time.Duration
 }
 
 func AddAllParameters(c *cobra.Command) {
@@ -29,6 +30,7 @@ func AddAllParameters(c *cobra.Command) {
 func AddCommonParameters(c *cobra.Command) {
 	c.PersistentFlags().String("cluster-name", "", "Servers are only allowed to join this cluster.")
 	c.PersistentFlags().String("data-dir", "", "Directory to store data.")
+	c.PersistentFlags().Duration("shutdown-timeout", 5*time.Second, "Server shutdown timeout.")
 	c.PersistentFlags().String("log-level", "info", "Logging level.")
 }
 
@@ -40,7 +42,6 @@ func AddDiscoveryParameters(c *cobra.Command) {
 
 func AddServerConfigParameters(c *cobra.Command) {
 	c.PersistentFlags().String("bind-address", "0.0.0.0:11000", "The address to serve on.")
-	c.PersistentFlags().Duration("shutdown-timeout", 5*time.Second, "Server shutdown timeout.")
 	c.PersistentFlags().String("max-recv-msg-size", "1MB", "Max receive message size.")
 	c.PersistentFlags().String("max-send-msg-size", "1MB", "Max send message size.")
 	c.PersistentFlags().Uint32("max-concurrent-streams", 1000, "Max number of concurrent streams.")
@@ -61,16 +62,22 @@ func GetConfig(c *cobra.Command) (Config, error) {
 
 	discovery, err4 := getDiscoveryTarget(c)
 
-	err := errors.Join(err1, err2, err3, err4)
+	shutdownTimeout, err5 := c.Flags().GetDuration("shutdown-timeout")
+	if err5 == nil && shutdownTimeout < 0 {
+		err5 = errors.Error("shutdown-timeout must be a positive value")
+	}
+
+	err := errors.Join(err1, err2, err3, err4, err5)
 	if err != nil {
 		return Config{}, err
 	}
 
 	return Config{
-		Server:      server,
-		ClusterName: clusterName,
-		DataDir:     dataDir,
-		Discovery:   discovery,
+		Server:          server,
+		ClusterName:     clusterName,
+		DataDir:         dataDir,
+		Discovery:       discovery,
+		ShutdownTimeout: shutdownTimeout,
 	}, nil
 }
 
@@ -80,16 +87,11 @@ func getServerConfig(c *cobra.Command) (rpc.ServerConfig, error) {
 		err1 = errors.Error("Invalid bind-address")
 	}
 
-	shutdownTimeout, err2 := c.Flags().GetDuration("shutdown-timeout")
-	if err2 == nil && shutdownTimeout < 0 {
-		err2 = errors.Error("shutdown-timeout must be a positive value")
-	}
-
 	maxRecvMsgSize, err3 := parseBytes(c, "max-recv-msg-size")
 	maxSendMsgSize, err4 := parseBytes(c, "max-send-msg-size")
 	maxConcurrentStreams, err5 := c.Flags().GetUint32("max-concurrent-streams")
 
-	err := errors.Join(err1, err2, err3, err4, err5)
+	err := errors.Join(err1, err3, err4, err5)
 	if err != nil {
 		return rpc.ServerConfig{}, err
 	}
@@ -99,7 +101,6 @@ func getServerConfig(c *cobra.Command) (rpc.ServerConfig, error) {
 		MaxConcurrentStreams: maxConcurrentStreams,
 		MaxRecvMsgSize:       maxRecvMsgSize,
 		MaxSendMsgSize:       maxSendMsgSize,
-		ShutdownTimeout:      shutdownTimeout,
 	}, nil
 }
 

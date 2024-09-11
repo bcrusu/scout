@@ -1,21 +1,26 @@
 package leader
 
 import (
-	"github.com/bcrusu/graph/internal/control/server/storage"
+	"sync"
+
+	"github.com/bcrusu/graph/internal/control"
 )
 
-type command struct {
-	payload  any
-	resultCh chan error
+type startSessionCmd struct {
+	stream sessionStream
+	hello  *control.SessionIn
+	result chan startSessionRes
 }
 
-type sessionStarting struct {
-	server  *storage.Server
-	address string
+type startSessionRes struct {
+	wg  *sync.WaitGroup
+	err error
+}
+
+type sessionLoopEnd struct {
 	session *session
 }
 
-type sessionEnded struct {
-	server  *storage.Server
+type sessionHeartbeat struct {
 	session *session
 }

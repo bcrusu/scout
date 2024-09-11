@@ -23,12 +23,10 @@ type Store interface {
 	IsEmpty() bool
 	ClusterName() string
 	Server(id uint64) *Server
-	ChangedChan() <-chan bool
 }
 
 type FSM struct {
 	lock         sync.Mutex
-	changedChan  chan bool
 	index        uint64            // last applied raft log index
 	clusterName  string            // read-only cluster name set during bootstrap
 	createdTime  time.Time         // records the time when the cluster was created (UTC)
@@ -40,8 +38,7 @@ type FSM struct {
 
 func NewFSM() *FSM {
 	return &FSM{
-		changedChan: make(chan bool, 1),
-		tokens:      map[string]uint64{},
+		tokens: map[string]uint64{},
 	}
 }
 
@@ -79,7 +76,6 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 		return err
 	} else {
 		log.Debugf("Applying command %T success", payload)
-		f.changedChan <- true // TODO: review
 		return result
 	}
 }
@@ -131,10 +127,6 @@ func (f *FSM) IsEmpty() bool {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	return f.clusterName == "" || f.createdTime.IsZero()
-}
-
-func (f *FSM) ChangedChan() <-chan bool {
-	return f.changedChan
 }
 
 func (f *FSM) Server(id uint64) *Server {

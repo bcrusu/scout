@@ -23,13 +23,13 @@ func init() {
 
 // DataClient is the Data service client.
 type DataClient interface {
-	data.DataClient
+	data.ServiceClient
 	utils.Lifecycle
 }
 
 type dataClient struct {
 	conn   *rpc.Conn
-	client data.DataClient
+	client data.ServiceClient
 }
 
 type options struct {
@@ -48,7 +48,7 @@ func NewClient(opts ...Option) DataClient {
 
 	return &dataClient{
 		conn:   conn,
-		client: data.NewDataClient(conn),
+		client: data.NewServiceClient(conn),
 	}
 }
 
@@ -68,6 +68,6 @@ func (c *dataClient) Get(ctx context.Context, req *data.GetRequest, opts ...grpc
 	return c.client.Get(ctx, req, opts...)
 }
 
-func (c *dataClient) Delete(ctx context.Context, req *data.DeleteRequest, opts ...grpc.CallOption) (*data.DeleteResponse, error) {
-	return c.client.Delete(ctx, req, opts...)
+func (c *dataClient) Del(ctx context.Context, req *data.DelRequest, opts ...grpc.CallOption) (*data.DelResponse, error) {
+	return c.client.Del(ctx, req, opts...)
 }

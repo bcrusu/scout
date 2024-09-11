@@ -43,10 +43,10 @@ type Params struct {
 
 // Bootstrapper is used only once, in the beginning of time, when a new baby cluster is born.
 type Bootstrapper struct {
-	raft     *multiraft.Raft
-	store    storage.Store
-	params   Params
-	cancelFn context.CancelFunc
+	raft       *multiraft.Raft
+	store      storage.Store
+	params     Params
+	cancelFunc context.CancelFunc
 }
 
 // NewBootstrapper returns a new Bootstrapper.
@@ -102,8 +102,6 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		return errors.Error("params were not validated")
 	}
 
-	ctx, b.cancelFn = context.WithCancel(ctx)
-
 	log := log.With("cluster", p.ClusterName, "ids", p.ids, "names", p.names, "peers", p.peers)
 	log.Debug(ctx, "Bootstrapping the raft cluster...")
 
@@ -114,20 +112,23 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		log.WithError(err).Debug(ctx, "Bootstrap raft cluster success.")
 	}
 
-	log.Debug(ctx, "Performing initial write...")
+	initalWrite, cancelFunc := utils.WithCancelAndWait(func(ctx context.Context) {
+		log.Debug(ctx, "Performing initial write...")
 
-	if err := b.performInitialWrite(ctx, p); err != nil {
-		log.WithError(err).Debug(ctx, "First write failed.")
-		return err
-	} else {
-		log.WithError(err).Debug(ctx, "First write success.")
-	}
+		if err := b.initalWriteWithRetry(ctx, p); err != nil {
+			log.WithError(err).Debug(ctx, "Initial write failed.")
+		} else {
+			log.WithError(err).Debug(ctx, "Initial write success.")
+		}
+	})
 
+	b.cancelFunc = cancelFunc
+	go initalWrite(ctx)
 	return nil
 }
 
 func (b *Bootstrapper) Stop(ctx context.Context) {
-	b.cancelFn()
+	b.cancelFunc()
 }
 
 func (b *Bootstrapper) bootstrapRaft(p Params) error {
@@ -148,7 +149,7 @@ func (b *Bootstrapper) bootstrapRaft(p Params) error {
 	return nil
 }
 
-func (b *Bootstrapper) performInitialWrite(ctx context.Context, p Params) error {
+func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error {
 	servers := make([]*storage.Bootstrap_Server, len(p.ids))
 	for i, id := range p.ids {
 		servers[i] = &storage.Bootstrap_Server{

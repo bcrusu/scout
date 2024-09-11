@@ -21,7 +21,7 @@ func newStartCmd() *cobra.Command {
 			}
 
 			s := server.NewServer(serverConfig(config))
-			return utils.LifecycleRun(c.Context(), log, s)
+			return utils.LifecycleRun(c.Context(), log, config.ShutdownTimeout, s)
 		},
 	}
 

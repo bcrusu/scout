@@ -6,8 +6,8 @@ option go_package = "internal/api";
 
 import "google/protobuf/timestamp.proto";
 
-// Api represents the public graph service.
-service Api {
+// Service represents the public graph service.
+service Service {
     rpc GetVertex(VID) returns (Vertex);
     rpc SetVertex(VID) returns (Status);
     rpc DelVertex(VID) returns (Status);

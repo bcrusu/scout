@@ -6,8 +6,8 @@ option go_package = "internal/data/server/storage";
 
 message Command {
     oneof payload {
-        CommandSet set = 1;
-        CommandDelete delete = 2;
+        Set set = 1;
+        Delete delete = 2;
     }
 }
 
@@ -16,11 +16,13 @@ message Snapshot {
     map<string, bytes> items = 2;
 }
 
-message CommandSet {
-    bytes key = 1;
-    bytes value = 2;
+message Set {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
 }
 
-message CommandDelete {
-    bytes key = 1;
+message Delete {
+    uint64 keyspace = 1;
+    bytes key = 2;
 }

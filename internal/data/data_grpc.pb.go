@@ -19,181 +19,181 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Data_Get_FullMethodName    = "/data.Data/Get"
-	Data_Set_FullMethodName    = "/data.Data/Set"
-	Data_Delete_FullMethodName = "/data.Data/Delete"
+	Service_Get_FullMethodName = "/data.Service/Get"
+	Service_Set_FullMethodName = "/data.Service/Set"
+	Service_Del_FullMethodName = "/data.Service/Del"
 )
 
-// DataClient is the client API for Data service.
+// ServiceClient is the client API for Service service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Data represents the data storage service.
-type DataClient interface {
+// Service represents the data storage service.
+type ServiceClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
-	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
+	Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error)
 }
 
-type dataClient struct {
+type serviceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewDataClient(cc grpc.ClientConnInterface) DataClient {
-	return &dataClient{cc}
+func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
+	return &serviceClient{cc}
 }
 
-func (c *dataClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *serviceClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, Data_Get_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_Get_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *dataClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+func (c *serviceClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SetResponse)
-	err := c.cc.Invoke(ctx, Data_Set_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_Set_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *dataClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
+func (c *serviceClient) Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DeleteResponse)
-	err := c.cc.Invoke(ctx, Data_Delete_FullMethodName, in, out, cOpts...)
+	out := new(DelResponse)
+	err := c.cc.Invoke(ctx, Service_Del_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// DataServer is the server API for Data service.
-// All implementations must embed UnimplementedDataServer
+// ServiceServer is the server API for Service service.
+// All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
 //
-// Data represents the data storage service.
-type DataServer interface {
+// Service represents the data storage service.
+type ServiceServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Set(context.Context, *SetRequest) (*SetResponse, error)
-	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
-	mustEmbedUnimplementedDataServer()
+	Del(context.Context, *DelRequest) (*DelResponse, error)
+	mustEmbedUnimplementedServiceServer()
 }
 
-// UnimplementedDataServer must be embedded to have
+// UnimplementedServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedDataServer struct{}
+type UnimplementedServiceServer struct{}
 
-func (UnimplementedDataServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
+func (UnimplementedServiceServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedDataServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
+func (UnimplementedServiceServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
-func (UnimplementedDataServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+func (UnimplementedServiceServer) Del(context.Context, *DelRequest) (*DelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Del not implemented")
 }
-func (UnimplementedDataServer) mustEmbedUnimplementedDataServer() {}
-func (UnimplementedDataServer) testEmbeddedByValue()              {}
+func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
+func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
 
-// UnsafeDataServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to DataServer will
+// UnsafeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ServiceServer will
 // result in compilation errors.
-type UnsafeDataServer interface {
-	mustEmbedUnimplementedDataServer()
+type UnsafeServiceServer interface {
+	mustEmbedUnimplementedServiceServer()
 }
 
-func RegisterDataServer(s grpc.ServiceRegistrar, srv DataServer) {
-	// If the following call pancis, it indicates UnimplementedDataServer was
+func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
+	// If the following call pancis, it indicates UnimplementedServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Data_ServiceDesc, srv)
+	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Data_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DataServer).Get(ctx, in)
+		return srv.(ServiceServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Data_Get_FullMethodName,
+		FullMethod: Service_Get_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DataServer).Get(ctx, req.(*GetRequest))
+		return srv.(ServiceServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Data_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DataServer).Set(ctx, in)
+		return srv.(ServiceServer).Set(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Data_Set_FullMethodName,
+		FullMethod: Service_Set_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DataServer).Set(ctx, req.(*SetRequest))
+		return srv.(ServiceServer).Set(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Data_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteRequest)
+func _Service_Del_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DelRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DataServer).Delete(ctx, in)
+		return srv.(ServiceServer).Del(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Data_Delete_FullMethodName,
+		FullMethod: Service_Del_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DataServer).Delete(ctx, req.(*DeleteRequest))
+		return srv.(ServiceServer).Del(ctx, req.(*DelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Data_ServiceDesc is the grpc.ServiceDesc for Data service.
+// Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Data_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "data.Data",
-	HandlerType: (*DataServer)(nil),
+var Service_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "data.Service",
+	HandlerType: (*ServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Get",
-			Handler:    _Data_Get_Handler,
+			Handler:    _Service_Get_Handler,
 		},
 		{
 			MethodName: "Set",
-			Handler:    _Data_Set_Handler,
+			Handler:    _Service_Set_Handler,
 		},
 		{
-			MethodName: "Delete",
-			Handler:    _Data_Delete_Handler,
+			MethodName: "Del",
+			Handler:    _Service_Del_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

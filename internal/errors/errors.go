@@ -29,3 +29,8 @@ func Errorf(format string, args ...any) error {
 func Join(errs ...error) error {
 	return errors.Join(errs...)
 }
+
+// Is returns true if err is a what.
+func Is(err, what error) bool {
+	return errors.Is(err, what)
+}

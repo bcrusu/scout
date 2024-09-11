@@ -23,13 +23,13 @@ func init() {
 
 // ControlClient is the Control service client
 type ControlClient interface {
-	control.ControlClient
+	control.ServiceClient
 	utils.Lifecycle
 }
 
 type controlClient struct {
 	conn   *rpc.Conn
-	client control.ControlClient
+	client control.ServiceClient
 }
 
 type options struct {
@@ -48,7 +48,7 @@ func NewClient(opts ...Option) ControlClient {
 
 	return &controlClient{
 		conn:   conn,
-		client: control.NewControlClient(conn),
+		client: control.NewServiceClient(conn),
 	}
 }
 

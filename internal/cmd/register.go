@@ -21,7 +21,7 @@ var (
 )
 
 // Register provides reusable functionality for registering a node in the cluster.
-func Register(ctx context.Context, log logging.Logger, config Config, serverType control.RegisterRequest_ServerType) error {
+func Register(ctx context.Context, log logging.Logger, config Config, serverType control.ServerType) error {
 	idStore, err := identity.NewStore(config.DataDir)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func Register(ctx context.Context, log logging.Logger, config Config, serverType
 	return nil
 }
 
-func registerWithRetry(ctx context.Context, log logging.Logger, config Config, serverType control.RegisterRequest_ServerType, token string) (*control.RegisterResponse, error) {
+func registerWithRetry(ctx context.Context, log logging.Logger, config Config, serverType control.ServerType, token string) (*control.RegisterResponse, error) {
 	opts := []client.Option{
 		client.WithTarget(discovery.NewTarget(config.ClusterName, config.Discovery)),
 	}

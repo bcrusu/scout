@@ -19,20 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Api_GetVertex_FullMethodName = "/api.Api/GetVertex"
-	Api_SetVertex_FullMethodName = "/api.Api/SetVertex"
-	Api_DelVertex_FullMethodName = "/api.Api/DelVertex"
-	Api_GetEdge_FullMethodName   = "/api.Api/GetEdge"
-	Api_SetEdge_FullMethodName   = "/api.Api/SetEdge"
-	Api_DelEdge_FullMethodName   = "/api.Api/DelEdge"
+	Service_GetVertex_FullMethodName = "/api.Service/GetVertex"
+	Service_SetVertex_FullMethodName = "/api.Service/SetVertex"
+	Service_DelVertex_FullMethodName = "/api.Service/DelVertex"
+	Service_GetEdge_FullMethodName   = "/api.Service/GetEdge"
+	Service_SetEdge_FullMethodName   = "/api.Service/SetEdge"
+	Service_DelEdge_FullMethodName   = "/api.Service/DelEdge"
 )
 
-// ApiClient is the client API for Api service.
+// ServiceClient is the client API for Service service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Api represents the public graph service.
-type ApiClient interface {
+// Service represents the public graph service.
+type ServiceClient interface {
 	GetVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Vertex, error)
 	SetVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Status, error)
 	DelVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Status, error)
@@ -41,273 +41,273 @@ type ApiClient interface {
 	DelEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Status, error)
 }
 
-type apiClient struct {
+type serviceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewApiClient(cc grpc.ClientConnInterface) ApiClient {
-	return &apiClient{cc}
+func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
+	return &serviceClient{cc}
 }
 
-func (c *apiClient) GetVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Vertex, error) {
+func (c *serviceClient) GetVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Vertex, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Vertex)
-	err := c.cc.Invoke(ctx, Api_GetVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_GetVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) SetVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) SetVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Api_SetVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_SetVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) DelVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) DelVertex(ctx context.Context, in *VID, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Api_DelVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_DelVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) GetEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Edge, error) {
+func (c *serviceClient) GetEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Edge, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Edge)
-	err := c.cc.Invoke(ctx, Api_GetEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_GetEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) SetEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) SetEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Api_SetEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_SetEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *apiClient) DelEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) DelEdge(ctx context.Context, in *EID, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Api_DelEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_DelEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ApiServer is the server API for Api service.
-// All implementations must embed UnimplementedApiServer
+// ServiceServer is the server API for Service service.
+// All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
 //
-// Api represents the public graph service.
-type ApiServer interface {
+// Service represents the public graph service.
+type ServiceServer interface {
 	GetVertex(context.Context, *VID) (*Vertex, error)
 	SetVertex(context.Context, *VID) (*Status, error)
 	DelVertex(context.Context, *VID) (*Status, error)
 	GetEdge(context.Context, *EID) (*Edge, error)
 	SetEdge(context.Context, *EID) (*Status, error)
 	DelEdge(context.Context, *EID) (*Status, error)
-	mustEmbedUnimplementedApiServer()
+	mustEmbedUnimplementedServiceServer()
 }
 
-// UnimplementedApiServer must be embedded to have
+// UnimplementedServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedApiServer struct{}
+type UnimplementedServiceServer struct{}
 
-func (UnimplementedApiServer) GetVertex(context.Context, *VID) (*Vertex, error) {
+func (UnimplementedServiceServer) GetVertex(context.Context, *VID) (*Vertex, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVertex not implemented")
 }
-func (UnimplementedApiServer) SetVertex(context.Context, *VID) (*Status, error) {
+func (UnimplementedServiceServer) SetVertex(context.Context, *VID) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetVertex not implemented")
 }
-func (UnimplementedApiServer) DelVertex(context.Context, *VID) (*Status, error) {
+func (UnimplementedServiceServer) DelVertex(context.Context, *VID) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DelVertex not implemented")
 }
-func (UnimplementedApiServer) GetEdge(context.Context, *EID) (*Edge, error) {
+func (UnimplementedServiceServer) GetEdge(context.Context, *EID) (*Edge, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEdge not implemented")
 }
-func (UnimplementedApiServer) SetEdge(context.Context, *EID) (*Status, error) {
+func (UnimplementedServiceServer) SetEdge(context.Context, *EID) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetEdge not implemented")
 }
-func (UnimplementedApiServer) DelEdge(context.Context, *EID) (*Status, error) {
+func (UnimplementedServiceServer) DelEdge(context.Context, *EID) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DelEdge not implemented")
 }
-func (UnimplementedApiServer) mustEmbedUnimplementedApiServer() {}
-func (UnimplementedApiServer) testEmbeddedByValue()             {}
+func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
+func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
 
-// UnsafeApiServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ApiServer will
+// UnsafeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ServiceServer will
 // result in compilation errors.
-type UnsafeApiServer interface {
-	mustEmbedUnimplementedApiServer()
+type UnsafeServiceServer interface {
+	mustEmbedUnimplementedServiceServer()
 }
 
-func RegisterApiServer(s grpc.ServiceRegistrar, srv ApiServer) {
-	// If the following call pancis, it indicates UnimplementedApiServer was
+func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
+	// If the following call pancis, it indicates UnimplementedServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Api_ServiceDesc, srv)
+	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Api_GetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_GetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).GetVertex(ctx, in)
+		return srv.(ServiceServer).GetVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Api_GetVertex_FullMethodName,
+		FullMethod: Service_GetVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).GetVertex(ctx, req.(*VID))
+		return srv.(ServiceServer).GetVertex(ctx, req.(*VID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_SetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_SetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).SetVertex(ctx, in)
+		return srv.(ServiceServer).SetVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Api_SetVertex_FullMethodName,
+		FullMethod: Service_SetVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).SetVertex(ctx, req.(*VID))
+		return srv.(ServiceServer).SetVertex(ctx, req.(*VID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_DelVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_DelVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).DelVertex(ctx, in)
+		return srv.(ServiceServer).DelVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Api_DelVertex_FullMethodName,
+		FullMethod: Service_DelVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).DelVertex(ctx, req.(*VID))
+		return srv.(ServiceServer).DelVertex(ctx, req.(*VID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_GetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_GetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).GetEdge(ctx, in)
+		return srv.(ServiceServer).GetEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Api_GetEdge_FullMethodName,
+		FullMethod: Service_GetEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).GetEdge(ctx, req.(*EID))
+		return srv.(ServiceServer).GetEdge(ctx, req.(*EID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_SetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_SetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).SetEdge(ctx, in)
+		return srv.(ServiceServer).SetEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Api_SetEdge_FullMethodName,
+		FullMethod: Service_SetEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).SetEdge(ctx, req.(*EID))
+		return srv.(ServiceServer).SetEdge(ctx, req.(*EID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Api_DelEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_DelEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EID)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServer).DelEdge(ctx, in)
+		return srv.(ServiceServer).DelEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Api_DelEdge_FullMethodName,
+		FullMethod: Service_DelEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServer).DelEdge(ctx, req.(*EID))
+		return srv.(ServiceServer).DelEdge(ctx, req.(*EID))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Api_ServiceDesc is the grpc.ServiceDesc for Api service.
+// Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Api_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.Api",
-	HandlerType: (*ApiServer)(nil),
+var Service_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.Service",
+	HandlerType: (*ServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetVertex",
-			Handler:    _Api_GetVertex_Handler,
+			Handler:    _Service_GetVertex_Handler,
 		},
 		{
 			MethodName: "SetVertex",
-			Handler:    _Api_SetVertex_Handler,
+			Handler:    _Service_SetVertex_Handler,
 		},
 		{
 			MethodName: "DelVertex",
-			Handler:    _Api_DelVertex_Handler,
+			Handler:    _Service_DelVertex_Handler,
 		},
 		{
 			MethodName: "GetEdge",
-			Handler:    _Api_GetEdge_Handler,
+			Handler:    _Service_GetEdge_Handler,
 		},
 		{
 			MethodName: "SetEdge",
-			Handler:    _Api_SetEdge_Handler,
+			Handler:    _Service_SetEdge_Handler,
 		},
 		{
 			MethodName: "DelEdge",
-			Handler:    _Api_DelEdge_Handler,
+			Handler:    _Service_DelEdge_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

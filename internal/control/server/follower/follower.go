@@ -14,14 +14,14 @@ import (
 )
 
 var (
-	_   control.ControlServer = (*Follower)(nil)
+	_   control.ServiceServer = (*Follower)(nil)
 	_   utils.Lifecycle       = (*Follower)(nil)
 	log                       = logging.WithComponent("control_follower")
 )
 
 // Follower implements the follower role.
 type Follower struct {
-	control.UnsafeControlServer
+	control.UnsafeServiceServer
 	*common.Shared
 	raft *multiraft.Raft
 }

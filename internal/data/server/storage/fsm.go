@@ -52,13 +52,13 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	log := log.With("index", index, "appendedAt", appendedAt)
 
 	switch x := payload.(type) {
-	case *CommandSet:
+	case *Set:
 		key := string(x.Key)
 
 		oldValue := f.items[key]
 		f.items[key] = x.Value
 		log.Debug("FSM.Set", "key", x.Key, "old_value", oldValue, "new_value", x.Value)
-	case *CommandDelete:
+	case *Delete:
 		key := string(x.Key)
 
 		oldValue, found := f.items[key]

@@ -13,14 +13,14 @@ import (
 )
 
 var (
-	_   data.DataServer = (*Leader)(nil)
-	_   utils.Lifecycle = (*Leader)(nil)
-	log                 = logging.WithComponent("data_leader")
+	_   data.ServiceServer = (*Leader)(nil)
+	_   utils.Lifecycle    = (*Leader)(nil)
+	log                    = logging.WithComponent("data_leader")
 )
 
 // Leader implements the Leader role.
 type Leader struct {
-	data.UnsafeDataServer
+	data.UnsafeServiceServer
 	*common.Shared
 	raft  *multiraft.Raft
 	store storage.Store
@@ -48,7 +48,7 @@ func (n *Leader) Set(ctx context.Context, req *data.SetRequest) (*data.SetRespon
 		return nil, errors.InvalidRequest
 	}
 
-	payload := &storage.CommandSet{
+	payload := &storage.Set{
 		Key:   req.Key,
 		Value: req.Value,
 	}
@@ -75,12 +75,12 @@ func (n *Leader) Get(ctx context.Context, req *data.GetRequest) (*data.GetRespon
 	}, nil
 }
 
-func (n *Leader) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
+func (n *Leader) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
 	if req == nil || len(req.Key) == 0 {
 		return nil, errors.InvalidRequest
 	}
 
-	payload := &storage.CommandDelete{
+	payload := &storage.Delete{
 		Key: req.Key,
 	}
 
@@ -88,5 +88,5 @@ func (n *Leader) Delete(ctx context.Context, req *data.DeleteRequest) (*data.Del
 		return nil, err
 	}
 
-	return &data.DeleteResponse{}, nil
+	return &data.DelResponse{}, nil
 }

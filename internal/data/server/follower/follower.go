@@ -12,14 +12,14 @@ import (
 )
 
 var (
-	_   data.DataServer = (*Follower)(nil)
-	_   utils.Lifecycle = (*Follower)(nil)
-	log                 = logging.WithComponent("data_follower")
+	_   data.ServiceServer = (*Follower)(nil)
+	_   utils.Lifecycle    = (*Follower)(nil)
+	log                    = logging.WithComponent("data_follower")
 )
 
 // Follower implements the follower role.
 type Follower struct {
-	data.UnsafeDataServer
+	data.UnsafeServiceServer
 	*common.Shared
 	raft *multiraft.Raft
 }
@@ -49,6 +49,6 @@ func (n *Follower) Get(ctx context.Context, req *data.GetRequest) (*data.GetResp
 	return nil, errors.NotLeader
 }
 
-func (n *Follower) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
+func (n *Follower) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
 	return nil, errors.NotLeader
 }

@@ -19,17 +19,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Control_Discover_FullMethodName   = "/control.Control/Discover"
-	Control_Register_FullMethodName   = "/control.Control/Register"
-	Control_NewSession_FullMethodName = "/control.Control/NewSession"
+	Service_Discover_FullMethodName   = "/control.Service/Discover"
+	Service_Register_FullMethodName   = "/control.Service/Register"
+	Service_NewSession_FullMethodName = "/control.Service/NewSession"
 )
 
-// ControlClient is the client API for Control service.
+// ServiceClient is the client API for Service service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Control represents the control plane service.
-type ControlClient interface {
+// Service represents the control plane service.
+type ServiceClient interface {
 	// Discover is used early by clients to discover the control
 	// plane cluster servers and it is the only method that can be
 	// invoked both on leader and followers. All the other methods
@@ -51,37 +51,37 @@ type ControlClient interface {
 	NewSession(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SessionIn, SessionOut], error)
 }
 
-type controlClient struct {
+type serviceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewControlClient(cc grpc.ClientConnInterface) ControlClient {
-	return &controlClient{cc}
+func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
+	return &serviceClient{cc}
 }
 
-func (c *controlClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
+func (c *serviceClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DiscoverResponse)
-	err := c.cc.Invoke(ctx, Control_Discover_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_Discover_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *controlClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
+func (c *serviceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterResponse)
-	err := c.cc.Invoke(ctx, Control_Register_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_Register_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *controlClient) NewSession(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SessionIn, SessionOut], error) {
+func (c *serviceClient) NewSession(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SessionIn, SessionOut], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Control_ServiceDesc.Streams[0], Control_NewSession_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Service_ServiceDesc.Streams[0], Service_NewSession_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -90,14 +90,14 @@ func (c *controlClient) NewSession(ctx context.Context, opts ...grpc.CallOption)
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Control_NewSessionClient = grpc.BidiStreamingClient[SessionIn, SessionOut]
+type Service_NewSessionClient = grpc.BidiStreamingClient[SessionIn, SessionOut]
 
-// ControlServer is the server API for Control service.
-// All implementations must embed UnimplementedControlServer
+// ServiceServer is the server API for Service service.
+// All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
 //
-// Control represents the control plane service.
-type ControlServer interface {
+// Service represents the control plane service.
+type ServiceServer interface {
 	// Discover is used early by clients to discover the control
 	// plane cluster servers and it is the only method that can be
 	// invoked both on leader and followers. All the other methods
@@ -117,109 +117,109 @@ type ControlServer interface {
 	// control plane. A server must first register itself before
 	// starting a new session.
 	NewSession(grpc.BidiStreamingServer[SessionIn, SessionOut]) error
-	mustEmbedUnimplementedControlServer()
+	mustEmbedUnimplementedServiceServer()
 }
 
-// UnimplementedControlServer must be embedded to have
+// UnimplementedServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedControlServer struct{}
+type UnimplementedServiceServer struct{}
 
-func (UnimplementedControlServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
+func (UnimplementedServiceServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
-func (UnimplementedControlServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+func (UnimplementedServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
-func (UnimplementedControlServer) NewSession(grpc.BidiStreamingServer[SessionIn, SessionOut]) error {
+func (UnimplementedServiceServer) NewSession(grpc.BidiStreamingServer[SessionIn, SessionOut]) error {
 	return status.Errorf(codes.Unimplemented, "method NewSession not implemented")
 }
-func (UnimplementedControlServer) mustEmbedUnimplementedControlServer() {}
-func (UnimplementedControlServer) testEmbeddedByValue()                 {}
+func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
+func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
 
-// UnsafeControlServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ControlServer will
+// UnsafeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ServiceServer will
 // result in compilation errors.
-type UnsafeControlServer interface {
-	mustEmbedUnimplementedControlServer()
+type UnsafeServiceServer interface {
+	mustEmbedUnimplementedServiceServer()
 }
 
-func RegisterControlServer(s grpc.ServiceRegistrar, srv ControlServer) {
-	// If the following call pancis, it indicates UnimplementedControlServer was
+func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
+	// If the following call pancis, it indicates UnimplementedServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Control_ServiceDesc, srv)
+	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Control_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DiscoverRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ControlServer).Discover(ctx, in)
+		return srv.(ServiceServer).Discover(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Control_Discover_FullMethodName,
+		FullMethod: Service_Discover_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServer).Discover(ctx, req.(*DiscoverRequest))
+		return srv.(ServiceServer).Discover(ctx, req.(*DiscoverRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Control_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ControlServer).Register(ctx, in)
+		return srv.(ServiceServer).Register(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Control_Register_FullMethodName,
+		FullMethod: Service_Register_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServer).Register(ctx, req.(*RegisterRequest))
+		return srv.(ServiceServer).Register(ctx, req.(*RegisterRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Control_NewSession_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ControlServer).NewSession(&grpc.GenericServerStream[SessionIn, SessionOut]{ServerStream: stream})
+func _Service_NewSession_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ServiceServer).NewSession(&grpc.GenericServerStream[SessionIn, SessionOut]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Control_NewSessionServer = grpc.BidiStreamingServer[SessionIn, SessionOut]
+type Service_NewSessionServer = grpc.BidiStreamingServer[SessionIn, SessionOut]
 
-// Control_ServiceDesc is the grpc.ServiceDesc for Control service.
+// Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Control_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "control.Control",
-	HandlerType: (*ControlServer)(nil),
+var Service_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "control.Service",
+	HandlerType: (*ServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Discover",
-			Handler:    _Control_Discover_Handler,
+			Handler:    _Service_Discover_Handler,
 		},
 		{
 			MethodName: "Register",
-			Handler:    _Control_Register_Handler,
+			Handler:    _Service_Register_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "NewSession",
-			Handler:       _Control_NewSession_Handler,
+			Handler:       _Service_NewSession_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

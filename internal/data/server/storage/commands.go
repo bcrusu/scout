@@ -16,9 +16,9 @@ func NewCommand(payload Payload) (*Command, error) {
 	var p isCommand_Payload
 
 	switch x := payload.(type) {
-	case *CommandSet:
+	case *Set:
 		p = &Command_Set{Set: x}
-	case *CommandDelete:
+	case *Delete:
 		p = &Command_Delete{Delete: x}
 	default:
 		return nil, errors.Errorf("newCommand: unhandled payload type %T", payload)
@@ -76,5 +76,5 @@ func getPayload(cmd *Command) (Payload, error) {
 	}
 }
 
-func (*CommandSet) isPayload()    {}
-func (*CommandDelete) isPayload() {}
+func (*Set) isPayload()    {}
+func (*Delete) isPayload() {}

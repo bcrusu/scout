@@ -22,31 +22,30 @@ var (
 
 // ControlService represents the control plane service
 type ControlService struct {
-	control.UnimplementedControlServer
-	raft     *multiraft.Raft
-	store    storage.Store
-	stopCh   chan any
-	roleLock sync.Mutex
-	role     role
+	control.UnimplementedServiceServer
+	raft       *multiraft.Raft
+	store      storage.Store
+	cancelFunc context.CancelFunc
+	roleLock   sync.RWMutex
+	role       role
 }
 
 type role interface {
-	control.ControlServer
+	control.ServiceServer
 	utils.Lifecycle
 }
 
 // NewControlService returns a new ControlService instance
 func NewControlService(raft *multiraft.Raft, store storage.Store) *ControlService {
 	return &ControlService{
-		raft:   raft,
-		store:  store,
-		stopCh: make(chan any),
-		role:   follower.New(raft, store), // always start as follower
+		raft:  raft,
+		store: store,
+		role:  follower.New(raft, store), // always start as follower
 	}
 }
 
 func (s *ControlService) RegisterToServer(server *grpc.Server) {
-	control.RegisterControlServer(server, s)
+	control.RegisterServiceServer(server, s)
 }
 
 func (s *ControlService) Start(ctx context.Context) error {
@@ -54,48 +53,56 @@ func (s *ControlService) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start as follower")
 	}
 
-	go s.watchLeaderChan(ctx)
+	mainLoop, cancelFunc := utils.WithCancelAndWait(s.mainLoop)
+
+	s.cancelFunc = cancelFunc
+	go mainLoop(ctx)
 	return nil
 }
 
 func (s *ControlService) Stop(ctx context.Context) {
-	close(s.stopCh)
+	s.cancelFunc()
 }
 
-func (s *ControlService) watchLeaderChan(ctx context.Context) {
+func (s *ControlService) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case isLeader := <-s.raft.GetLeaderChan():
-			var old role
 			var new role
-
 			if isLeader {
 				new = leader.New(s.raft, s.store)
 			} else {
 				new = follower.New(s.raft, s.store)
 			}
 
+			// will block new requests until the role is ready
 			s.roleLock.Lock()
-			old = s.role
-			s.role = new
-			s.roleLock.Unlock()
+			s.role.Stop(ctx) // TODO: drain in-flight requests?
 
 			if err := new.Start(ctx); err != nil {
 				log.WithError(err).Errorf(ctx, "Failed to start role %T. Shutting down...", new)
-				panic("TODO: trigger server shutdown")
+				utils.LifecycleShutdown(ctx)
+				return
 			}
 
-			old.Stop(ctx) // TODO: drain in-flight requests?
-		case <-s.stopCh:
+			s.role = new
+			s.roleLock.Unlock()
+		case <-ctx.Done():
+			s.roleLock.Lock()
+			old := s.role
+			s.role = nil
+			s.roleLock.Unlock()
+
+			old.Stop(ctx)
 			return
 		}
 	}
 }
 
 func (s *ControlService) getRole() (role, error) {
-	s.roleLock.Lock()
+	s.roleLock.RLock()
 	role := s.role
-	s.roleLock.Unlock()
+	s.roleLock.RUnlock()
 
 	if role == nil {
 		return nil, errors.Unavailable
