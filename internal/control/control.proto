@@ -144,8 +144,8 @@ message DataServers {
 
     message Partition {
         uint32 id = 1;
-        repeated uint64 read_servers = 2;
-        uint64 write_server = 3;
+        repeated uint64 read_server_ids = 2;
+        uint64 write_server_id = 3;
     }
 
     uint64 version = 1;

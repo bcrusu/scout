@@ -88,6 +88,10 @@ func (x *DataServers) Validate() error {
 		}
 	}
 
+	if len(x.Partitions) != int(x.PartitionCount) {
+		return errors.Error("DataServers.Partitions count does not match PartitionCount")
+	}
+
 	for id, part := range x.Partitions {
 		if err := part.Validate(); err != nil {
 			return errors.Wrap(err, "DataServers.Partitions is invalid")
@@ -95,6 +99,16 @@ func (x *DataServers) Validate() error {
 
 		if id != part.Id {
 			return errors.Error("DataServers.Partitions.Id does not match")
+		}
+
+		if _, ok := x.Servers[part.WriteServerId]; !ok {
+			return errors.Error("DataServers.Partitions.WriteServer not found in server list")
+		}
+
+		for _, serverID := range part.ReadServerIds {
+			if _, ok := x.Servers[serverID]; !ok {
+				return errors.Error("DataServers.Partitions.ReadServer not found in server list")
+			}
 		}
 	}
 
@@ -152,7 +166,7 @@ func (x *DataServers_Partition) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.Id == 0 || len(x.ReadServers) == 0 || x.WriteServer == 0 {
+	if x.Id == 0 || len(x.ReadServerIds) == 0 || x.WriteServerId == 0 {
 		return errors.Error("Partition has missing fields")
 	}
 

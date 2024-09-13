@@ -500,18 +500,18 @@ func (t *sessionTracker) updateDataServers(sessions sessionsByServer, partitionS
 	}
 
 	for id, part := range partitions.Items {
-		readServers := make([]uint64, len(part.GroupMembers))
+		readServerIDs := make([]uint64, len(part.GroupMembers))
 		for i, member := range part.GroupMembers {
-			readServers[i] = member.ServerId
+			readServerIDs[i] = member.ServerId
 		}
 
 		ds.Partitions[id] = &control.DataServers_Partition{
-			Id:          id,
-			ReadServers: readServers,
+			Id:            id,
+			ReadServerIds: readServerIDs,
 		}
 
 		if state := partitionStates[partitionID(id)]; state.hasLeader {
-			ds.Partitions[id].WriteServer = uint64(state.leaderID)
+			ds.Partitions[id].WriteServerId = uint64(state.leaderID)
 		}
 	}
 
