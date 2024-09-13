@@ -260,7 +260,7 @@ type RegisterResponse struct {
 	// control plane must include it.
 	ServerId uint64 `protobuf:"varint,1,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
 	// Equivalent to the id above. It can be used in places
-	// where strings are expected. Servers are expected to
+	// where strings are expected. Servers are required to
 	// store both id and name pair and do the translation
 	// between the two on their own.
 	ServerName string `protobuf:"bytes,2,opt,name=server_name,json=serverName,proto3" json:"server_name,omitempty"`
@@ -317,14 +317,15 @@ type SessionIn struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
-	ServerId    uint64 `protobuf:"varint,2,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
-	Address     string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
 	// Types that are assignable to Payload:
 	//
-	//	*SessionIn_Control
-	//	*SessionIn_Data
-	//	*SessionIn_Api
+	//	*SessionIn_Hello
+	//	*SessionIn_Heartbeat
+	//	*SessionIn_GetConfig
+	//	*SessionIn_GetDataServers
+	//	*SessionIn_GetApiServers
+	//	*SessionIn_DataServerStatus
+	//	*SessionIn_ApiServerStatus
 	Payload isSessionIn_Payload `protobuf_oneof:"payload"`
 }
 
@@ -360,27 +361,6 @@ func (*SessionIn) Descriptor() ([]byte, []int) {
 	return file_internal_control_control_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *SessionIn) GetClusterName() string {
-	if x != nil {
-		return x.ClusterName
-	}
-	return ""
-}
-
-func (x *SessionIn) GetServerId() uint64 {
-	if x != nil {
-		return x.ServerId
-	}
-	return 0
-}
-
-func (x *SessionIn) GetAddress() string {
-	if x != nil {
-		return x.Address
-	}
-	return ""
-}
-
 func (m *SessionIn) GetPayload() isSessionIn_Payload {
 	if m != nil {
 		return m.Payload
@@ -388,23 +368,51 @@ func (m *SessionIn) GetPayload() isSessionIn_Payload {
 	return nil
 }
 
-func (x *SessionIn) GetControl() *SessionIn_ControlReq {
-	if x, ok := x.GetPayload().(*SessionIn_Control); ok {
-		return x.Control
+func (x *SessionIn) GetHello() *Hello {
+	if x, ok := x.GetPayload().(*SessionIn_Hello); ok {
+		return x.Hello
 	}
 	return nil
 }
 
-func (x *SessionIn) GetData() *SessionIn_DataReq {
-	if x, ok := x.GetPayload().(*SessionIn_Data); ok {
-		return x.Data
+func (x *SessionIn) GetHeartbeat() *Heartbeat {
+	if x, ok := x.GetPayload().(*SessionIn_Heartbeat); ok {
+		return x.Heartbeat
 	}
 	return nil
 }
 
-func (x *SessionIn) GetApi() *SessionIn_ApiReq {
-	if x, ok := x.GetPayload().(*SessionIn_Api); ok {
-		return x.Api
+func (x *SessionIn) GetGetConfig() *GetConfig {
+	if x, ok := x.GetPayload().(*SessionIn_GetConfig); ok {
+		return x.GetConfig
+	}
+	return nil
+}
+
+func (x *SessionIn) GetGetDataServers() *GetDataServers {
+	if x, ok := x.GetPayload().(*SessionIn_GetDataServers); ok {
+		return x.GetDataServers
+	}
+	return nil
+}
+
+func (x *SessionIn) GetGetApiServers() *GetApiServers {
+	if x, ok := x.GetPayload().(*SessionIn_GetApiServers); ok {
+		return x.GetApiServers
+	}
+	return nil
+}
+
+func (x *SessionIn) GetDataServerStatus() *DataServerStatus {
+	if x, ok := x.GetPayload().(*SessionIn_DataServerStatus); ok {
+		return x.DataServerStatus
+	}
+	return nil
+}
+
+func (x *SessionIn) GetApiServerStatus() *ApiServerStatus {
+	if x, ok := x.GetPayload().(*SessionIn_ApiServerStatus); ok {
+		return x.ApiServerStatus
 	}
 	return nil
 }
@@ -413,23 +421,47 @@ type isSessionIn_Payload interface {
 	isSessionIn_Payload()
 }
 
-type SessionIn_Control struct {
-	Control *SessionIn_ControlReq `protobuf:"bytes,4,opt,name=control,proto3,oneof"`
+type SessionIn_Hello struct {
+	Hello *Hello `protobuf:"bytes,1,opt,name=hello,proto3,oneof"`
 }
 
-type SessionIn_Data struct {
-	Data *SessionIn_DataReq `protobuf:"bytes,5,opt,name=data,proto3,oneof"`
+type SessionIn_Heartbeat struct {
+	Heartbeat *Heartbeat `protobuf:"bytes,2,opt,name=heartbeat,proto3,oneof"`
 }
 
-type SessionIn_Api struct {
-	Api *SessionIn_ApiReq `protobuf:"bytes,6,opt,name=api,proto3,oneof"`
+type SessionIn_GetConfig struct {
+	GetConfig *GetConfig `protobuf:"bytes,3,opt,name=get_config,json=getConfig,proto3,oneof"`
 }
 
-func (*SessionIn_Control) isSessionIn_Payload() {}
+type SessionIn_GetDataServers struct {
+	GetDataServers *GetDataServers `protobuf:"bytes,4,opt,name=get_data_servers,json=getDataServers,proto3,oneof"`
+}
 
-func (*SessionIn_Data) isSessionIn_Payload() {}
+type SessionIn_GetApiServers struct {
+	GetApiServers *GetApiServers `protobuf:"bytes,5,opt,name=get_api_servers,json=getApiServers,proto3,oneof"`
+}
 
-func (*SessionIn_Api) isSessionIn_Payload() {}
+type SessionIn_DataServerStatus struct {
+	DataServerStatus *DataServerStatus `protobuf:"bytes,6,opt,name=data_server_status,json=dataServerStatus,proto3,oneof"`
+}
+
+type SessionIn_ApiServerStatus struct {
+	ApiServerStatus *ApiServerStatus `protobuf:"bytes,7,opt,name=api_server_status,json=apiServerStatus,proto3,oneof"`
+}
+
+func (*SessionIn_Hello) isSessionIn_Payload() {}
+
+func (*SessionIn_Heartbeat) isSessionIn_Payload() {}
+
+func (*SessionIn_GetConfig) isSessionIn_Payload() {}
+
+func (*SessionIn_GetDataServers) isSessionIn_Payload() {}
+
+func (*SessionIn_GetApiServers) isSessionIn_Payload() {}
+
+func (*SessionIn_DataServerStatus) isSessionIn_Payload() {}
+
+func (*SessionIn_ApiServerStatus) isSessionIn_Payload() {}
 
 type SessionOut struct {
 	state         protoimpl.MessageState
@@ -438,9 +470,12 @@ type SessionOut struct {
 
 	// Types that are assignable to Payload:
 	//
-	//	*SessionOut_Control
-	//	*SessionOut_Data
-	//	*SessionOut_Api
+	//	*SessionOut_HelloDataServer
+	//	*SessionOut_HelloApiServer
+	//	*SessionOut_DataServerConfig
+	//	*SessionOut_ApiServerConfig
+	//	*SessionOut_DataServers
+	//	*SessionOut_ApiServers
 	Payload isSessionOut_Payload `protobuf_oneof:"payload"`
 }
 
@@ -483,23 +518,44 @@ func (m *SessionOut) GetPayload() isSessionOut_Payload {
 	return nil
 }
 
-func (x *SessionOut) GetControl() *SessionOut_ControlReq {
-	if x, ok := x.GetPayload().(*SessionOut_Control); ok {
-		return x.Control
+func (x *SessionOut) GetHelloDataServer() *HelloDataServer {
+	if x, ok := x.GetPayload().(*SessionOut_HelloDataServer); ok {
+		return x.HelloDataServer
 	}
 	return nil
 }
 
-func (x *SessionOut) GetData() *SessionOut_DataReq {
-	if x, ok := x.GetPayload().(*SessionOut_Data); ok {
-		return x.Data
+func (x *SessionOut) GetHelloApiServer() *HelloApiServer {
+	if x, ok := x.GetPayload().(*SessionOut_HelloApiServer); ok {
+		return x.HelloApiServer
 	}
 	return nil
 }
 
-func (x *SessionOut) GetApi() *SessionOut_ApiReq {
-	if x, ok := x.GetPayload().(*SessionOut_Api); ok {
-		return x.Api
+func (x *SessionOut) GetDataServerConfig() *DataServerConfig {
+	if x, ok := x.GetPayload().(*SessionOut_DataServerConfig); ok {
+		return x.DataServerConfig
+	}
+	return nil
+}
+
+func (x *SessionOut) GetApiServerConfig() *ApiServerConfig {
+	if x, ok := x.GetPayload().(*SessionOut_ApiServerConfig); ok {
+		return x.ApiServerConfig
+	}
+	return nil
+}
+
+func (x *SessionOut) GetDataServers() *DataServers {
+	if x, ok := x.GetPayload().(*SessionOut_DataServers); ok {
+		return x.DataServers
+	}
+	return nil
+}
+
+func (x *SessionOut) GetApiServers() *ApiServers {
+	if x, ok := x.GetPayload().(*SessionOut_ApiServers); ok {
+		return x.ApiServers
 	}
 	return nil
 }
@@ -508,23 +564,722 @@ type isSessionOut_Payload interface {
 	isSessionOut_Payload()
 }
 
-type SessionOut_Control struct {
-	Control *SessionOut_ControlReq `protobuf:"bytes,1,opt,name=control,proto3,oneof"`
+type SessionOut_HelloDataServer struct {
+	HelloDataServer *HelloDataServer `protobuf:"bytes,1,opt,name=hello_data_server,json=helloDataServer,proto3,oneof"`
 }
 
-type SessionOut_Data struct {
-	Data *SessionOut_DataReq `protobuf:"bytes,2,opt,name=data,proto3,oneof"`
+type SessionOut_HelloApiServer struct {
+	HelloApiServer *HelloApiServer `protobuf:"bytes,2,opt,name=hello_api_server,json=helloApiServer,proto3,oneof"`
 }
 
-type SessionOut_Api struct {
-	Api *SessionOut_ApiReq `protobuf:"bytes,3,opt,name=api,proto3,oneof"`
+type SessionOut_DataServerConfig struct {
+	DataServerConfig *DataServerConfig `protobuf:"bytes,3,opt,name=data_server_config,json=dataServerConfig,proto3,oneof"`
 }
 
-func (*SessionOut_Control) isSessionOut_Payload() {}
+type SessionOut_ApiServerConfig struct {
+	ApiServerConfig *ApiServerConfig `protobuf:"bytes,4,opt,name=api_server_config,json=apiServerConfig,proto3,oneof"`
+}
 
-func (*SessionOut_Data) isSessionOut_Payload() {}
+type SessionOut_DataServers struct {
+	DataServers *DataServers `protobuf:"bytes,5,opt,name=data_servers,json=dataServers,proto3,oneof"`
+}
 
-func (*SessionOut_Api) isSessionOut_Payload() {}
+type SessionOut_ApiServers struct {
+	ApiServers *ApiServers `protobuf:"bytes,6,opt,name=api_servers,json=apiServers,proto3,oneof"`
+}
+
+func (*SessionOut_HelloDataServer) isSessionOut_Payload() {}
+
+func (*SessionOut_HelloApiServer) isSessionOut_Payload() {}
+
+func (*SessionOut_DataServerConfig) isSessionOut_Payload() {}
+
+func (*SessionOut_ApiServerConfig) isSessionOut_Payload() {}
+
+func (*SessionOut_DataServers) isSessionOut_Payload() {}
+
+func (*SessionOut_ApiServers) isSessionOut_Payload() {}
+
+type Hello struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ClusterName string `protobuf:"bytes,1,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`
+	ServerId    uint64 `protobuf:"varint,2,opt,name=server_id,json=serverId,proto3" json:"server_id,omitempty"`
+	Address     string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (x *Hello) Reset() {
+	*x = Hello{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Hello) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Hello) ProtoMessage() {}
+
+func (x *Hello) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Hello.ProtoReflect.Descriptor instead.
+func (*Hello) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Hello) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *Hello) GetServerId() uint64 {
+	if x != nil {
+		return x.ServerId
+	}
+	return 0
+}
+
+func (x *Hello) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type HelloDataServer struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Config      *DataServerConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	DataServers *DataServers      `protobuf:"bytes,2,opt,name=data_servers,json=dataServers,proto3" json:"data_servers,omitempty"`
+}
+
+func (x *HelloDataServer) Reset() {
+	*x = HelloDataServer{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *HelloDataServer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelloDataServer) ProtoMessage() {}
+
+func (x *HelloDataServer) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelloDataServer.ProtoReflect.Descriptor instead.
+func (*HelloDataServer) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *HelloDataServer) GetConfig() *DataServerConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+func (x *HelloDataServer) GetDataServers() *DataServers {
+	if x != nil {
+		return x.DataServers
+	}
+	return nil
+}
+
+type HelloApiServer struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Config      *ApiServerConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+	DataServers *DataServers     `protobuf:"bytes,2,opt,name=data_servers,json=dataServers,proto3" json:"data_servers,omitempty"`
+	ApiServers  *ApiServers      `protobuf:"bytes,3,opt,name=api_servers,json=apiServers,proto3" json:"api_servers,omitempty"`
+}
+
+func (x *HelloApiServer) Reset() {
+	*x = HelloApiServer{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *HelloApiServer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HelloApiServer) ProtoMessage() {}
+
+func (x *HelloApiServer) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HelloApiServer.ProtoReflect.Descriptor instead.
+func (*HelloApiServer) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *HelloApiServer) GetConfig() *ApiServerConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+func (x *HelloApiServer) GetDataServers() *DataServers {
+	if x != nil {
+		return x.DataServers
+	}
+	return nil
+}
+
+func (x *HelloApiServer) GetApiServers() *ApiServers {
+	if x != nil {
+		return x.ApiServers
+	}
+	return nil
+}
+
+type Heartbeat struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *Heartbeat) Reset() {
+	*x = Heartbeat{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Heartbeat) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Heartbeat) ProtoMessage() {}
+
+func (x *Heartbeat) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
+func (*Heartbeat) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{9}
+}
+
+type GetConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	IfNoMatch uint64 `protobuf:"varint,1,opt,name=if_no_match,json=ifNoMatch,proto3" json:"if_no_match,omitempty"`
+}
+
+func (x *GetConfig) Reset() {
+	*x = GetConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetConfig) ProtoMessage() {}
+
+func (x *GetConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetConfig.ProtoReflect.Descriptor instead.
+func (*GetConfig) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetConfig) GetIfNoMatch() uint64 {
+	if x != nil {
+		return x.IfNoMatch
+	}
+	return 0
+}
+
+type DataServerConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Version uint64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (x *DataServerConfig) Reset() {
+	*x = DataServerConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DataServerConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataServerConfig) ProtoMessage() {}
+
+func (x *DataServerConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataServerConfig.ProtoReflect.Descriptor instead.
+func (*DataServerConfig) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DataServerConfig) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type ApiServerConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Version uint64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (x *ApiServerConfig) Reset() {
+	*x = ApiServerConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ApiServerConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiServerConfig) ProtoMessage() {}
+
+func (x *ApiServerConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiServerConfig.ProtoReflect.Descriptor instead.
+func (*ApiServerConfig) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ApiServerConfig) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type GetDataServers struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	IfNoMatch uint64 `protobuf:"varint,1,opt,name=if_no_match,json=ifNoMatch,proto3" json:"if_no_match,omitempty"`
+}
+
+func (x *GetDataServers) Reset() {
+	*x = GetDataServers{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetDataServers) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDataServers) ProtoMessage() {}
+
+func (x *GetDataServers) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDataServers.ProtoReflect.Descriptor instead.
+func (*GetDataServers) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetDataServers) GetIfNoMatch() uint64 {
+	if x != nil {
+		return x.IfNoMatch
+	}
+	return 0
+}
+
+type DataServers struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Version           uint64                            `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Servers           map[uint64]*DataServers_Server    `protobuf:"bytes,2,rep,name=servers,proto3" json:"servers,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Partitions        map[uint32]*DataServers_Partition `protobuf:"bytes,3,rep,name=partitions,proto3" json:"partitions,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	PartitionCount    uint32                            `protobuf:"varint,4,opt,name=partition_count,json=partitionCount,proto3" json:"partition_count,omitempty"`
+	ServiceConfigJson string                            `protobuf:"bytes,5,opt,name=service_config_json,json=serviceConfigJson,proto3" json:"service_config_json,omitempty"`
+}
+
+func (x *DataServers) Reset() {
+	*x = DataServers{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DataServers) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataServers) ProtoMessage() {}
+
+func (x *DataServers) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataServers.ProtoReflect.Descriptor instead.
+func (*DataServers) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *DataServers) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *DataServers) GetServers() map[uint64]*DataServers_Server {
+	if x != nil {
+		return x.Servers
+	}
+	return nil
+}
+
+func (x *DataServers) GetPartitions() map[uint32]*DataServers_Partition {
+	if x != nil {
+		return x.Partitions
+	}
+	return nil
+}
+
+func (x *DataServers) GetPartitionCount() uint32 {
+	if x != nil {
+		return x.PartitionCount
+	}
+	return 0
+}
+
+func (x *DataServers) GetServiceConfigJson() string {
+	if x != nil {
+		return x.ServiceConfigJson
+	}
+	return ""
+}
+
+type GetApiServers struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	IfNoMatch uint64 `protobuf:"varint,1,opt,name=if_no_match,json=ifNoMatch,proto3" json:"if_no_match,omitempty"`
+}
+
+func (x *GetApiServers) Reset() {
+	*x = GetApiServers{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetApiServers) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetApiServers) ProtoMessage() {}
+
+func (x *GetApiServers) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetApiServers.ProtoReflect.Descriptor instead.
+func (*GetApiServers) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetApiServers) GetIfNoMatch() uint64 {
+	if x != nil {
+		return x.IfNoMatch
+	}
+	return 0
+}
+
+type ApiServers struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Version           uint64                        `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Servers           map[uint64]*ApiServers_Server `protobuf:"bytes,2,rep,name=servers,proto3" json:"servers,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	ServiceConfigJson string                        `protobuf:"bytes,3,opt,name=service_config_json,json=serviceConfigJson,proto3" json:"service_config_json,omitempty"`
+}
+
+func (x *ApiServers) Reset() {
+	*x = ApiServers{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[16]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ApiServers) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiServers) ProtoMessage() {}
+
+func (x *ApiServers) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[16]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiServers.ProtoReflect.Descriptor instead.
+func (*ApiServers) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ApiServers) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *ApiServers) GetServers() map[uint64]*ApiServers_Server {
+	if x != nil {
+		return x.Servers
+	}
+	return nil
+}
+
+func (x *ApiServers) GetServiceConfigJson() string {
+	if x != nil {
+		return x.ServiceConfigJson
+	}
+	return ""
+}
+
+type DataServerStatus struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Partitions map[uint32]*DataServerStatus_Partition `protobuf:"bytes,1,rep,name=partitions,proto3" json:"partitions,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *DataServerStatus) Reset() {
+	*x = DataServerStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DataServerStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DataServerStatus) ProtoMessage() {}
+
+func (x *DataServerStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DataServerStatus.ProtoReflect.Descriptor instead.
+func (*DataServerStatus) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DataServerStatus) GetPartitions() map[uint32]*DataServerStatus_Partition {
+	if x != nil {
+		return x.Partitions
+	}
+	return nil
+}
+
+type ApiServerStatus struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ApiServerStatus) Reset() {
+	*x = ApiServerStatus{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_internal_control_control_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ApiServerStatus) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ApiServerStatus) ProtoMessage() {}
+
+func (x *ApiServerStatus) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ApiServerStatus.ProtoReflect.Descriptor instead.
+func (*ApiServerStatus) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{18}
+}
 
 type DiscoverResponse_Server struct {
 	state         protoimpl.MessageState
@@ -538,7 +1293,7 @@ type DiscoverResponse_Server struct {
 func (x *DiscoverResponse_Server) Reset() {
 	*x = DiscoverResponse_Server{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[6]
+		mi := &file_internal_control_control_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -551,7 +1306,7 @@ func (x *DiscoverResponse_Server) String() string {
 func (*DiscoverResponse_Server) ProtoMessage() {}
 
 func (x *DiscoverResponse_Server) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[6]
+	mi := &file_internal_control_control_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -581,29 +1336,32 @@ func (x *DiscoverResponse_Server) GetLeader() bool {
 	return false
 }
 
-type SessionIn_ControlReq struct {
+type DataServers_Server struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Id      uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 }
 
-func (x *SessionIn_ControlReq) Reset() {
-	*x = SessionIn_ControlReq{}
+func (x *DataServers_Server) Reset() {
+	*x = DataServers_Server{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[7]
+		mi := &file_internal_control_control_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *SessionIn_ControlReq) String() string {
+func (x *DataServers_Server) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SessionIn_ControlReq) ProtoMessage() {}
+func (*DataServers_Server) ProtoMessage() {}
 
-func (x *SessionIn_ControlReq) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[7]
+func (x *DataServers_Server) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -614,34 +1372,52 @@ func (x *SessionIn_ControlReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SessionIn_ControlReq.ProtoReflect.Descriptor instead.
-func (*SessionIn_ControlReq) Descriptor() ([]byte, []int) {
-	return file_internal_control_control_proto_rawDescGZIP(), []int{4, 0}
+// Deprecated: Use DataServers_Server.ProtoReflect.Descriptor instead.
+func (*DataServers_Server) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{14, 0}
 }
 
-type SessionIn_DataReq struct {
+func (x *DataServers_Server) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DataServers_Server) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type DataServers_Partition struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Id          uint32   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ReadServers []uint64 `protobuf:"varint,2,rep,packed,name=read_servers,json=readServers,proto3" json:"read_servers,omitempty"`
+	WriteServer uint64   `protobuf:"varint,3,opt,name=write_server,json=writeServer,proto3" json:"write_server,omitempty"`
 }
 
-func (x *SessionIn_DataReq) Reset() {
-	*x = SessionIn_DataReq{}
+func (x *DataServers_Partition) Reset() {
+	*x = DataServers_Partition{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[8]
+		mi := &file_internal_control_control_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *SessionIn_DataReq) String() string {
+func (x *DataServers_Partition) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SessionIn_DataReq) ProtoMessage() {}
+func (*DataServers_Partition) ProtoMessage() {}
 
-func (x *SessionIn_DataReq) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[8]
+func (x *DataServers_Partition) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -652,34 +1428,58 @@ func (x *SessionIn_DataReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SessionIn_DataReq.ProtoReflect.Descriptor instead.
-func (*SessionIn_DataReq) Descriptor() ([]byte, []int) {
-	return file_internal_control_control_proto_rawDescGZIP(), []int{4, 1}
+// Deprecated: Use DataServers_Partition.ProtoReflect.Descriptor instead.
+func (*DataServers_Partition) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{14, 1}
 }
 
-type SessionIn_ApiReq struct {
+func (x *DataServers_Partition) GetId() uint32 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *DataServers_Partition) GetReadServers() []uint64 {
+	if x != nil {
+		return x.ReadServers
+	}
+	return nil
+}
+
+func (x *DataServers_Partition) GetWriteServer() uint64 {
+	if x != nil {
+		return x.WriteServer
+	}
+	return 0
+}
+
+type ApiServers_Server struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Id      uint64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
 }
 
-func (x *SessionIn_ApiReq) Reset() {
-	*x = SessionIn_ApiReq{}
+func (x *ApiServers_Server) Reset() {
+	*x = ApiServers_Server{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[9]
+		mi := &file_internal_control_control_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *SessionIn_ApiReq) String() string {
+func (x *ApiServers_Server) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SessionIn_ApiReq) ProtoMessage() {}
+func (*ApiServers_Server) ProtoMessage() {}
 
-func (x *SessionIn_ApiReq) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[9]
+func (x *ApiServers_Server) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,34 +1490,52 @@ func (x *SessionIn_ApiReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SessionIn_ApiReq.ProtoReflect.Descriptor instead.
-func (*SessionIn_ApiReq) Descriptor() ([]byte, []int) {
-	return file_internal_control_control_proto_rawDescGZIP(), []int{4, 2}
+// Deprecated: Use ApiServers_Server.ProtoReflect.Descriptor instead.
+func (*ApiServers_Server) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{16, 0}
 }
 
-type SessionOut_ControlReq struct {
+func (x *ApiServers_Server) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *ApiServers_Server) GetAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+type DataServerStatus_Partition struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
+
+	Id         uint32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Leader     bool   `protobuf:"varint,2,opt,name=leader,proto3" json:"leader,omitempty"`
+	LeaderTerm uint64 `protobuf:"varint,3,opt,name=leader_term,json=leaderTerm,proto3" json:"leader_term,omitempty"`
 }
 
-func (x *SessionOut_ControlReq) Reset() {
-	*x = SessionOut_ControlReq{}
+func (x *DataServerStatus_Partition) Reset() {
+	*x = DataServerStatus_Partition{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[10]
+		mi := &file_internal_control_control_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
 }
 
-func (x *SessionOut_ControlReq) String() string {
+func (x *DataServerStatus_Partition) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SessionOut_ControlReq) ProtoMessage() {}
+func (*DataServerStatus_Partition) ProtoMessage() {}
 
-func (x *SessionOut_ControlReq) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[10]
+func (x *DataServerStatus_Partition) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_control_control_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,85 +1546,30 @@ func (x *SessionOut_ControlReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SessionOut_ControlReq.ProtoReflect.Descriptor instead.
-func (*SessionOut_ControlReq) Descriptor() ([]byte, []int) {
-	return file_internal_control_control_proto_rawDescGZIP(), []int{5, 0}
+// Deprecated: Use DataServerStatus_Partition.ProtoReflect.Descriptor instead.
+func (*DataServerStatus_Partition) Descriptor() ([]byte, []int) {
+	return file_internal_control_control_proto_rawDescGZIP(), []int{17, 0}
 }
 
-type SessionOut_DataReq struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *SessionOut_DataReq) Reset() {
-	*x = SessionOut_DataReq{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[11]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
+func (x *DataServerStatus_Partition) GetId() uint32 {
+	if x != nil {
+		return x.Id
 	}
+	return 0
 }
 
-func (x *SessionOut_DataReq) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionOut_DataReq) ProtoMessage() {}
-
-func (x *SessionOut_DataReq) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[11]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+func (x *DataServerStatus_Partition) GetLeader() bool {
+	if x != nil {
+		return x.Leader
 	}
-	return mi.MessageOf(x)
+	return false
 }
 
-// Deprecated: Use SessionOut_DataReq.ProtoReflect.Descriptor instead.
-func (*SessionOut_DataReq) Descriptor() ([]byte, []int) {
-	return file_internal_control_control_proto_rawDescGZIP(), []int{5, 1}
-}
-
-type SessionOut_ApiReq struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *SessionOut_ApiReq) Reset() {
-	*x = SessionOut_ApiReq{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_control_control_proto_msgTypes[12]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
+func (x *DataServerStatus_Partition) GetLeaderTerm() uint64 {
+	if x != nil {
+		return x.LeaderTerm
 	}
-}
-
-func (x *SessionOut_ApiReq) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionOut_ApiReq) ProtoMessage() {}
-
-func (x *SessionOut_ApiReq) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_control_control_proto_msgTypes[12]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SessionOut_ApiReq.ProtoReflect.Descriptor instead.
-func (*SessionOut_ApiReq) Descriptor() ([]byte, []int) {
-	return file_internal_control_control_proto_rawDescGZIP(), []int{5, 2}
+	return 0
 }
 
 var File_internal_control_control_proto protoreflect.FileDescriptor
@@ -843,58 +1606,195 @@ var file_internal_control_control_proto_rawDesc = []byte{
 	0x12, 0x1b, 0x0a, 0x09, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20,
 	0x01, 0x28, 0x04, 0x52, 0x08, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x49, 0x64, 0x12, 0x1f, 0x0a,
 	0x0b, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x0a, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0xaf,
-	0x02, 0x0a, 0x09, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x12, 0x21, 0x0a, 0x0c,
-	0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x0b, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x12,
-	0x1b, 0x0a, 0x09, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x04, 0x52, 0x08, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x49, 0x64, 0x12, 0x18, 0x0a, 0x07,
-	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61,
-	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x12, 0x39, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
-	0x6c, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
-	0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x2e, 0x43, 0x6f, 0x6e, 0x74,
-	0x72, 0x6f, 0x6c, 0x52, 0x65, 0x71, 0x48, 0x00, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
-	0x6c, 0x12, 0x30, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x1a, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f,
-	0x6e, 0x49, 0x6e, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x52, 0x65, 0x71, 0x48, 0x00, 0x52, 0x04, 0x64,
-	0x61, 0x74, 0x61, 0x12, 0x2d, 0x0a, 0x03, 0x61, 0x70, 0x69, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x19, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69,
-	0x6f, 0x6e, 0x49, 0x6e, 0x2e, 0x41, 0x70, 0x69, 0x52, 0x65, 0x71, 0x48, 0x00, 0x52, 0x03, 0x61,
-	0x70, 0x69, 0x1a, 0x0c, 0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x52, 0x65, 0x71,
-	0x1a, 0x09, 0x0a, 0x07, 0x44, 0x61, 0x74, 0x61, 0x52, 0x65, 0x71, 0x1a, 0x08, 0x0a, 0x06, 0x41,
-	0x70, 0x69, 0x52, 0x65, 0x71, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64,
-	0x22, 0xd9, 0x01, 0x0a, 0x0a, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x75, 0x74, 0x12,
-	0x3a, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x1e, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69,
-	0x6f, 0x6e, 0x4f, 0x75, 0x74, 0x2e, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x52, 0x65, 0x71,
-	0x48, 0x00, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x12, 0x31, 0x0a, 0x04, 0x64,
-	0x61, 0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x63, 0x6f, 0x6e, 0x74,
-	0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x75, 0x74, 0x2e, 0x44,
-	0x61, 0x74, 0x61, 0x52, 0x65, 0x71, 0x48, 0x00, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x12, 0x2e,
-	0x0a, 0x03, 0x61, 0x70, 0x69, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x63, 0x6f,
+	0x28, 0x09, 0x52, 0x0a, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0xc1,
+	0x03, 0x0a, 0x09, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x12, 0x26, 0x0a, 0x05,
+	0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x63, 0x6f,
+	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x48, 0x00, 0x52, 0x05, 0x68,
+	0x65, 0x6c, 0x6c, 0x6f, 0x12, 0x32, 0x0a, 0x09, 0x68, 0x65, 0x61, 0x72, 0x74, 0x62, 0x65, 0x61,
+	0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x48, 0x65, 0x61, 0x72, 0x74, 0x62, 0x65, 0x61, 0x74, 0x48, 0x00, 0x52, 0x09, 0x68,
+	0x65, 0x61, 0x72, 0x74, 0x62, 0x65, 0x61, 0x74, 0x12, 0x33, 0x0a, 0x0a, 0x67, 0x65, 0x74, 0x5f,
+	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x47, 0x65, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x48, 0x00, 0x52, 0x09, 0x67, 0x65, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x43, 0x0a,
+	0x10, 0x67, 0x65, 0x74, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x47, 0x65, 0x74, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73,
+	0x48, 0x00, 0x52, 0x0e, 0x67, 0x65, 0x74, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x73, 0x12, 0x40, 0x0a, 0x0f, 0x67, 0x65, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x5f, 0x73, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x63, 0x6f,
+	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x47, 0x65, 0x74, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x73, 0x48, 0x00, 0x52, 0x0d, 0x67, 0x65, 0x74, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x73, 0x12, 0x49, 0x0a, 0x12, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x73, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x19, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x48, 0x00, 0x52, 0x10, 0x64,
+	0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
+	0x46, 0x0a, 0x11, 0x61, 0x70, 0x69, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x73, 0x74,
+	0x61, 0x74, 0x75, 0x73, 0x18, 0x07, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74,
+	0x61, 0x74, 0x75, 0x73, 0x48, 0x00, 0x52, 0x0f, 0x61, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f,
+	0x61, 0x64, 0x22, 0xaa, 0x03, 0x0a, 0x0a, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x75,
+	0x74, 0x12, 0x46, 0x0a, 0x11, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x5f,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x44, 0x61, 0x74, 0x61,
+	0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x48, 0x00, 0x52, 0x0f, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x44,
+	0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x43, 0x0a, 0x10, 0x68, 0x65, 0x6c,
+	0x6c, 0x6f, 0x5f, 0x61, 0x70, 0x69, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x48, 0x65,
+	0x6c, 0x6c, 0x6f, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x48, 0x00, 0x52, 0x0e,
+	0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x49,
+	0x0a, 0x12, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x63, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43,
+	0x6f, 0x6e, 0x66, 0x69, 0x67, 0x48, 0x00, 0x52, 0x10, 0x64, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x46, 0x0a, 0x11, 0x61, 0x70, 0x69,
+	0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x04,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41,
+	0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x48, 0x00,
+	0x52, 0x0f, 0x61, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69,
+	0x67, 0x12, 0x39, 0x0a, 0x0c, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x48, 0x00, 0x52,
+	0x0b, 0x64, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x36, 0x0a, 0x0b,
+	0x61, 0x70, 0x69, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x18, 0x06, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x13, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41, 0x70, 0x69, 0x53,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x48, 0x00, 0x52, 0x0a, 0x61, 0x70, 0x69, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x73, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22,
+	0x61, 0x0a, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6c, 0x75, 0x73,
+	0x74, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0b,
+	0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x69, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x49, 0x64, 0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72,
+	0x65, 0x73, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65,
+	0x73, 0x73, 0x22, 0x7d, 0x0a, 0x0f, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x44, 0x61, 0x74, 0x61, 0x53,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x31, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
+	0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x52, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x37, 0x0a, 0x0c, 0x64, 0x61, 0x74, 0x61,
+	0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14,
+	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x73, 0x52, 0x0b, 0x64, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x22, 0xb1, 0x01, 0x0a, 0x0e, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x41, 0x70, 0x69, 0x53, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x12, 0x30, 0x0a, 0x06, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x18, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41,
+	0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x06,
+	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x37, 0x0a, 0x0c, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x73, 0x52, 0x0b, 0x64, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12,
+	0x34, 0x0a, 0x0b, 0x61, 0x70, 0x69, 0x5f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41,
+	0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x52, 0x0a, 0x61, 0x70, 0x69, 0x53, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x73, 0x22, 0x0b, 0x0a, 0x09, 0x48, 0x65, 0x61, 0x72, 0x74, 0x62, 0x65,
+	0x61, 0x74, 0x22, 0x2b, 0x0a, 0x09, 0x47, 0x65, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12,
+	0x1e, 0x0a, 0x0b, 0x69, 0x66, 0x5f, 0x6e, 0x6f, 0x5f, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x69, 0x66, 0x4e, 0x6f, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x22,
+	0x2c, 0x0a, 0x10, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x04, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x2b, 0x0a,
+	0x0f, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
+	0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x04, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x22, 0x30, 0x0a, 0x0e, 0x47, 0x65,
+	0x74, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x1e, 0x0a, 0x0b,
+	0x69, 0x66, 0x5f, 0x6e, 0x6f, 0x5f, 0x6d, 0x61, 0x74, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x04, 0x52, 0x09, 0x69, 0x66, 0x4e, 0x6f, 0x4d, 0x61, 0x74, 0x63, 0x68, 0x22, 0xd2, 0x04, 0x0a,
+	0x0b, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x18, 0x0a, 0x07,
+	0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x07, 0x76,
+	0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x3b, 0x0a, 0x07, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x2e, 0x53, 0x65,
+	0x72, 0x76, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x07, 0x73, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x73, 0x12, 0x44, 0x0a, 0x0a, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e,
+	0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x2e, 0x50, 0x61,
+	0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0a, 0x70,
+	0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x27, 0x0a, 0x0f, 0x70, 0x61, 0x72,
+	0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x0d, 0x52, 0x0e, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x75,
+	0x6e, 0x74, 0x12, 0x2e, 0x0a, 0x13, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x5f, 0x63, 0x6f,
+	0x6e, 0x66, 0x69, 0x67, 0x5f, 0x6a, 0x73, 0x6f, 0x6e, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x11, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x4a, 0x73,
+	0x6f, 0x6e, 0x1a, 0x32, 0x0a, 0x06, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x12, 0x0e, 0x0a, 0x02,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x02, 0x69, 0x64, 0x12, 0x18, 0x0a, 0x07,
+	0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61,
+	0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x1a, 0x61, 0x0a, 0x09, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74,
+	0x69, 0x6f, 0x6e, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52,
+	0x02, 0x69, 0x64, 0x12, 0x21, 0x0a, 0x0c, 0x72, 0x65, 0x61, 0x64, 0x5f, 0x73, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x04, 0x52, 0x0b, 0x72, 0x65, 0x61, 0x64, 0x53,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x21, 0x0a, 0x0c, 0x77, 0x72, 0x69, 0x74, 0x65, 0x5f,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0b, 0x77, 0x72,
+	0x69, 0x74, 0x65, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x1a, 0x57, 0x0a, 0x0c, 0x53, 0x65, 0x72,
+	0x76, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x31, 0x0a, 0x05, 0x76,
+	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x63, 0x6f, 0x6e,
+	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73,
+	0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02,
+	0x38, 0x01, 0x1a, 0x5d, 0x0a, 0x0f, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73,
+	0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0d, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x34, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
+	0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x2e, 0x50, 0x61, 0x72,
+	0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38,
+	0x01, 0x22, 0x2f, 0x0a, 0x0d, 0x47, 0x65, 0x74, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x73, 0x12, 0x1e, 0x0a, 0x0b, 0x69, 0x66, 0x5f, 0x6e, 0x6f, 0x5f, 0x6d, 0x61, 0x74, 0x63,
+	0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x69, 0x66, 0x4e, 0x6f, 0x4d, 0x61, 0x74,
+	0x63, 0x68, 0x22, 0x9e, 0x02, 0x0a, 0x0a, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x04, 0x52, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x3a, 0x0a, 0x07, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x07,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x12, 0x2e, 0x0a, 0x13, 0x73, 0x65, 0x72, 0x76, 0x69,
+	0x63, 0x65, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x5f, 0x6a, 0x73, 0x6f, 0x6e, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x11, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x4a, 0x73, 0x6f, 0x6e, 0x1a, 0x32, 0x0a, 0x06, 0x53, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x02, 0x69,
+	0x64, 0x12, 0x18, 0x0a, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x07, 0x61, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x1a, 0x56, 0x0a, 0x0c, 0x53,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b,
+	0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x30, 0x0a,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72,
+	0x73, 0x2e, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a,
+	0x02, 0x38, 0x01, 0x22, 0x97, 0x02, 0x0a, 0x10, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x49, 0x0a, 0x0a, 0x70, 0x61, 0x72, 0x74,
+	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x29, 0x2e, 0x63,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f,
+	0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x0a, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69,
+	0x6f, 0x6e, 0x73, 0x1a, 0x54, 0x0a, 0x09, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e,
+	0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x02, 0x69, 0x64,
+	0x12, 0x16, 0x0a, 0x06, 0x6c, 0x65, 0x61, 0x64, 0x65, 0x72, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08,
+	0x52, 0x06, 0x6c, 0x65, 0x61, 0x64, 0x65, 0x72, 0x12, 0x1f, 0x0a, 0x0b, 0x6c, 0x65, 0x61, 0x64,
+	0x65, 0x72, 0x5f, 0x74, 0x65, 0x72, 0x6d, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x0a, 0x6c,
+	0x65, 0x61, 0x64, 0x65, 0x72, 0x54, 0x65, 0x72, 0x6d, 0x1a, 0x62, 0x0a, 0x0f, 0x50, 0x61, 0x72,
+	0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03,
+	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x39,
+	0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e,
+	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x61, 0x74, 0x61, 0x53, 0x65, 0x72, 0x76,
+	0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x50, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x11, 0x0a,
+	0x0f, 0x41, 0x70, 0x69, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x2a, 0x39, 0x0a, 0x0a, 0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b,
+	0x0a, 0x07, 0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x43,
+	0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61,
+	0x10, 0x02, 0x12, 0x07, 0x0a, 0x03, 0x41, 0x70, 0x69, 0x10, 0x03, 0x32, 0xc6, 0x01, 0x0a, 0x07,
+	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x3f, 0x0a, 0x08, 0x44, 0x69, 0x73, 0x63, 0x6f,
+	0x76, 0x65, 0x72, 0x12, 0x18, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x69,
+	0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e,
+	0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3f, 0x0a, 0x08, 0x52, 0x65, 0x67, 0x69,
+	0x73, 0x74, 0x65, 0x72, 0x12, 0x18, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x52,
+	0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19,
+	0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65,
+	0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x39, 0x0a, 0x0a, 0x4e, 0x65, 0x77,
+	0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x12, 0x12, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x1a, 0x13, 0x2e, 0x63, 0x6f,
 	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x75, 0x74,
-	0x2e, 0x41, 0x70, 0x69, 0x52, 0x65, 0x71, 0x48, 0x00, 0x52, 0x03, 0x61, 0x70, 0x69, 0x1a, 0x0c,
-	0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x52, 0x65, 0x71, 0x1a, 0x09, 0x0a, 0x07,
-	0x44, 0x61, 0x74, 0x61, 0x52, 0x65, 0x71, 0x1a, 0x08, 0x0a, 0x06, 0x41, 0x70, 0x69, 0x52, 0x65,
-	0x71, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x2a, 0x39, 0x0a, 0x0a,
-	0x53, 0x65, 0x72, 0x76, 0x65, 0x72, 0x54, 0x79, 0x70, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x6e,
-	0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x74, 0x72,
-	0x6f, 0x6c, 0x10, 0x01, 0x12, 0x08, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x10, 0x02, 0x12, 0x07,
-	0x0a, 0x03, 0x41, 0x70, 0x69, 0x10, 0x03, 0x32, 0xc6, 0x01, 0x0a, 0x07, 0x53, 0x65, 0x72, 0x76,
-	0x69, 0x63, 0x65, 0x12, 0x3f, 0x0a, 0x08, 0x44, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x12,
-	0x18, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x69, 0x73, 0x63, 0x6f, 0x76,
-	0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x63, 0x6f, 0x6e, 0x74,
-	0x72, 0x6f, 0x6c, 0x2e, 0x44, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3f, 0x0a, 0x08, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72,
-	0x12, 0x18, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x73,
-	0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x63, 0x6f, 0x6e,
-	0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x39, 0x0a, 0x0a, 0x4e, 0x65, 0x77, 0x53, 0x65, 0x73, 0x73,
-	0x69, 0x6f, 0x6e, 0x12, 0x12, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e, 0x53, 0x65,
-	0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x1a, 0x13, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
-	0x6c, 0x2e, 0x53, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x4f, 0x75, 0x74, 0x28, 0x01, 0x30, 0x01,
-	0x42, 0x12, 0x5a, 0x10, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x63, 0x6f, 0x6e,
-	0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x28, 0x01, 0x30, 0x01, 0x42, 0x12, 0x5a, 0x10, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c,
+	0x2f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -910,43 +1810,78 @@ func file_internal_control_control_proto_rawDescGZIP() []byte {
 }
 
 var file_internal_control_control_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_internal_control_control_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_internal_control_control_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_internal_control_control_proto_goTypes = []any{
-	(ServerType)(0),                 // 0: control.ServerType
-	(*DiscoverRequest)(nil),         // 1: control.DiscoverRequest
-	(*DiscoverResponse)(nil),        // 2: control.DiscoverResponse
-	(*RegisterRequest)(nil),         // 3: control.RegisterRequest
-	(*RegisterResponse)(nil),        // 4: control.RegisterResponse
-	(*SessionIn)(nil),               // 5: control.SessionIn
-	(*SessionOut)(nil),              // 6: control.SessionOut
-	(*DiscoverResponse_Server)(nil), // 7: control.DiscoverResponse.Server
-	(*SessionIn_ControlReq)(nil),    // 8: control.SessionIn.ControlReq
-	(*SessionIn_DataReq)(nil),       // 9: control.SessionIn.DataReq
-	(*SessionIn_ApiReq)(nil),        // 10: control.SessionIn.ApiReq
-	(*SessionOut_ControlReq)(nil),   // 11: control.SessionOut.ControlReq
-	(*SessionOut_DataReq)(nil),      // 12: control.SessionOut.DataReq
-	(*SessionOut_ApiReq)(nil),       // 13: control.SessionOut.ApiReq
+	(ServerType)(0),                    // 0: control.ServerType
+	(*DiscoverRequest)(nil),            // 1: control.DiscoverRequest
+	(*DiscoverResponse)(nil),           // 2: control.DiscoverResponse
+	(*RegisterRequest)(nil),            // 3: control.RegisterRequest
+	(*RegisterResponse)(nil),           // 4: control.RegisterResponse
+	(*SessionIn)(nil),                  // 5: control.SessionIn
+	(*SessionOut)(nil),                 // 6: control.SessionOut
+	(*Hello)(nil),                      // 7: control.Hello
+	(*HelloDataServer)(nil),            // 8: control.HelloDataServer
+	(*HelloApiServer)(nil),             // 9: control.HelloApiServer
+	(*Heartbeat)(nil),                  // 10: control.Heartbeat
+	(*GetConfig)(nil),                  // 11: control.GetConfig
+	(*DataServerConfig)(nil),           // 12: control.DataServerConfig
+	(*ApiServerConfig)(nil),            // 13: control.ApiServerConfig
+	(*GetDataServers)(nil),             // 14: control.GetDataServers
+	(*DataServers)(nil),                // 15: control.DataServers
+	(*GetApiServers)(nil),              // 16: control.GetApiServers
+	(*ApiServers)(nil),                 // 17: control.ApiServers
+	(*DataServerStatus)(nil),           // 18: control.DataServerStatus
+	(*ApiServerStatus)(nil),            // 19: control.ApiServerStatus
+	(*DiscoverResponse_Server)(nil),    // 20: control.DiscoverResponse.Server
+	(*DataServers_Server)(nil),         // 21: control.DataServers.Server
+	(*DataServers_Partition)(nil),      // 22: control.DataServers.Partition
+	nil,                                // 23: control.DataServers.ServersEntry
+	nil,                                // 24: control.DataServers.PartitionsEntry
+	(*ApiServers_Server)(nil),          // 25: control.ApiServers.Server
+	nil,                                // 26: control.ApiServers.ServersEntry
+	(*DataServerStatus_Partition)(nil), // 27: control.DataServerStatus.Partition
+	nil,                                // 28: control.DataServerStatus.PartitionsEntry
 }
 var file_internal_control_control_proto_depIdxs = []int32{
-	7,  // 0: control.DiscoverResponse.servers:type_name -> control.DiscoverResponse.Server
+	20, // 0: control.DiscoverResponse.servers:type_name -> control.DiscoverResponse.Server
 	0,  // 1: control.RegisterRequest.type:type_name -> control.ServerType
-	8,  // 2: control.SessionIn.control:type_name -> control.SessionIn.ControlReq
-	9,  // 3: control.SessionIn.data:type_name -> control.SessionIn.DataReq
-	10, // 4: control.SessionIn.api:type_name -> control.SessionIn.ApiReq
-	11, // 5: control.SessionOut.control:type_name -> control.SessionOut.ControlReq
-	12, // 6: control.SessionOut.data:type_name -> control.SessionOut.DataReq
-	13, // 7: control.SessionOut.api:type_name -> control.SessionOut.ApiReq
-	1,  // 8: control.Service.Discover:input_type -> control.DiscoverRequest
-	3,  // 9: control.Service.Register:input_type -> control.RegisterRequest
-	5,  // 10: control.Service.NewSession:input_type -> control.SessionIn
-	2,  // 11: control.Service.Discover:output_type -> control.DiscoverResponse
-	4,  // 12: control.Service.Register:output_type -> control.RegisterResponse
-	6,  // 13: control.Service.NewSession:output_type -> control.SessionOut
-	11, // [11:14] is the sub-list for method output_type
-	8,  // [8:11] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	7,  // 2: control.SessionIn.hello:type_name -> control.Hello
+	10, // 3: control.SessionIn.heartbeat:type_name -> control.Heartbeat
+	11, // 4: control.SessionIn.get_config:type_name -> control.GetConfig
+	14, // 5: control.SessionIn.get_data_servers:type_name -> control.GetDataServers
+	16, // 6: control.SessionIn.get_api_servers:type_name -> control.GetApiServers
+	18, // 7: control.SessionIn.data_server_status:type_name -> control.DataServerStatus
+	19, // 8: control.SessionIn.api_server_status:type_name -> control.ApiServerStatus
+	8,  // 9: control.SessionOut.hello_data_server:type_name -> control.HelloDataServer
+	9,  // 10: control.SessionOut.hello_api_server:type_name -> control.HelloApiServer
+	12, // 11: control.SessionOut.data_server_config:type_name -> control.DataServerConfig
+	13, // 12: control.SessionOut.api_server_config:type_name -> control.ApiServerConfig
+	15, // 13: control.SessionOut.data_servers:type_name -> control.DataServers
+	17, // 14: control.SessionOut.api_servers:type_name -> control.ApiServers
+	12, // 15: control.HelloDataServer.config:type_name -> control.DataServerConfig
+	15, // 16: control.HelloDataServer.data_servers:type_name -> control.DataServers
+	13, // 17: control.HelloApiServer.config:type_name -> control.ApiServerConfig
+	15, // 18: control.HelloApiServer.data_servers:type_name -> control.DataServers
+	17, // 19: control.HelloApiServer.api_servers:type_name -> control.ApiServers
+	23, // 20: control.DataServers.servers:type_name -> control.DataServers.ServersEntry
+	24, // 21: control.DataServers.partitions:type_name -> control.DataServers.PartitionsEntry
+	26, // 22: control.ApiServers.servers:type_name -> control.ApiServers.ServersEntry
+	28, // 23: control.DataServerStatus.partitions:type_name -> control.DataServerStatus.PartitionsEntry
+	21, // 24: control.DataServers.ServersEntry.value:type_name -> control.DataServers.Server
+	22, // 25: control.DataServers.PartitionsEntry.value:type_name -> control.DataServers.Partition
+	25, // 26: control.ApiServers.ServersEntry.value:type_name -> control.ApiServers.Server
+	27, // 27: control.DataServerStatus.PartitionsEntry.value:type_name -> control.DataServerStatus.Partition
+	1,  // 28: control.Service.Discover:input_type -> control.DiscoverRequest
+	3,  // 29: control.Service.Register:input_type -> control.RegisterRequest
+	5,  // 30: control.Service.NewSession:input_type -> control.SessionIn
+	2,  // 31: control.Service.Discover:output_type -> control.DiscoverResponse
+	4,  // 32: control.Service.Register:output_type -> control.RegisterResponse
+	6,  // 33: control.Service.NewSession:output_type -> control.SessionOut
+	31, // [31:34] is the sub-list for method output_type
+	28, // [28:31] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_internal_control_control_proto_init() }
@@ -1028,7 +1963,7 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[6].Exporter = func(v any, i int) any {
-			switch v := v.(*DiscoverResponse_Server); i {
+			switch v := v.(*Hello); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1040,7 +1975,7 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[7].Exporter = func(v any, i int) any {
-			switch v := v.(*SessionIn_ControlReq); i {
+			switch v := v.(*HelloDataServer); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1052,7 +1987,7 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[8].Exporter = func(v any, i int) any {
-			switch v := v.(*SessionIn_DataReq); i {
+			switch v := v.(*HelloApiServer); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1064,7 +1999,7 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[9].Exporter = func(v any, i int) any {
-			switch v := v.(*SessionIn_ApiReq); i {
+			switch v := v.(*Heartbeat); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1076,7 +2011,7 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[10].Exporter = func(v any, i int) any {
-			switch v := v.(*SessionOut_ControlReq); i {
+			switch v := v.(*GetConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1088,7 +2023,7 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[11].Exporter = func(v any, i int) any {
-			switch v := v.(*SessionOut_DataReq); i {
+			switch v := v.(*DataServerConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1100,7 +2035,139 @@ func file_internal_control_control_proto_init() {
 			}
 		}
 		file_internal_control_control_proto_msgTypes[12].Exporter = func(v any, i int) any {
-			switch v := v.(*SessionOut_ApiReq); i {
+			switch v := v.(*ApiServerConfig); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[13].Exporter = func(v any, i int) any {
+			switch v := v.(*GetDataServers); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[14].Exporter = func(v any, i int) any {
+			switch v := v.(*DataServers); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[15].Exporter = func(v any, i int) any {
+			switch v := v.(*GetApiServers); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[16].Exporter = func(v any, i int) any {
+			switch v := v.(*ApiServers); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[17].Exporter = func(v any, i int) any {
+			switch v := v.(*DataServerStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[18].Exporter = func(v any, i int) any {
+			switch v := v.(*ApiServerStatus); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[19].Exporter = func(v any, i int) any {
+			switch v := v.(*DiscoverResponse_Server); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[20].Exporter = func(v any, i int) any {
+			switch v := v.(*DataServers_Server); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[21].Exporter = func(v any, i int) any {
+			switch v := v.(*DataServers_Partition); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[24].Exporter = func(v any, i int) any {
+			switch v := v.(*ApiServers_Server); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_internal_control_control_proto_msgTypes[26].Exporter = func(v any, i int) any {
+			switch v := v.(*DataServerStatus_Partition); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1113,14 +2180,21 @@ func file_internal_control_control_proto_init() {
 		}
 	}
 	file_internal_control_control_proto_msgTypes[4].OneofWrappers = []any{
-		(*SessionIn_Control)(nil),
-		(*SessionIn_Data)(nil),
-		(*SessionIn_Api)(nil),
+		(*SessionIn_Hello)(nil),
+		(*SessionIn_Heartbeat)(nil),
+		(*SessionIn_GetConfig)(nil),
+		(*SessionIn_GetDataServers)(nil),
+		(*SessionIn_GetApiServers)(nil),
+		(*SessionIn_DataServerStatus)(nil),
+		(*SessionIn_ApiServerStatus)(nil),
 	}
 	file_internal_control_control_proto_msgTypes[5].OneofWrappers = []any{
-		(*SessionOut_Control)(nil),
-		(*SessionOut_Data)(nil),
-		(*SessionOut_Api)(nil),
+		(*SessionOut_HelloDataServer)(nil),
+		(*SessionOut_HelloApiServer)(nil),
+		(*SessionOut_DataServerConfig)(nil),
+		(*SessionOut_ApiServerConfig)(nil),
+		(*SessionOut_DataServers)(nil),
+		(*SessionOut_ApiServers)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1128,7 +2202,7 @@ func file_internal_control_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_internal_control_control_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   13,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

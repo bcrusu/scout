@@ -12,7 +12,7 @@ message Command {
 }
 
 message Snapshot {
-    uint64 index = 1;
+    uint64 version = 1;
     map<string, bytes> items = 2;
 }
 

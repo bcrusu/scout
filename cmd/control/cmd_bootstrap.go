@@ -14,7 +14,7 @@ func newBootstrapCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "bootstrap",
 		Aliases: []string{"b"},
-		Short:   "Bootstraps a new cluster.",
+		Short:   "Bootstraps a new cluster. Must be executed using the same params on all bootstrapped servers.",
 		RunE: func(c *cobra.Command, args []string) error {
 			log := logging.WithComponent("cmd_bootstrap")
 			config, err := cmd.GetConfig(c)
@@ -22,8 +22,9 @@ func newBootstrapCmd() *cobra.Command {
 				return err
 			}
 
-			peers, err := c.Flags().GetStringSlice("initial-servers")
-			if err != nil {
+			peers, err1 := c.Flags().GetStringSlice("initial-servers")
+			partitionCount, err2 := c.Flags().GetUint32("partition-count")
+			if err := errors.Join(err1, err2); err != nil {
 				return err
 			}
 			for _, a := range peers {
@@ -33,8 +34,9 @@ func newBootstrapCmd() *cobra.Command {
 			}
 
 			bconfig := server.BootstrapConfig{
-				LocalAddress: config.Server.BindAddress,
-				Peers:        peers,
+				LocalAddress:   config.Server.BindAddress,
+				Peers:          peers,
+				PartitionCount: partitionCount,
 			}
 
 			s := server.NewServerForBootstrap(serverConfig(config), bconfig)
@@ -42,7 +44,8 @@ func newBootstrapCmd() *cobra.Command {
 		},
 	}
 
-	c.Flags().StringSlice("initial-servers", nil, "Initial server list. It must be identical for all bootstrapped servers. If not included, the local server will be appended.")
+	c.Flags().StringSlice("initial-servers", nil, "Initial server list. If not included, the local server will be appended.")
+	c.Flags().Uint32("partition-count", 16, "The number of partitions in the data storage cluster.")
 
 	return c
 }

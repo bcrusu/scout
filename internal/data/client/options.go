@@ -1,16 +1,26 @@
 package client
 
 import (
-	"github.com/bcrusu/graph/internal/discovery"
+	"github.com/bcrusu/graph/internal/control"
+	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc"
 )
 
 type Option func(*options)
 
-// WithTarget sets the connecton target.
-func WithTarget(target discovery.Target) Option {
+type options struct {
+	dataServers DataServers
+	dialOptions []grpc.DialOption
+}
+
+type DataServers interface {
+	SubscribeDataServers() utils.Subscriber[*control.DataServers]
+}
+
+// WithDataServers sets the data servers source.
+func WithDataServers(dataServers DataServers) Option {
 	return func(o *options) {
-		o.target = target
+		o.dataServers = dataServers
 	}
 }
 

@@ -28,9 +28,10 @@ var (
 )
 
 type Params struct {
-	ClusterName  string
-	LocalAddress string
-	Peers        []string
+	ClusterName    string
+	LocalAddress   string
+	Peers          []string
+	PartitionCount uint32
 
 	valid       bool
 	clusterName string
@@ -60,7 +61,8 @@ func NewBootstrapper(raft *multiraft.Raft, store storage.Store, params Params) *
 
 // ValidateParams ensures that we have everything required to start the show.
 func ValidateParams(p *Params) error {
-	if p == nil || !storage.IsValidClusterName(p.ClusterName) || storage.IsValidAddress(p.LocalAddress) {
+	if p == nil || !storage.IsValidClusterName(p.ClusterName) || storage.IsValidAddress(p.LocalAddress) ||
+		!storage.IsValidPartitionCount(p.PartitionCount) {
 		return errors.InvalidRequest
 	}
 
@@ -160,8 +162,9 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 	}
 
 	cmd := &storage.Bootstrap{
-		ClusterName: p.clusterName,
-		Servers:     servers,
+		ClusterName:    p.clusterName,
+		Servers:        servers,
+		PartitionCount: p.PartitionCount,
 	}
 
 	return utils.RetryE(ctx, retryBackoff, func() error {

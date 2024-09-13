@@ -3,7 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/control/client"
+	cclient "github.com/bcrusu/graph/internal/control/client"
+	dclient "github.com/bcrusu/graph/internal/data/client"
 	"github.com/bcrusu/graph/internal/data/server/session"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/discovery"
@@ -49,11 +50,9 @@ func (n *Server) Start(ctx context.Context) error {
 		return errors.Error("server identity not found; must join a cluster first.")
 	}
 
-	controlClientOpts := []client.Option{
-		client.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
-	}
-
-	controlClient := client.NewClient(controlClientOpts...)
+	controlClient := cclient.New(
+		cclient.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
+	)
 
 	fsm := storage.NewFSM()
 	dialOpts := rpc.DefaultDialOptions()
@@ -75,12 +74,17 @@ func (n *Server) Start(ctx context.Context) error {
 	dataService := NewDataService(raft, fsm)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
 
+	dataClient := dclient.New(
+		dclient.WithDataServers(session),
+	)
+
 	n.components = []utils.Lifecycle{
 		controlClient,
 		session,
 		dataService,
 		transportService,
 		raft,
+		dataClient,
 		server,
 	}
 

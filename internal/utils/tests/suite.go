@@ -1,4 +1,4 @@
-package testing
+package tests
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func NewSuite(t *testing.T) {
+func NewSuite(t *testing.T, description string) {
 	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "Graph test suite")
+	ginkgo.RunSpecs(t, description)
 }

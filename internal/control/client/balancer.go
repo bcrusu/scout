@@ -37,18 +37,21 @@ func (b *balancerBuilder) Name() string {
 }
 
 func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) error {
-	if len(state.ResolverState.Addresses) == 0 {
-		logB.Error("UpdateClientConnState invoked with empty addresses")
-		return balancer.ErrBadResolverState
-	} else if len(state.ResolverState.Addresses) > 1 {
-		logB.Error("UpdateClientConnState invoked with mutiple addresses")
+	cfg := state.ResolverState.Attributes.Value(attrKey)
+	if cfg == nil {
+		logB.Error("UpdateClientConnState invoked with empty config.")
 		return balancer.ErrBadResolverState
 	}
 
-	addr := state.ResolverState.Addresses[0].Addr
-	log := logB.With("address", addr)
+	leaderAddress, ok := cfg.(string)
+	if !ok {
+		logB.Error("UpdateClientConnState invoked with bad config.")
+		return balancer.ErrBadResolverState
+	}
 
-	if addr == b.subConnAddr {
+	log := logB.With("address", leaderAddress)
+
+	if leaderAddress == b.subConnAddr {
 		log.Debug("UpdateClientConnState invoked with the same address")
 		return nil
 	} else {
@@ -72,7 +75,7 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 				log.Warnf("Unexpected connectivity state %d", state.ConnectivityState)
 			}
 
-			if b.subConnAddr == addr {
+			if b.subConnAddr == leaderAddress {
 				b.clientConn.UpdateState(balancer.State{
 					ConnectivityState: state.ConnectivityState,
 					Picker:            b.picker,
@@ -81,14 +84,14 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 		},
 	}
 
-	subConn, err := b.clientConn.NewSubConn([]resolver.Address{{Addr: addr}}, opts)
+	subConn, err := b.clientConn.NewSubConn([]resolver.Address{{Addr: leaderAddress}}, opts)
 	if err != nil {
 		log.WithError(err).Error("NewSubConn failed")
 		return balancer.ErrBadResolverState
 	}
 
 	log.Debug("Connection created")
-	b.subConnAddr = addr
+	b.subConnAddr = leaderAddress
 	b.subConn = subConn
 	b.picker = &picker{balancer: b}
 

@@ -7,6 +7,11 @@ import (
 
 type Option func(*options)
 
+type options struct {
+	target      discovery.Target
+	dialOptions []grpc.DialOption
+}
+
 // WithTarget sets the connecton target.
 func WithTarget(target discovery.Target) Option {
 	return func(o *options) {

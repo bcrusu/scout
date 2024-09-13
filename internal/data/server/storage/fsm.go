@@ -16,9 +16,9 @@ var (
 )
 
 type FSM struct {
-	lock  sync.RWMutex
-	index uint64
-	items map[string][]byte
+	lock    sync.RWMutex
+	version uint64
+	items   map[string][]byte
 }
 
 func NewFSM() *FSM {
@@ -30,7 +30,7 @@ func NewFSM() *FSM {
 func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.index = index
+	f.version = index
 
 	cmd, err := utils.UnmarshalProto[Command](data)
 	if err != nil {
@@ -73,8 +73,8 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	defer f.lock.RUnlock()
 
 	snap := &Snapshot{
-		Index: f.index,
-		Items: f.items,
+		Version: f.version,
+		Items:   f.items,
 	}
 
 	data, err := utils.MarshalProto(snap)
@@ -90,7 +90,7 @@ func (f *FSM) Restore(data []byte) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	f.index = snap.Index
+	f.version = snap.Version
 	f.items = snap.Items
 	return nil
 }

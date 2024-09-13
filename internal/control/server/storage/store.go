@@ -16,10 +16,15 @@ var (
 // returned. Write operations wait for the result/error from the FSM except the ones with Asyc
 // suffix which perform the write in a fire-and-foreget best effort manner. These should only
 // be used for low importance writes that can be retried later without loss of data.
+// TODO: implement Store with cache decorator
 type Store interface {
 	IsEmpty() bool
 	ClusterName() string
+	PartitionCount() uint32
 	Server(id uint64) *Server
+	Servers() Servers
+	Partitions() Partitions
+
 	Bootstrap(*Bootstrap) (*BootstrapResult, error)
 	Register(*Register) (*RegisterResult, error)
 	UpdateServers(*UpdateServers) error
@@ -61,6 +66,12 @@ func (s *store) ClusterName() string {
 	return s.fsm.clusterName
 }
 
+func (s *store) PartitionCount() uint32 {
+	s.fsm.lock.RLock()
+	defer s.fsm.lock.RUnlock()
+	return s.fsm.partitionCount
+}
+
 func (s *store) IsEmpty() bool {
 	s.fsm.lock.RLock()
 	defer s.fsm.lock.RUnlock()
@@ -77,6 +88,18 @@ func (s *store) Server(id uint64) *Server {
 	}
 
 	return utils.CloneProto(server)
+}
+
+func (s *store) Servers() Servers {
+	s.fsm.lock.RLock()
+	defer s.fsm.lock.RUnlock()
+	return *utils.CloneProto(s.fsm.servers)
+}
+
+func (s *store) Partitions() Partitions {
+	s.fsm.lock.RLock()
+	defer s.fsm.lock.RUnlock()
+	return *utils.CloneProto(s.fsm.partitions)
 }
 
 func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {

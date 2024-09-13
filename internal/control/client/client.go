@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/discovery"
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -28,31 +28,31 @@ type ControlClient interface {
 }
 
 type controlClient struct {
+	opts   *options
 	conn   *rpc.Conn
 	client control.ServiceClient
 }
 
-type options struct {
-	target      discovery.Target
-	dialOptions []grpc.DialOption
-}
-
-func NewClient(opts ...Option) ControlClient {
+func New(opts ...Option) ControlClient {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
 
-	dialOpts := append(o.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
-	conn := rpc.NewConn(o.target.String(), dialOpts...)
-
 	return &controlClient{
-		conn:   conn,
-		client: control.NewServiceClient(conn),
+		opts: o,
 	}
 }
 
 func (c *controlClient) Start(ctx context.Context) error {
+	if !c.opts.target.IsValid() {
+		return errors.Error("missing connection target")
+	}
+
+	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
+	c.conn = rpc.NewConn(c.opts.target.String(), dialOpts...)
+	c.client = control.NewServiceClient(c.conn)
+
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }
 

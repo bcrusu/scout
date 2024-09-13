@@ -5,6 +5,9 @@ var (
 	// For more specific errors should use ValidationError instead.
 	InvalidRequest = Error("invalid request")
 
+	// PermissionDenied lets the caller know that some things are not allowed.
+	PermissionDenied = Error("permission denied")
+
 	// Unavailable signals that the resource is not currently available.
 	Unavailable = Error("resource unavailable")
 
@@ -23,6 +26,9 @@ var (
 	// FailedPrecondition signals that the operation was rejected because the resource
 	// state does not match the expected state.
 	FailedPrecondition = Error("precondition failed")
+
+	// ResourceExhausted used for quota and rate limiting.
+	ResourceExhausted = Error("resource exhausted")
 )
 
 // ValidationError is a validation error that carries extra information to callers.

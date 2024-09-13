@@ -55,6 +55,10 @@ func (t Target) String() string {
 	return u.String()
 }
 
+func (t Target) IsValid() bool {
+	return t.ClusterName != "" && t.Discovery != ""
+}
+
 // ParseTarget parses the URL to extract discovery target.
 func ParseTarget(u url.URL) (Target, error) {
 	if u.Scheme != Scheme {

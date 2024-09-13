@@ -54,7 +54,7 @@ func registerWithRetry(ctx context.Context, log logging.Logger, config Config, s
 		client.WithTarget(discovery.NewTarget(config.ClusterName, config.Discovery)),
 	}
 
-	client := client.NewClient(opts...)
+	client := client.New(opts...)
 
 	if err := client.Start(ctx); err != nil {
 		return nil, errors.Wrap(err, "failed to start control client")

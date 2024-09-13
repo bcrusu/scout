@@ -9,3 +9,15 @@ func (s *Server) AddToLog(log logging.Logger) logging.Logger {
 		"server_type", s.Type,
 	)
 }
+
+func (s *Servers) ForType(stype ServerType) map[uint64]*Server {
+	result := map[uint64]*Server{}
+
+	for id, s := range s.Items {
+		if s.Type == stype {
+			result[id] = s
+		}
+	}
+
+	return result
+}

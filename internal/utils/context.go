@@ -10,7 +10,7 @@ func WithCancelAndWaitR[R any](work func(context.Context) R) (func(context.Conte
 	doneCh := make(chan any)
 	var wg sync.WaitGroup
 	var cancelFn context.CancelFunc
-	wg.Add(1)
+	wg.Add(1) // TODO review
 
 	workAndSignal := func(ctx context.Context) R {
 		ctx, cancelFn = context.WithCancel(ctx)

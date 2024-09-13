@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/discovery"
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -28,31 +28,33 @@ type DataClient interface {
 }
 
 type dataClient struct {
+	opts   *options
 	conn   *rpc.Conn
 	client data.ServiceClient
 }
 
-type options struct {
-	target      discovery.Target
-	dialOptions []grpc.DialOption
-}
-
-func NewClient(opts ...Option) DataClient {
+func New(opts ...Option) DataClient {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
 
-	dialOpts := append(o.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
-	conn := rpc.NewConn(o.target.String(), dialOpts...)
-
 	return &dataClient{
-		conn:   conn,
-		client: data.NewServiceClient(conn),
+		opts: o,
 	}
 }
 
 func (c *dataClient) Start(ctx context.Context) error {
+	if c.opts.dataServers == nil {
+		return errors.Error("missing data servers source")
+	}
+
+	resolver := &resolverBuilder{c.opts.dataServers}
+	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(resolver))
+
+	c.conn = rpc.NewConn(dummyTarget, dialOpts...)
+	c.client = data.NewServiceClient(c.conn)
+
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }
 

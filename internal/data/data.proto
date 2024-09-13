@@ -13,15 +13,17 @@ service Service {
 
 message SetRequest {
     uint64 keyspace = 1;
-    bytes key = 2;
-    bytes value = 3;
+    uint64 partition = 2;
+    bytes key = 3;
+    bytes value = 4;
 }
 
 message SetResponse {}
 
 message GetRequest {
     uint64 keyspace = 1;
-    bytes key = 2;
+    uint64 partition = 2;
+    bytes key = 3;
 }
 
 message GetResponse {
@@ -30,9 +32,8 @@ message GetResponse {
 
 message DelRequest {
     uint64 keyspace = 1;
-    bytes key = 2;
+    uint64 partition = 2;
+    bytes key = 3;
 }
 
-message DelResponse {
-}
-
+message DelResponse {}

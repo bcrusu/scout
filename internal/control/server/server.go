@@ -101,9 +101,10 @@ func (n *Server) getComponentsForBootstrap() ([]utils.Lifecycle, error) {
 	}
 
 	params := bootstrap.Params{
-		ClusterName:  n.config.ClusterName,
-		LocalAddress: n.bconfig.LocalAddress,
-		Peers:        n.bconfig.Peers,
+		ClusterName:    n.config.ClusterName,
+		LocalAddress:   n.bconfig.LocalAddress,
+		Peers:          n.bconfig.Peers,
+		PartitionCount: n.bconfig.PartitionCount,
 	}
 
 	if err := bootstrap.ValidateParams(&params); err != nil {

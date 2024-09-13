@@ -11,6 +11,7 @@ type Config struct {
 }
 
 type BootstrapConfig struct {
-	LocalAddress string
-	Peers        []string
+	LocalAddress   string
+	Peers          []string
+	PartitionCount uint32
 }

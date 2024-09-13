@@ -72,36 +72,112 @@ message RegisterResponse {
     uint64 server_id = 1;
 
     // Equivalent to the id above. It can be used in places
-    // where strings are expected. Servers are expected to
+    // where strings are expected. Servers are required to
     // store both id and name pair and do the translation
     // between the two on their own.
     string server_name = 2;
 }
 
 message SessionIn {
-    message ControlReq {}
-    message DataReq {}
-    message ApiReq {}
-
-    string cluster_name = 1;
-    uint64 server_id = 2;
-    string address = 3;
-
     oneof payload {
-        ControlReq control = 4;
-        DataReq data = 5;
-        ApiReq api = 6;
+        Hello hello = 1;
+        Heartbeat heartbeat = 2;
+        GetConfig get_config = 3;
+        GetDataServers get_data_servers = 4;
+        GetApiServers get_api_servers = 5;
+        DataServerStatus data_server_status = 6;
+        ApiServerStatus api_server_status = 7;
     }
 }
 
 message SessionOut {
-    message ControlReq {}
-    message DataReq {}
-    message ApiReq {}
-
     oneof payload {
-        ControlReq control = 1;
-        DataReq data = 2;
-        ApiReq api = 3;
+        HelloDataServer hello_data_server = 1;
+        HelloApiServer hello_api_server = 2;
+        DataServerConfig data_server_config = 3;
+        ApiServerConfig api_server_config = 4;
+        DataServers data_servers = 5;
+        ApiServers api_servers = 6;
     }
 }
+
+message Hello {
+    string cluster_name = 1;
+    uint64 server_id = 2;
+    string address = 3;
+}
+
+message HelloDataServer {
+    DataServerConfig config = 1;
+    DataServers data_servers = 2;
+}
+
+message HelloApiServer {
+    ApiServerConfig config = 1;
+    DataServers data_servers = 2;
+    ApiServers api_servers = 3;
+}
+
+message Heartbeat {}
+
+message GetConfig {
+    uint64 if_no_match = 1;
+}
+
+message DataServerConfig {
+    uint64 version = 1;
+}
+
+message ApiServerConfig {
+    uint64 version = 1;
+}
+
+message GetDataServers {
+    uint64 if_no_match = 1;
+}
+
+message DataServers {
+    message Server {
+        uint64 id = 1;
+        string address = 2;
+    }
+
+    message Partition {
+        uint32 id = 1;
+        repeated uint64 read_servers = 2;
+        uint64 write_server = 3;
+    }
+
+    uint64 version = 1;
+    map<uint64, Server> servers = 2;
+    map<uint32, Partition> partitions = 3;
+    uint32 partition_count = 4;
+    string service_config_json = 5;
+}
+
+message GetApiServers {
+    uint64 if_no_match = 1;
+}
+
+message ApiServers {
+    message Server {
+        uint64 id = 1;
+        string address = 2;
+    }
+
+    uint64 version = 1;
+    map<uint64, Server> servers = 2;
+    string service_config_json = 3;
+}
+
+message DataServerStatus {
+    message Partition {
+        uint32 id = 1;
+        bool leader = 2;
+        uint64 leader_term = 3;
+    }
+
+    map<uint32, Partition> partitions = 1;
+}
+
+message ApiServerStatus {}

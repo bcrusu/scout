@@ -18,9 +18,10 @@ var (
 
 type FSM struct {
 	lock               sync.RWMutex
-	index              uint64            // last applied raft log index; used for optimistic concurrency control
+	version            uint64            // last applied raft log index; used for optimistic concurrency control
 	clusterName        string            // read-only cluster name set during bootstrap
 	clusterCreatedTime time.Time         // records the time when the cluster was created (UTC)
+	partitionCount     uint32            // fixed number of data partitions
 	tokens             map[string]uint64 // map[token]server_id: all seen server tokens (could be pruned later)
 	servers            *Servers
 	partitions         *Partitions
@@ -35,14 +36,14 @@ func NewFSM() *FSM {
 func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.index = index
+	f.version = index
 
 	cmd, err := utils.UnmarshalProto[Command](data)
 	if err != nil {
 		return err
 	}
 
-	if cmd.MatchIndex != 0 && cmd.MatchIndex != f.index {
+	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
 		return errors.FailedPrecondition
 	}
 
@@ -81,12 +82,13 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	defer f.lock.RUnlock()
 
 	snap := &Snapshot{
-		Index:              f.index,
+		Version:            f.version,
 		ClusterName:        f.clusterName,
 		ClusterCreatedTime: timestamppb.New(f.clusterCreatedTime),
 		Tokens:             f.tokens,
 		Servers:            f.servers,
 		Partitions:         f.partitions,
+		PartitionCount:     f.partitionCount,
 	}
 
 	return utils.MarshalProto(snap)
@@ -101,12 +103,13 @@ func (f *FSM) Restore(data []byte) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	f.index = snap.Index
+	f.version = snap.Version
 	f.clusterName = snap.ClusterName
 	f.clusterCreatedTime = snap.ClusterCreatedTime.AsTime()
 	f.tokens = snap.Tokens
 	f.servers = snap.Servers
 	f.partitions = snap.Partitions
+	f.partitionCount = snap.PartitionCount
 
 	return nil
 }

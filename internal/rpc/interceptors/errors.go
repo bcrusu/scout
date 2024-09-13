@@ -73,8 +73,12 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.NotFound, "Not found")
 	case errors.InvalidRequest:
 		return status.Error(codes.InvalidArgument, "Invalid Request")
+	case errors.PermissionDenied:
+		return status.Error(codes.PermissionDenied, "Permission Denied")
 	case errors.NotRegistered:
 		return status.Error(codes.Unauthenticated, "Not Registered")
+	case errors.ResourceExhausted:
+		return status.Error(codes.ResourceExhausted, "Resource Exhausted")
 	case errInternal:
 		return errInternal
 	}
@@ -115,10 +119,14 @@ func getGoError(err error) error {
 			return errors.UnknownLeader
 		}
 		return errors.NotFound
+	case codes.PermissionDenied:
+		return errors.PermissionDenied
 	case codes.Unauthenticated:
 		if s.Message() == "Not Registered" {
 			return errors.NotRegistered
 		}
+	case codes.ResourceExhausted:
+		return errors.ResourceExhausted
 	}
 
 	return err

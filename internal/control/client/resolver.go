@@ -13,7 +13,12 @@ import (
 	"github.com/bcrusu/graph/internal/tracing"
 	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
+)
+
+const (
+	attrKey = "lbconfig"
 )
 
 var (
@@ -62,11 +67,11 @@ func (r *resolverImpl) Close() {
 }
 
 func (r *resolverImpl) mainLoop() {
-	var last time.Time
-	resolving := false
+	resolveNowThrottled := utils.ThrottleChan(r.resolveNowCh, resolveThrottle)
 	ticker := time.NewTicker(resolveInterval)
 	defer ticker.Stop()
 
+	resolving := false
 	reqCh := make(chan bool)
 	resCh := make(chan bool)
 
@@ -78,17 +83,15 @@ func (r *resolverImpl) mainLoop() {
 	}()
 
 	resolve := func() {
-		now := time.Now()
-		if !resolving && last.Before(now.Add(-resolveThrottle)) {
+		if !resolving {
 			resolving = true
 			reqCh <- true
-			last = now
 		}
 	}
 
 	for {
 		select {
-		case _, ok := <-r.resolveNowCh:
+		case _, ok := <-resolveNowThrottled:
 			if !ok {
 				close(reqCh)
 				<-resCh
@@ -148,7 +151,7 @@ func (r *resolverImpl) createClient() ControlClient {
 		WithDialOptions(dialOpts...),
 	}
 
-	return NewClient(opts...)
+	return New(opts...)
 }
 
 func (r *resolverImpl) updateState(ctx context.Context, resp *control.DiscoverResponse) error {
@@ -165,9 +168,12 @@ func (r *resolverImpl) updateState(ctx context.Context, resp *control.DiscoverRe
 		return errors.Wrap(parseResult.Err, "ParseServiceConfig call failed")
 	}
 
+	attr := attributes.New(attrKey, leaderAddress)
+
 	return r.clientConn.UpdateState(resolver.State{
-		Addresses:     []resolver.Address{{Addr: leaderAddress}},
+		Addresses:     []resolver.Address{{Addr: "dummy_addr"}},
 		ServiceConfig: parseResult,
+		Attributes:    attr,
 	})
 }
 

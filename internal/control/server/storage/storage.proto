@@ -7,7 +7,7 @@ option go_package = "internal/control/server/storage";
 import "google/protobuf/timestamp.proto";
 
 message Command {
-    // [optional] The FSM checks its last applied index with the one
+    // [optional] The FSM checks its current version with the one
     // provided here and rejects the write if they do not match. Will
     // be used for scenarios where changes in state between read and
     // write are not allowed. For example, the partition assignment
@@ -18,7 +18,7 @@ message Command {
     // assigned paritions. For this kind of scenarios it is preferable
     // to reject the write and have the component retry by reading
     // latest state, restarting the process from beginning.
-    uint64 match_index = 1;
+    uint64 if_match = 1;
 
     oneof payload {
         Bootstrap bootstrap = 2;
@@ -36,6 +36,13 @@ message Bootstrap {
 
     string cluster_name = 1;
     repeated Server servers = 2;
+
+    // The number of partitions in the data storage cluster. It is set
+    // during cluster bootstrap and will not be changed later. This way,
+    // it implicitly sets an upper limit on the total data storage capacity
+    // achievable in the cluster.
+    // Each partition maps one-to-one to a multiraft replication group.
+    uint32 partition_count = 3;
 }
 
 message Register {
@@ -59,12 +66,13 @@ message UpdateServers {
 }
 
 message Snapshot {
-    uint64 index = 1;
+    uint64 version = 1;
     string cluster_name = 2;
     google.protobuf.Timestamp cluster_created_time = 3;
     map<string, uint64> tokens = 4;
     Servers servers = 5;
     Partitions partitions = 6;
+    uint32 partition_count = 7;
 }
 
 enum ServerType {
@@ -101,13 +109,13 @@ message Partition {
     }
 
     uint64 version = 1;
-    uint64 id = 2;
+    uint32 id = 2;
     string group_name = 3;
-    Member group_members = 4;
-    uint64 next_unique = 5;
+    repeated Member group_members = 4;
+    uint64 last_member_id = 5;
 }
 
 message Partitions {
     uint64 version = 1;
-    map<uint64, Partition> items = 2;
+    map<uint32, Partition> items = 2;
 }

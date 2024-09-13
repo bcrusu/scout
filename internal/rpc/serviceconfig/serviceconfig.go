@@ -108,3 +108,10 @@ func (c *ServiceConfig) WithLBGraphData() *ServiceConfig {
 	}
 	return c
 }
+
+func (c *ServiceConfig) WithLBGraphApi() *ServiceConfig {
+	c.LoadBalancingConfig = []*LBConfig{
+		{Policy: &LBConfig_GraphApi{}},
+	}
+	return c
+}

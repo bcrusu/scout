@@ -14,6 +14,7 @@ require (
 	github.com/onsi/gomega v1.34.2
 	github.com/spf13/cobra v1.8.1
 	go.uber.org/mock v0.4.0
+	golang.org/x/time v0.6.0
 	google.golang.org/grpc v1.66.0
 	google.golang.org/protobuf v1.34.2
 )
