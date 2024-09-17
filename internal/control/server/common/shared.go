@@ -44,16 +44,16 @@ func (n *Shared) Discover(ctx context.Context, req *control.DiscoverRequest) (*c
 		return nil, err
 	}
 
-	config, err := n.raft.GetConfiguration()
+	raftServers, err := n.raft.GetServers()
 	if err != nil {
 		return nil, err
 	}
 
-	servers := make([]*control.DiscoverResponse_Server, len(config.Servers))
-	for i, server := range config.Servers {
+	servers := make([]*control.DiscoverResponse_Server, len(raftServers))
+	for i, server := range raftServers {
 		servers[i] = &control.DiscoverResponse_Server{
 			Address: string(server.Address),
-			Leader:  string(server.ID) == leaderID,
+			Leader:  server.ID == leaderID,
 		}
 	}
 

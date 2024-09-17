@@ -4,13 +4,13 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/utils"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("PubSub tests", func() {
 	shortPause := func() <-chan time.Time {
-		return time.After(20 * time.Millisecond)
+		return time.After(10 * time.Millisecond)
 	}
 
 	Context("When there are no subscribers", func() {
@@ -40,18 +40,25 @@ var _ = Describe("PubSub tests", func() {
 			Expect(sub2).NotTo(BeNil())
 		})
 
+		AfterEach(func() {
+			sub1.Unsubscribe()
+			sub2.Unsubscribe()
+		})
+
 		Context("When the buffer is empy", func() {
 			It("Subscriber should wait for publisher", func() {
-				ch := make(chan bool)
+				doneCh := make(chan bool)
+
 				go func() {
 					sub1.Item()
-					ch <- true
+					close(doneCh)
 				}()
 
 				select {
-				case <-ch:
+				case <-doneCh:
 					Fail("Subscriber did not wait")
 				case <-shortPause():
+					pub.Publish(1)
 				}
 			})
 
@@ -97,17 +104,20 @@ var _ = Describe("PubSub tests", func() {
 				}
 			})
 
-			It("Publish should block waiting for subscriber", func() {
-				ch := make(chan bool)
+			It("Publish should block waiting for subscribers", func() {
+				doneCh := make(chan bool)
+
 				go func() {
 					pub.Publish(99)
-					ch <- true
+					close(doneCh)
 				}()
 
 				select {
-				case <-ch:
+				case <-doneCh:
 					Fail("Publisher did not wait")
 				case <-shortPause():
+					sub1.Item()
+					sub2.Item()
 				}
 			})
 
@@ -132,31 +142,32 @@ var _ = Describe("PubSub tests", func() {
 		})
 
 		It("Subscriber should wait for publisher", func() {
-			ch := make(chan bool)
+			doneCh := make(chan bool)
 
 			go func() {
 				pub.Publish(1)
-				ch <- true
+				close(doneCh)
 			}()
 
 			select {
-			case <-sub.ItemChan():
-			case <-ch:
+			case <-doneCh:
 				Fail("Subscriber did not wait.")
+			case <-sub.ItemChan():
 			}
 		})
 
 		It("Publisher should wait for subscriber", func() {
-			ch := make(chan bool)
+			doneCh := make(chan bool)
 			go func() {
 				pub.Publish(99)
-				ch <- true
+				close(doneCh)
 			}()
 
 			select {
-			case <-ch:
+			case <-doneCh:
 				Fail("Publisher did not wait")
 			case <-shortPause():
+				sub.Item()
 			}
 		})
 	})

@@ -12,6 +12,11 @@ import (
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
+	"github.com/hashicorp/raft"
+)
+
+const (
+	raftGroupName = "control"
 )
 
 var (
@@ -52,6 +57,10 @@ func (n *Server) Start(ctx context.Context) (err error) {
 	return utils.LifecycleStart(ctx, log, n.components...)
 }
 
+func (n *Server) Stop() {
+	utils.LifecycleStop(log.NoContext(), n.components...)
+}
+
 func (n *Server) getComponents() ([]utils.Lifecycle, error) {
 	idStore, err := identity.NewStore(n.config.DataDir)
 	if err != nil {
@@ -63,29 +72,19 @@ func (n *Server) getComponents() ([]utils.Lifecycle, error) {
 		return nil, errors.Error("server identity not found; must bootstrap or join a cluster first.")
 	}
 
-	fsm := storage.NewFSM()
-	dialOpts := rpc.DefaultDialOptions()
-	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
-
-	// TODO: make configurable
-	cfg := multiraft.Config{
-		ID:             id.Name,
-		Address:        n.config.Server.BindAddress,
-		RequestTimeout: 2 * time.Second,
-		Transport:      transportService.Transport("control"),
-		FSM:            fsm,
+	store, transportService, raft, err := n.buildRaft(id.ServerName)
+	if err != nil {
+		return nil, err
 	}
-
-	raft := multiraft.NewRaft(cfg)
-	store := storage.NewStore(raft, fsm)
 
 	controlService := NewControlService(raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
 
 	return []utils.Lifecycle{
-		controlService,
+		store,
 		transportService,
 		raft,
+		controlService,
 		server,
 	}, nil
 }
@@ -111,35 +110,46 @@ func (n *Server) getComponentsForBootstrap() ([]utils.Lifecycle, error) {
 		return nil, err
 	}
 
-	fsm := storage.NewFSM()
-	dialOpts := rpc.DefaultDialOptions()
-	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
-
-	// TODO: make configurable
-	cfg := multiraft.Config{
-		ID:             params.LocalName(),
-		Address:        n.config.Server.BindAddress,
-		RequestTimeout: 2 * time.Second,
-		Transport:      transportService.Transport("control"),
-		FSM:            fsm,
+	store, transportService, raft, err := n.buildRaft(params.Identity().ServerName)
+	if err != nil {
+		return nil, err
 	}
-
-	raft := multiraft.NewRaft(cfg)
-	store := storage.NewStore(raft, fsm)
 
 	controlService := NewControlService(raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
-	bootstrapper := bootstrap.NewBootstrapper(raft, store, params)
+	bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore, params)
 
 	return []utils.Lifecycle{
-		controlService,
+		store,
 		transportService,
 		raft,
+		controlService,
 		server,
 		bootstrapper,
 	}, nil
 }
 
-func (n *Server) Stop(ctx context.Context) {
-	utils.LifecycleStop(ctx, log, n.components...)
+func (n *Server) buildRaft(serverName string) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {
+	fsm := storage.NewFSM()
+	dialOpts := rpc.DefaultDialOptions()
+	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
+
+	// TODO: make configurable
+	config := multiraft.Config{
+		BindAddress:    n.config.Server.BindAddress,
+		RequestTimeout: 2 * time.Second,
+		Transport:      transportService,
+		FSM:            fsm,
+	}
+
+	mraft := multiraft.NewMultiRaft(config)
+
+	raft, err := mraft.New(raftGroupName, raft.ServerID(serverName))
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "failed to create raft group")
+	}
+
+	store := storage.NewStore(raft, fsm)
+
+	return store, transportService, raft, nil
 }

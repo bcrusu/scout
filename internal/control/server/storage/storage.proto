@@ -98,9 +98,9 @@ message Servers {
     uint64 last_server_id = 3;
 }
 
-// Partition represents a data storage partition/shard which has a one-to-one
-// mapping to a multiraft replication group. Each partition contains its assigned
-// members and thir placement to servers.
+// Partition represents a data storage partition which has a one-to-one
+// mapping to a Raft replication group. Each partition contains its assigned
+// group members and thir placement to servers.
 message Partition {
     message Member {
         string name = 1;
@@ -110,8 +110,8 @@ message Partition {
 
     uint64 version = 1;
     uint32 id = 2;
-    string group_name = 3;
-    repeated Member group_members = 4;
+    string name = 3;
+    repeated Member members = 4;
     uint64 last_member_id = 5;
 }
 

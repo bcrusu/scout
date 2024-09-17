@@ -115,7 +115,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) {
 		r.clientConn.ReportError(err)
 		return
 	}
-	defer client.Stop(ctx)
+	defer client.Stop()
 
 	req := &control.DiscoverRequest{
 		ClusterName: r.target.ClusterName,

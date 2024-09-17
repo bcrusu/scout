@@ -9,16 +9,15 @@ import (
 )
 
 var (
-	_     hclog.Logger = (*logAdapter)(nil)
-	hcLog              = newLogAdapter()
+	_ hclog.Logger = (*logAdapter)(nil)
 )
 
 type logAdapter struct {
 	log logging.LoggerNoContext
 }
 
-func newLogAdapter() *logAdapter {
-	return &logAdapter{log: logging.WithComponent("hashicorp_raft").NoContext()}
+func newLogAdapter(name string) *logAdapter {
+	return &logAdapter{log: logging.WithComponent(name).NoContext()}
 }
 
 func (l *logAdapter) Log(level hclog.Level, msg string, args ...any) {

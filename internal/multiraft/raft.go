@@ -18,9 +18,11 @@ var (
 
 // Raft represents a single Raft group.
 type Raft struct {
-	config     Config
-	raft       *raft.Raft
-	leaderChan chan bool
+	localID        raft.ServerID
+	bindAddress    raft.ServerAddress
+	requestTimeout time.Duration
+	raft           *raft.Raft
+	leaderChan     chan bool
 }
 
 type FSM interface {
@@ -37,47 +39,21 @@ type fsmSnapshot struct {
 	data []byte
 }
 
-// NewRaft returns a new Raft group.
-func NewRaft(config Config) *Raft {
-	return &Raft{
-		config:     config,
-		leaderChan: make(chan bool),
-	}
-}
-
-// Start starts the Raft group.
 func (r *Raft) Start(ctx context.Context) error {
-	logStore := NewLogStore()
-	stableStore := NewStableStore()
-	snapshotStore := NewSnapshotStore()
-
-	cfg := r.config.getRaftConfig()
-	cfg.NotifyCh = r.leaderChan
-
-	fsm := &fsmAdapter{r.config.FSM}
-	raft, err := raft.NewRaft(cfg, fsm, logStore, stableStore, snapshotStore, r.config.Transport)
-	if err != nil {
-		return errors.Wrap(err, "failed to create Raft")
-	}
-
-	r.raft = raft
 	return nil
 }
 
 // Stop stops the Raft group.
-func (r *Raft) Stop(ctx context.Context) {
+func (r *Raft) Stop() {
 	if err := r.raft.Shutdown().Error(); err != nil {
-		log.WithContext().WithError(err).Warn(ctx, "Shutdown call returned error")
+		log.WithError(err).Warn("Shutdown call returned error")
 	}
 }
 
 // Bootstrap is called only once, in the beggining, when the cluster is created.
 // It configures the initial list of servers which must also include the local server.
 func (r *Raft) Bootstrap(initialServers ...raft.Server) error {
-	sid := raft.ServerID(r.config.ID)
-	saddress := raft.ServerAddress(r.config.Address)
-
-	if _, ok := findServerForIdAndAddress(initialServers, sid, saddress); !ok {
+	if _, ok := findServerForIdAndAddress(initialServers, r.localID, r.bindAddress); !ok {
 		return errors.Error("initial server list does not contain the local server")
 	}
 
@@ -91,14 +67,15 @@ func (r *Raft) Bootstrap(initialServers ...raft.Server) error {
 	return nil
 }
 
-// GetConfiguration returns latest configuration.
-func (r *Raft) GetConfiguration() (raft.Configuration, error) {
+// GetServers returns the current configuration server list.
+func (r *Raft) GetServers() ([]raft.Server, error) {
 	future := r.raft.GetConfiguration()
 	if err := future.Error(); err != nil {
-		return raft.Configuration{}, errors.Wrap(err, "failed to get Raft configuration")
+		return nil, errors.Wrap(err, "failed to get Raft configuration")
 	}
 
-	return future.Configuration(), nil
+	config := future.Configuration()
+	return config.Servers, nil
 }
 
 // IsLeader returns true if the node is currently the leader.
@@ -107,12 +84,12 @@ func (r *Raft) IsLeader() bool {
 }
 
 // GetLeader returns current leader identifier and address if available.
-func (r *Raft) GetLeader() (string, string, error) {
+func (r *Raft) GetLeader() (raft.ServerID, raft.ServerAddress, error) {
 	addr, id := r.raft.LeaderWithID()
 	if id == "" {
 		return "", "", errors.UnknownLeader
 	}
-	return string(id), string(addr), nil
+	return id, addr, nil
 }
 
 // GetLeaderChan returns a chan used to observe leadership changes for current server.
@@ -120,36 +97,49 @@ func (r *Raft) GetLeaderChan() <-chan bool {
 	return r.leaderChan
 }
 
-// AddVoter adds the provided server to the running cluster.
+// AddOrUpdateServer adds the provided server to the running cluster. If already part of
+// the cluster, its address and suffrage will be updated.
 // Must be invoked on the leader.
-func (r *Raft) AddVoter(ctx context.Context, id, address string) error {
+func (r *Raft) AddOrUpdateServer(new raft.Server) error {
 	if err := r.checkLeader(); err != nil {
 		return err
 	}
 
-	log := log.With("id", id, "address", address).WithContext()
-	cfg, err := r.GetConfiguration()
+	log := log.With("id", new.ID, "address", new.Address, "suffrage", new.Suffrage)
+
+	servers, err := r.GetServers()
 	if err != nil {
 		return err
 	}
 
-	sid := raft.ServerID(id)
-	saddress := raft.ServerAddress(address)
-
-	if server, ok := findServerForId(cfg.Servers, sid); ok {
-		if server.Address == saddress {
-			log.Info(ctx, "Server is already in cluster. Nothing to do.")
-			return nil
-		} else {
-			log.Info(ctx, "Server is already in cluster, but with a different address. Will update its address.", "old_address", server.Address)
-		}
-	} else {
-		log.Info(ctx, "Adding server to cluster...")
+	needsDemote := false
+	if old, found := findServerForId(servers, new.ID); found {
+		needsDemote = old.Suffrage == raft.Voter && new.Suffrage == raft.Nonvoter
 	}
 
-	if err := r.raft.AddVoter(sid, saddress, 0, r.config.RequestTimeout).Error(); err != nil {
-		log.WithError(err).Error(ctx, "Add server to cluster failed.")
+	var addFunc func(raft.ServerID, raft.ServerAddress, uint64, time.Duration) raft.IndexFuture
+	if new.Suffrage == raft.Voter {
+		addFunc = r.raft.AddVoter
+	} else {
+		addFunc = r.raft.AddNonvoter
+	}
+
+	if err := addFunc(new.ID, new.Address, 0, r.requestTimeout).Error(); err != nil {
+		log.WithError(err).Error("Add server failed.")
 		return r.convertError(err)
+	} else {
+		log.Info("Add server success.")
+	}
+
+	if !needsDemote {
+		return nil
+	}
+
+	if err := r.raft.DemoteVoter(new.ID, 0, r.requestTimeout).Error(); err != nil {
+		log.WithError(err).Error("Demote server failed.")
+		return r.convertError(err)
+	} else {
+		log.Info("Demote server success.")
 	}
 
 	return nil
@@ -157,15 +147,13 @@ func (r *Raft) AddVoter(ctx context.Context, id, address string) error {
 
 // RemoveServer removes the server from the cluster.
 // Must be invoked on the leader.
-func (r *Raft) RemoveServer(ctx context.Context, id string) error {
+func (r *Raft) RemoveServer(id raft.ServerID) error {
 	if err := r.checkLeader(); err != nil {
 		return err
 	}
 
-	sid := raft.ServerID(id)
-
-	if err := r.raft.RemoveServer(sid, 0, r.config.RequestTimeout).Error(); err != nil {
-		log.WithContext().WithError(err).Error(ctx, "Remove server from cluster failed.")
+	if err := r.raft.RemoveServer(id, 0, r.requestTimeout).Error(); err != nil {
+		log.WithError(err).Error("Remove server from cluster failed.")
 		return r.convertError(err)
 	}
 

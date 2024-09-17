@@ -11,16 +11,16 @@ import (
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc"
 )
 
 var (
 	_                      utils.Lifecycle = (*Session)(nil)
-	heartbeatInterval                      = utils.AddJitter(8*time.Second, 0.10) // TODO: make configurable
+	heartbeatInterval                      = utils.AddJitter(5*time.Second, 0.15)
 	sendChSize                             = 32
 	getDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
+	newSessionThrottle                     = utils.AddJitter(5*time.Second, 0.15)
 	log                                    = logging.WithComponent("data_session").NoContext()
 
 	retryBackoff = &utils.Backoff{
@@ -30,23 +30,23 @@ var (
 )
 
 type Session struct {
-	client      client.ControlClient
-	raft        *multiraft.MultiRaft
-	id          identity.Identity
-	address     string
-	dsPublisher utils.Publisher[*control.DataServers]
-	cancelFunc  context.CancelFunc
+	client          client.ControlClient
+	id              identity.Identity
+	address         string
+	configPublisher utils.Publisher[*control.DataServerConfig]
+	dsPublisher     utils.Publisher[*control.DataServers]
+	cancelFunc      context.CancelFunc
 }
 
 type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
 
-func New(client client.ControlClient, raft *multiraft.MultiRaft, id identity.Identity, address string) *Session {
+func New(client client.ControlClient, id identity.Identity, address string) *Session {
 	return &Session{
-		client:      client,
-		raft:        raft,
-		id:          id,
-		address:     address,
-		dsPublisher: utils.NewPubSub[*control.DataServers](1),
+		client:          client,
+		id:              id,
+		address:         address,
+		configPublisher: utils.NewPubSub[*control.DataServerConfig](1),
+		dsPublisher:     utils.NewPubSub[*control.DataServers](1),
 	}
 }
 
@@ -58,8 +58,12 @@ func (m *Session) Start(ctx context.Context) error {
 	return nil
 }
 
-func (m *Session) Stop(ctx context.Context) {
+func (m *Session) Stop() {
 	m.cancelFunc()
+}
+
+func (s *Session) SubscribeDataServerConfig() utils.Subscriber[*control.DataServerConfig] {
+	return s.configPublisher.Subscribe(1)
 }
 
 func (s *Session) SubscribeDataServers() utils.Subscriber[*control.DataServers] {
@@ -70,34 +74,49 @@ func (m *Session) mainLoop(ctx context.Context) {
 	getDataServersThrottled := utils.ThrottleChan(m.dsPublisher.NotifyChan(), getDataServersThrottle)
 
 	for {
-		streamCtx, streamCancel := context.WithCancel(ctx)
-		stream, err := m.newStreamWithRetry(streamCtx)
-		if err != nil {
-			streamCancel()
-			return
-		}
-
-		doneCh := make(chan error)
-		sendCh := make(chan *control.SessionIn, sendChSize)
-		recvCh := make(chan any)
-
-		go m.sendLoop(stream, sendCh, doneCh)
-		go m.recvLoop(stream, recvCh, doneCh)
-
-		gotHello := false
-		var config *control.DataServerConfig
-		var dataServers *control.DataServers
+		m.runSessionStream(ctx, getDataServersThrottled)
 
 		select {
-		case err := <-doneCh:
-			go func() {
-				for range recvCh {
-					// drain
-				}
-			}()
+		case <-ctx.Done():
+			return
+		case <-time.After(newSessionThrottle):
+		}
+	}
+}
 
+func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan any) {
+	heartbeatTicker := time.NewTicker(heartbeatInterval)
+	defer heartbeatTicker.Stop()
+
+	streamCtx, streamCancel := context.WithCancel(ctx)
+	stream, err := m.newSessionWithRetry(streamCtx)
+	if err != nil {
+		streamCancel()
+		return
+	}
+
+	loopDoneCh := make(chan error)
+	sendCh := make(chan *control.SessionIn, sendChSize)
+	recvCh := make(chan any)
+
+	go m.sendLoop(stream, sendCh, loopDoneCh)
+	go m.recvLoop(stream, recvCh, loopDoneCh)
+
+	gotHello := false
+	var config *control.DataServerConfig
+	var dataServers *control.DataServers
+
+	drainLoop := func() {
+		for range recvCh {
+		}
+	}
+
+	for {
+		select {
+		case err := <-loopDoneCh:
+			go drainLoop()
 			streamCancel()
-			<-doneCh // wait for partner
+			<-loopDoneCh // wait for partner
 
 			if err != nil && !errors.Is(err, io.EOF) {
 				log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
@@ -106,9 +125,14 @@ func (m *Session) mainLoop(ctx context.Context) {
 			}
 
 			close(sendCh)
-			close(recvCh)
-			// TODO: add some random backoff
-		case <-getDataServersThrottled:
+			return
+		case <-heartbeatTicker.C:
+			if gotHello {
+				sendCh <- m.newSessionIn(&control.Heartbeat{
+					ConfigVersion: config.Version,
+				})
+			}
+		case <-getDataServersCh:
 			if gotHello {
 				sendCh <- m.newSessionIn(&control.GetDataServers{
 					IfNoMatch: dataServers.Version,
@@ -120,53 +144,39 @@ func (m *Session) mainLoop(ctx context.Context) {
 				config = x.Config
 				dataServers = x.DataServers
 				gotHello = true
+
+				m.dsPublisher.PublishAttempt(dataServers)
+				m.configPublisher.PublishAttempt(config)
 			case *control.DataServerConfig:
 				config = x
+				m.configPublisher.PublishAttempt(config)
 			case *control.DataServers:
 				dataServers = x
-
-				if !m.dsPublisher.PublishAttempt(dataServers) {
-					log.Warn("DataServers publish attempt failed.")
-				}
+				m.dsPublisher.PublishAttempt(dataServers)
+			default:
+				log.Warnf("Unhandled receive message type %T.", msg)
 			}
+		// TODO: send DataServerStatus
 		case <-ctx.Done():
+			go drainLoop()
 			streamCancel()
-			<-doneCh
-			<-doneCh
+			<-loopDoneCh
+			<-loopDoneCh
 			return
 		}
 	}
 }
 
 func (m *Session) sendLoop(stream stream, sendCh <-chan *control.SessionIn, doneCh chan<- error) {
-	var lastSend time.Time
-	send := func(in *control.SessionIn, what string) bool {
-		if err := stream.Send(in); err != nil {
-			doneCh <- errors.Wrapf(err, "send %s failed", what)
-			return false
-		}
-		lastSend = time.Now()
-		return true
-	}
-
-	if !send(m.newHello(), "hello") {
+	if err := stream.Send(m.newHello()); err != nil {
+		doneCh <- errors.Wrapf(err, "failed to send hello")
 		return
 	}
 
-	heartbeat := &control.SessionIn{}
-	ticker := time.NewTicker(heartbeatInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case in := <-sendCh:
-			if !send(in, "request") {
-				return
-			}
-		case <-ticker.C:
-			if time.Now().After(lastSend.Add(heartbeatInterval)) && !send(heartbeat, "heartbeat") {
-				return
-			}
+	for in := range sendCh {
+		if err := stream.Send(in); err != nil {
+			doneCh <- err
+			return
 		}
 	}
 }
@@ -183,11 +193,14 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 		doneCh <- errors.Error("server did not send hello.")
 		return
 	} else if err := payload.HelloDataServer.Validate(); err != nil {
-		doneCh <- errors.Wrap(err, "server send invalid hello.")
+		doneCh <- errors.Wrap(err, "server sent invalid hello.")
 		return
 	}
 
-	recvCh <- payload.HelloDataServer
+	// recvCh <- payload.HelloDataServer
+	recvCh <- &control.HelloDataServer{
+		Config: &control.DataServerConfig{},
+	}
 
 	for {
 		out, err := stream.Recv()
@@ -220,7 +233,7 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 func (m *Session) newHello() *control.SessionIn {
 	return m.newSessionIn(&control.Hello{
 		ClusterName: m.id.ClusterName,
-		ServerId:    m.id.ID,
+		ServerId:    m.id.ServerID,
 		Address:     m.address,
 	})
 }
@@ -231,8 +244,6 @@ func (m *Session) newSessionIn(payload any) *control.SessionIn {
 		return &control.SessionIn{Payload: &control.SessionIn_Hello{Hello: p}}
 	case *control.Heartbeat:
 		return &control.SessionIn{Payload: &control.SessionIn_Heartbeat{Heartbeat: p}}
-	case *control.GetConfig:
-		return &control.SessionIn{Payload: &control.SessionIn_GetConfig{GetConfig: p}}
 	case *control.GetDataServers:
 		return &control.SessionIn{Payload: &control.SessionIn_GetDataServers{GetDataServers: p}}
 	case *control.DataServerStatus:
@@ -242,7 +253,7 @@ func (m *Session) newSessionIn(payload any) *control.SessionIn {
 	}
 }
 
-func (m *Session) newStreamWithRetry(ctx context.Context) (stream, error) {
+func (m *Session) newSessionWithRetry(ctx context.Context) (stream, error) {
 	return utils.RetryR(ctx, retryBackoff, func() (stream, error) {
 		stream, err := m.client.NewSession(ctx)
 		if err != nil {

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/common"
+	"github.com/bcrusu/graph/internal/data/server/partitions/common"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
@@ -12,32 +12,33 @@ import (
 )
 
 var (
-	_   data.ServiceServer = (*Leader)(nil)
-	_   utils.Lifecycle    = (*Leader)(nil)
-	log                    = logging.WithComponent("data_leader")
+	_ data.ServiceServer = (*Leader)(nil)
+	_ utils.Lifecycle    = (*Leader)(nil)
 )
 
 // Leader implements the Leader role.
 type Leader struct {
 	data.UnsafeServiceServer
 	*common.Shared
+	log   logging.Logger
 	store storage.Store
 }
 
-func New(store storage.Store) *Leader {
+func New(partitionID uint32, store storage.Store) *Leader {
 	return &Leader{
 		Shared: common.New(),
+		log:    logging.WithComponent("leader").With("partition", partitionID),
 		store:  store,
 	}
 }
 
 func (n *Leader) Start(ctx context.Context) error {
-	log.Debug(ctx, "Started leader")
+	n.log.Debug(ctx, "Started leader")
 	return nil
 }
 
-func (n *Leader) Stop(ctx context.Context) {
-	log.Debug(ctx, "Stopped leader")
+func (n *Leader) Stop() {
+	n.log.NoContext().Debug("Stopped leader")
 }
 
 func (n *Leader) Set(ctx context.Context, req *data.SetRequest) (*data.SetResponse, error) {

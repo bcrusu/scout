@@ -1,6 +1,10 @@
 package storage
 
 import (
+	"context"
+	"sync"
+	"time"
+
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -11,36 +15,140 @@ var (
 )
 
 // Store defines all possilbe way to interact with the Raft group and its backing FSM storage.
+//
 // Read operations are executed directly on the FSM backing storage and the result values will
 // be clones of actual stored values. There is no guarantee that the latest version will be
-// returned. Write operations wait for the result/error from the FSM except the ones with Asyc
+// returned as there could be commited log entries that are yet to be applied to the local FSM.
+// For stronger consistency requiremets, should make use of Raft barrier, wait for it to be
+// applied, and only then read the FSM state.
+//
+// Write operations wait for the result/error from the FSM except the ones with Asyc
 // suffix which perform the write in a fire-and-foreget best effort manner. These should only
 // be used for low importance writes that can be retried later without loss of data.
-// TODO: implement Store with cache decorator
+//
+// Subscribers will always observe latest applied FSM state at publish time. The Store does not
+// guarantee that all intermediary states since the previous observatiton will be published to
+// subscribers as the events are debounced.
 type Store interface {
+	utils.Lifecycle
+
 	IsEmpty() bool
 	ClusterName() string
 	PartitionCount() uint32
-	Server(id uint64) *Server
-	Servers() Servers
-	Partitions() Partitions
+	Servers() *Servers
+	Partitions() *Partitions
 
 	Bootstrap(*Bootstrap) (*BootstrapResult, error)
 	Register(*Register) (*RegisterResult, error)
 	UpdateServers(*UpdateServers) error
 	UpdateServersAsync(*UpdateServers) error
+
+	SubscribeServers() utils.Subscriber[*Servers]
+	SubscribePartitions() utils.Subscriber[*Partitions]
 }
 
 type store struct {
-	raft *multiraft.Raft
-	fsm  *FSM
+	raft       *multiraft.Raft
+	fsm        *FSM
+	cancelFunc context.CancelFunc
+	sPublisher utils.Publisher[*Servers]
+	pPublisher utils.Publisher[*Partitions]
+	// all below are cached copies of FSM fields
+	lock           sync.RWMutex
+	clusterName    string
+	partitionCount uint32
+	servers        *Servers
+	partitions     *Partitions
 }
 
-func NewStore(raft *multiraft.Raft, fsm *FSM) Store {
+func NewStore(raft *multiraft.Raft, fsm *FSM) *store {
 	return &store{
-		raft: raft,
-		fsm:  fsm,
+		raft:       raft,
+		fsm:        fsm,
+		sPublisher: utils.NewPubSub[*Servers](1),
+		pPublisher: utils.NewPubSub[*Partitions](1),
 	}
+}
+
+func (s *store) Start(ctx context.Context) error {
+	mainLoop, cancelFunc := utils.WithCancelAndWait(s.mainLoop)
+
+	s.cancelFunc = cancelFunc
+	go mainLoop(ctx)
+	return nil
+}
+
+func (s *store) Stop() {
+	s.cancelFunc()
+}
+
+func (s *store) mainLoop(ctx context.Context) {
+	notifyDebounced := utils.DebounceChan(ctx, s.fsm.notifyCh, 100*time.Millisecond)
+
+	for {
+		select {
+		case <-notifyDebounced:
+			s.lock.Lock()
+			s.fsm.lock.RLock()
+
+			s.clusterName = s.fsm.clusterName
+			s.partitionCount = s.fsm.partitionCount
+
+			sPublish := false
+			if s.servers == nil || s.servers.Version != s.fsm.servers.Version {
+				s.servers = utils.CloneProto(s.fsm.servers)
+				sPublish = true
+			}
+
+			pPublish := false
+			if s.partitions == nil || s.partitions.Version != s.fsm.partitions.Version {
+				s.partitions = utils.CloneProto(s.fsm.partitions)
+				pPublish = true
+			}
+
+			s.fsm.lock.RUnlock()
+
+			if sPublish {
+				s.sPublisher.PublishAttempt(s.servers)
+			}
+
+			if pPublish {
+				s.pPublisher.PublishAttempt(s.partitions)
+			}
+
+			s.lock.Unlock()
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (s *store) ClusterName() string {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.clusterName
+}
+
+func (s *store) PartitionCount() uint32 {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.partitionCount
+}
+
+func (s *store) IsEmpty() bool {
+	return s.ClusterName() == ""
+}
+
+func (s *store) Servers() *Servers {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.servers
+}
+
+func (s *store) Partitions() *Partitions {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	return s.partitions
 }
 
 func (s *store) Bootstrap(cmd *Bootstrap) (*BootstrapResult, error) {
@@ -60,46 +168,12 @@ func (s *store) UpdateServersAsync(cmd *UpdateServers) error {
 	return applyAsync(s.raft, cmd)
 }
 
-func (s *store) ClusterName() string {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-	return s.fsm.clusterName
+func (s *store) SubscribeServers() utils.Subscriber[*Servers] {
+	return s.sPublisher.Subscribe(1)
 }
 
-func (s *store) PartitionCount() uint32 {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-	return s.fsm.partitionCount
-}
-
-func (s *store) IsEmpty() bool {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-	return s.fsm.clusterName == "" || s.fsm.clusterCreatedTime.IsZero()
-}
-
-func (s *store) Server(id uint64) *Server {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-
-	server, ok := s.fsm.servers.Items[id]
-	if !ok {
-		return nil
-	}
-
-	return utils.CloneProto(server)
-}
-
-func (s *store) Servers() Servers {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-	return *utils.CloneProto(s.fsm.servers)
-}
-
-func (s *store) Partitions() Partitions {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-	return *utils.CloneProto(s.fsm.partitions)
+func (s *store) SubscribePartitions() utils.Subscriber[*Partitions] {
+	return s.pPublisher.Subscribe(1)
 }
 
 func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {

@@ -38,8 +38,8 @@ func (n *Follower) Start(ctx context.Context) error {
 	return nil
 }
 
-func (n *Follower) Stop(ctx context.Context) {
-	log.Debug(ctx, "Stopped follower")
+func (n *Follower) Stop() {
+	log.NoContext().Debug("Stopped follower")
 }
 
 func (n *Follower) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {

@@ -1,14 +1,15 @@
 package identity
 
 import (
+	"github.com/bcrusu/graph/internal/tracing"
 	"github.com/google/uuid"
 )
 
 // Identity is the name of the machine.
 type Identity struct {
 	ClusterName string
-	ID          uint64
-	Name        string
+	ServerID    uint64
+	ServerName  string
 }
 
 // IdentityStore provides a way for servers to persist their identity bits.
@@ -30,7 +31,6 @@ type IdentityStore interface {
 	Get() (Identity, bool)
 }
 
-// TODO: implement on-disk persistence
 type identityStore struct {
 	token    string
 	identity *Identity
@@ -38,6 +38,10 @@ type identityStore struct {
 
 // NewStore returns an IdentityStore instance.
 func NewStore(dataDir string) (IdentityStore, error) {
+	// TODO: implement on-disk persistence
+
+	// tracing.SetServerName(s.identity.ServerName)
+
 	return &identityStore{
 		token: uuid.New().String(),
 	}, nil
@@ -58,6 +62,7 @@ func (s *identityStore) Token() string {
 // will return error. Stored state is immutable.
 func (s *identityStore) Set(i Identity) error {
 	s.identity = &i
+	tracing.SetServerName(s.identity.ServerName)
 	return nil
 }
 

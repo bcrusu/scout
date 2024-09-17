@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/utils"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -21,9 +21,8 @@ var _ = Describe("Throttle tests", func() {
 		}()
 
 		Expect(<-th).To(Equal(1000))
-		time.Sleep(5 * time.Millisecond)
-		Expect(th).To(BeEmpty())
-		Expect(th).To(BeClosed())
+		Eventually(th).Should(BeEmpty())
+		Eventually(th).Should(BeClosed())
 	})
 
 	It("Should send after interval", func() {
@@ -45,5 +44,6 @@ var _ = Describe("Throttle tests", func() {
 		}
 
 		Expect(counter).To(Equal(expected))
+		close(ch)
 	})
 })

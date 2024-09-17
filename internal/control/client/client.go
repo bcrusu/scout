@@ -56,8 +56,8 @@ func (c *controlClient) Start(ctx context.Context) error {
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }
 
-func (c *controlClient) Stop(ctx context.Context) {
-	utils.LifecycleStop(ctx, logC, c.conn)
+func (c *controlClient) Stop() {
+	utils.LifecycleStop(logC.NoContext(), c.conn)
 }
 
 func (c *controlClient) Discover(ctx context.Context, req *control.DiscoverRequest, opts ...grpc.CallOption) (*control.DiscoverResponse, error) {

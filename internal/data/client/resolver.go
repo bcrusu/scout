@@ -1,9 +1,12 @@
 package client
 
 import (
+	"time"
+
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
+	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
 )
@@ -15,18 +18,19 @@ const (
 )
 
 var (
-	logR = logging.WithComponent("data_resolver").NoContext()
+	resolveThrottle = utils.AddJitter(2*time.Second, 0.15)
+	logR            = logging.WithComponent("data_resolver").NoContext()
 )
 
 type resolverBuilder struct {
-	dataServers DataServers
+	publisher Publisher
 }
 
 func (b *resolverBuilder) Build(target resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	r := &resolverImpl{
 		clientConn:   clientConn,
 		opts:         opts,
-		dataServers:  b.dataServers,
+		publisher:    b.publisher,
 		resolveNowCh: make(chan resolver.ResolveNowOptions),
 	}
 
@@ -43,7 +47,7 @@ type resolverImpl struct {
 	clientConn   resolver.ClientConn
 	opts         resolver.BuildOptions
 	resolveNowCh chan resolver.ResolveNowOptions
-	dataServers  DataServers
+	publisher    Publisher
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -55,17 +59,18 @@ func (r *resolverImpl) Close() {
 }
 
 func (r *resolverImpl) mainLoop() {
-	subscription := r.dataServers.SubscribeDataServers()
+	dataServers := r.publisher.SubscribeDataServers()
+	defer dataServers.Unsubscribe()
+	resolveNowThrottled := utils.ThrottleChan(r.resolveNowCh, resolveThrottle)
 
 	for {
 		select {
-		case _, ok := <-r.resolveNowCh:
+		case _, ok := <-resolveNowThrottled:
 			if !ok {
-				subscription.Unsubscribe()
 				return
 			}
-			subscription.NotifyPublisher()
-		case ds := <-subscription.ItemChan():
+			dataServers.NotifyPublisher()
+		case ds := <-dataServers.ItemChan():
 			if err := r.updateState(ds); err != nil {
 				logR.WithError(err).Warn("Failed to update resolver state.")
 				r.clientConn.ReportError(err)

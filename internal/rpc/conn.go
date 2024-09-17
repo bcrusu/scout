@@ -17,7 +17,7 @@ import (
 
 var (
 	_     utils.Lifecycle = (*Conn)(nil)
-	logRC                 = logging.WithComponent("rpc_conn")
+	logRC                 = logging.WithComponent("rpc_conn").NoContext()
 )
 
 // Conn represents the client connection.
@@ -69,12 +69,12 @@ func (c *Conn) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *Conn) Stop(ctx context.Context) {
+func (c *Conn) Stop() {
 	if c.ClientConn == nil {
 		return
 	}
 
 	if err := c.ClientConn.Close(); err != nil {
-		logRC.WithError(err).Errorf(ctx, "Failed to close client connection")
+		logRC.WithError(err).Errorf("Failed to close client connection")
 	}
 }

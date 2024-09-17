@@ -6,11 +6,13 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/common"
 	"github.com/bcrusu/graph/internal/control/server/convert"
+	"github.com/bcrusu/graph/internal/control/server/leader/sessions"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
+	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 )
 
@@ -26,7 +28,7 @@ type Leader struct {
 	*common.Shared
 	raft           *multiraft.Raft
 	store          storage.Store
-	sessionTracker *sessionTracker
+	sessionTracker *sessions.Tracker
 }
 
 func New(raft *multiraft.Raft, store storage.Store) *Leader {
@@ -34,7 +36,7 @@ func New(raft *multiraft.Raft, store storage.Store) *Leader {
 		Shared:         common.New(raft, store),
 		raft:           raft,
 		store:          store,
-		sessionTracker: newSessionTracker(store),
+		sessionTracker: sessions.NewTracker(store),
 	}
 }
 
@@ -44,9 +46,9 @@ func (n *Leader) Start(ctx context.Context) error {
 	return nil
 }
 
-func (n *Leader) Stop(ctx context.Context) {
-	utils.LifecycleStop(ctx, logL, n.sessionTracker)
-	logL.Debug(ctx, "Stopped leader")
+func (n *Leader) Stop() {
+	utils.LifecycleStop(logL.NoContext(), n.sessionTracker)
+	logL.NoContext().Debug("Stopped leader")
 }
 
 func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {
@@ -73,10 +75,16 @@ func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*c
 
 	// For control plane servers, add them immediately to the Raft group.
 	// If the operation fails, the server can retry later with the same token
-	// to recover the original id/name pair assigned above by the FSM in the
+	// to recover the original id/name pair assigned above by the store in the
 	// initial request.
+	server := raft.Server{
+		ID:       raft.ServerID(result.ServerName),
+		Address:  raft.ServerAddress(req.Address),
+		Suffrage: raft.Voter,
+	}
+
 	if cmd.Type == storage.ServerType_Control {
-		if err := n.raft.AddVoter(ctx, result.ServerName, req.Address); err != nil {
+		if err := n.raft.AddOrUpdateServer(server); err != nil {
 			return nil, err
 		}
 	}

@@ -45,11 +45,11 @@ func New(opts ...Option) DataClient {
 }
 
 func (c *dataClient) Start(ctx context.Context) error {
-	if c.opts.dataServers == nil {
-		return errors.Error("missing data servers source")
+	if c.opts.publisher == nil {
+		return errors.Error("missing data servers publisher")
 	}
 
-	resolver := &resolverBuilder{c.opts.dataServers}
+	resolver := &resolverBuilder{c.opts.publisher}
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(resolver))
 
 	c.conn = rpc.NewConn(dummyTarget, dialOpts...)
@@ -58,8 +58,8 @@ func (c *dataClient) Start(ctx context.Context) error {
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }
 
-func (c *dataClient) Stop(ctx context.Context) {
-	utils.LifecycleStop(ctx, logC, c.conn)
+func (c *dataClient) Stop() {
+	utils.LifecycleStop(logC.NoContext(), c.conn)
 }
 
 func (c *dataClient) Set(ctx context.Context, req *data.SetRequest, opts ...grpc.CallOption) (*data.SetResponse, error) {

@@ -82,11 +82,10 @@ message SessionIn {
     oneof payload {
         Hello hello = 1;
         Heartbeat heartbeat = 2;
-        GetConfig get_config = 3;
-        GetDataServers get_data_servers = 4;
-        GetApiServers get_api_servers = 5;
-        DataServerStatus data_server_status = 6;
-        ApiServerStatus api_server_status = 7;
+        GetDataServers get_data_servers = 3;
+        GetApiServers get_api_servers = 4;
+        DataServerStatus data_server_status = 5;
+        ApiServerStatus api_server_status = 6;
     }
 }
 
@@ -118,14 +117,26 @@ message HelloApiServer {
     ApiServers api_servers = 3;
 }
 
-message Heartbeat {}
-
-message GetConfig {
-    uint64 if_no_match = 1;
+message Heartbeat {
+    uint64 config_version = 1;
 }
 
 message DataServerConfig {
+    message Member {
+        string name = 1;
+        uint64 server_id = 2;
+        bool voter = 3;
+    }
+
+    message Partition {
+        uint64 version = 1;
+        uint32 id = 2;
+        string name = 3;
+        repeated Member members = 4;
+    }
+
     uint64 version = 1;
+    map<uint32, Partition> partitions = 2;
 }
 
 message ApiServerConfig {

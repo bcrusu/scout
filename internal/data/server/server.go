@@ -2,9 +2,10 @@ package server
 
 import (
 	"context"
+	"time"
 
 	cclient "github.com/bcrusu/graph/internal/control/client"
-	dclient "github.com/bcrusu/graph/internal/data/client"
+	"github.com/bcrusu/graph/internal/data/server/partitions"
 	"github.com/bcrusu/graph/internal/data/server/session"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/discovery"
@@ -54,43 +55,46 @@ func (n *Server) Start(ctx context.Context) error {
 		cclient.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
 	)
 
-	fsm := storage.NewFSM()
-	dialOpts := rpc.DefaultDialOptions()
-	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
+	session := session.New(controlClient, id, n.config.Server.BindAddress)
 
-	// TODO: make configurable
-	// cfg := multiraft.Config{
-	// 	ID:             id.Name,
-	// 	Address:        n.config.Server.BindAddress,
-	// 	RequestTimeout: 2 * time.Second,
-	// 	Transport:      transportService.Transport("control"),
-	// 	FSM:            fsm,
-	// }
+	fsm, transportService, mraft, err := n.buildMultiRaft()
+	if err != nil {
+		return err
+	}
 
-	raft := multiraft.NewMultiRaft()
-
-	session := session.New(controlClient, raft, id, n.config.Server.BindAddress)
-
-	dataService := NewDataService(raft, fsm)
+	partitionController := partitions.NewController(id, mraft, fsm, session)
+	dataService := NewDataService(partitionController)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
-
-	dataClient := dclient.New(
-		dclient.WithDataServers(session),
-	)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
 		session,
-		dataService,
 		transportService,
-		raft,
-		dataClient,
+		partitionController,
 		server,
 	}
 
 	return utils.LifecycleStart(ctx, log, n.components...)
 }
 
-func (n *Server) Stop(ctx context.Context) {
-	utils.LifecycleStop(ctx, log, n.components...)
+func (n *Server) Stop() {
+	utils.LifecycleStop(log.NoContext(), n.components...)
+}
+
+func (n *Server) buildMultiRaft() (*storage.FSM, *multiraft.TransportService, *multiraft.MultiRaft, error) {
+	fsm := storage.NewFSM()
+	dialOpts := rpc.DefaultDialOptions()
+	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
+
+	// TODO: make configurable
+	config := multiraft.Config{
+		BindAddress:    n.config.Server.BindAddress,
+		RequestTimeout: 2 * time.Second,
+		Transport:      transportService,
+		FSM:            fsm,
+	}
+
+	mraft := multiraft.NewMultiRaft(config)
+
+	return fsm, transportService, mraft, nil
 }

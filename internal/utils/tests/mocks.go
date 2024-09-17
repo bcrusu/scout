@@ -3,7 +3,7 @@ package tests
 import (
 	"fmt"
 
-	"github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2"
 	"go.uber.org/mock/gomock"
 )
 

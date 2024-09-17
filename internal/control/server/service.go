@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/follower"
@@ -26,8 +26,7 @@ type ControlService struct {
 	raft       *multiraft.Raft
 	store      storage.Store
 	cancelFunc context.CancelFunc
-	roleLock   sync.RWMutex
-	role       role
+	role       atomic.Value
 }
 
 type role interface {
@@ -40,7 +39,6 @@ func NewControlService(raft *multiraft.Raft, store storage.Store) *ControlServic
 	return &ControlService{
 		raft:  raft,
 		store: store,
-		role:  follower.New(raft, store), // always start as follower
 	}
 }
 
@@ -49,7 +47,11 @@ func (s *ControlService) RegisterToServer(server *grpc.Server) {
 }
 
 func (s *ControlService) Start(ctx context.Context) error {
-	if err := s.role.Start(ctx); err != nil {
+	// start as follower
+	role := NewDrainerService(follower.New(s.raft, s.store))
+	s.role.Store(role)
+
+	if err := role.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed to start as follower")
 	}
 
@@ -60,7 +62,7 @@ func (s *ControlService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *ControlService) Stop(ctx context.Context) {
+func (s *ControlService) Stop() {
 	s.cancelFunc()
 }
 
@@ -68,6 +70,13 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case isLeader := <-s.raft.GetLeaderChan():
+			// Setting to nil will reject new incoming requests with Unavailable error
+			// until the new role is ready. Could use and intermediary role type
+			// that retries, with backoff, until the new role is ready. Will leave it,
+			// for now, to the client to retry the request.
+			old := s.role.Swap(nil).(*DrainerService)
+			go old.Stop()
+
 			var new role
 			if isLeader {
 				new = leader.New(s.raft, s.store)
@@ -75,39 +84,29 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 				new = follower.New(s.raft, s.store)
 			}
 
-			// will block new requests until the role is ready
-			s.roleLock.Lock()
-			s.role.Stop(ctx) // TODO: drain in-flight requests?
+			drainer := NewDrainerService(new)
 
-			if err := new.Start(ctx); err != nil {
+			if err := drainer.Start(ctx); err != nil {
 				log.WithError(err).Errorf(ctx, "Failed to start role %T. Shutting down...", new)
 				utils.LifecycleShutdown(ctx)
 				return
 			}
 
-			s.role = new
-			s.roleLock.Unlock()
+			s.role.Store(drainer)
 		case <-ctx.Done():
-			s.roleLock.Lock()
-			old := s.role
-			s.role = nil
-			s.roleLock.Unlock()
-
-			old.Stop(ctx)
+			old := s.role.Swap(nil).(*DrainerService)
+			old.Stop()
 			return
 		}
 	}
 }
 
 func (s *ControlService) getRole() (role, error) {
-	s.roleLock.RLock()
-	role := s.role
-	s.roleLock.RUnlock()
-
-	if role == nil {
+	v := s.role.Load()
+	if v == nil {
 		return nil, errors.Unavailable
 	}
-	return role, nil
+	return v.(role), nil
 }
 
 func (s *ControlService) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {

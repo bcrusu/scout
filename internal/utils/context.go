@@ -2,28 +2,25 @@ package utils
 
 import (
 	"context"
-	"sync"
 )
 
 // WithCancelAndWaitR will cancel the work function and wait for it to complete.
 func WithCancelAndWaitR[R any](work func(context.Context) R) (func(context.Context) R, context.CancelFunc) {
-	doneCh := make(chan any)
-	var wg sync.WaitGroup
+	signalCh := make(chan any, 1)
 	var cancelFn context.CancelFunc
-	wg.Add(1) // TODO review
 
 	workAndSignal := func(ctx context.Context) R {
 		ctx, cancelFn = context.WithCancel(ctx)
-		wg.Done()
+		signalCh <- 1
 		r := work(ctx)
-		close(doneCh)
+		signalCh <- 1
 		return r
 	}
 
 	cancelAndWait := func() {
-		wg.Wait()
+		<-signalCh
 		cancelFn()
-		<-doneCh
+		<-signalCh
 	}
 
 	return workAndSignal, cancelAndWait
@@ -42,18 +39,17 @@ func WithCancelAndWait(work func(context.Context)) (func(context.Context), conte
 
 // WithCancel will cancel the work function and does not for it to complete.
 func WithCancel(work func(context.Context)) (func(context.Context), context.CancelFunc) {
-	var wg sync.WaitGroup
+	signalCh := make(chan any, 1)
 	var cancelFn context.CancelFunc
-	wg.Add(1)
 
 	work2 := func(ctx context.Context) {
 		ctx, cancelFn = context.WithCancel(ctx)
-		wg.Done()
+		signalCh <- 1
 		work(ctx)
 	}
 
 	cancel := func() {
-		wg.Wait()
+		<-signalCh
 		cancelFn()
 	}
 

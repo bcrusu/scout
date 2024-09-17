@@ -9,18 +9,18 @@ import (
 type Option func(*options)
 
 type options struct {
-	dataServers DataServers
+	publisher   Publisher
 	dialOptions []grpc.DialOption
 }
 
-type DataServers interface {
+type Publisher interface {
 	SubscribeDataServers() utils.Subscriber[*control.DataServers]
 }
 
 // WithDataServers sets the data servers source.
-func WithDataServers(dataServers DataServers) Option {
+func WithDataServers(publisher Publisher) Option {
 	return func(o *options) {
-		o.dataServers = dataServers
+		o.publisher = publisher
 	}
 }
 

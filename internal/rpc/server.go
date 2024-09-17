@@ -90,7 +90,7 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Stop the server
-func (s *Server) Stop(ctx context.Context) {
+func (s *Server) Stop() {
 	stopped := make(chan any)
 	go func() {
 		s.server.GracefulStop() // TODO: it will not return, waiting for long-lived streams
@@ -98,8 +98,8 @@ func (s *Server) Stop(ctx context.Context) {
 	}()
 
 	select {
-	case <-ctx.Done():
-		s.server.Stop()
+	// case <-ctx.Done(): // TODO
+	// 	s.server.Stop()
 	case <-stopped:
 	}
 }

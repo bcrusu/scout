@@ -6,13 +6,15 @@ import (
 	transport "github.com/Jille/raft-grpc-transport"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/multiraft"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 )
 
 var (
-	_ rpc.Service     = (*TransportService)(nil)
-	_ utils.Lifecycle = (*TransportService)(nil)
+	_ multiraft.Transport = (*TransportService)(nil)
+	_ rpc.Service         = (*TransportService)(nil)
+	_ utils.Lifecycle     = (*TransportService)(nil)
 )
 
 type TransportService struct {
@@ -39,9 +41,9 @@ func (t *TransportService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (t *TransportService) Stop(ctx context.Context) {
+func (t *TransportService) Stop() {
 	if err := t.manager.Close(); err != nil {
-		log.WithContext().WithError(err).Error(ctx, "Transport manager failed to close")
+		log.WithError(err).Error("Transport manager failed to close")
 	}
 }
 
@@ -49,6 +51,10 @@ func (t *TransportService) RegisterToServer(server *grpc.Server) {
 	t.manager.Register(server)
 }
 
-func (t *TransportService) Transport(groupID string) raft.Transport {
-	return t.manager.Transport(groupID)
+func (t *TransportService) CreateGroup(groupID string) (raft.Transport, error) {
+	return t.manager.Transport(groupID), nil
+}
+
+func (t *TransportService) DeleteGroup(groupID string) error {
+	return nil // TODO
 }

@@ -38,8 +38,8 @@ func Register(ctx context.Context, log logging.Logger, config Config, serverType
 
 	id := identity.Identity{
 		ClusterName: config.ClusterName,
-		ID:          res.ServerId,
-		Name:        res.ServerName,
+		ServerID:    res.ServerId,
+		ServerName:  res.ServerName,
 	}
 
 	if err := idStore.Set(id); err != nil {
@@ -59,7 +59,7 @@ func registerWithRetry(ctx context.Context, log logging.Logger, config Config, s
 	if err := client.Start(ctx); err != nil {
 		return nil, errors.Wrap(err, "failed to start control client")
 	}
-	defer client.Stop(ctx)
+	defer client.Stop()
 
 	req := &control.RegisterRequest{
 		ClusterName: config.ClusterName,

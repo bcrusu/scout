@@ -3,21 +3,20 @@ package multiraft
 import (
 	"time"
 
+	"github.com/bcrusu/multiraft"
 	"github.com/hashicorp/raft"
 )
 
 type Config struct {
-	ID             string
-	Address        string
+	BindAddress    string
 	RequestTimeout time.Duration
-	Transport      raft.Transport
+	Transport      multiraft.Transport
 	FSM            FSM
 }
 
 // TODO: make configurable
-func (c Config) getRaftConfig() *raft.Config {
+func (c Config) getRaftConfig() raft.Config {
 	cfg := raft.DefaultConfig()
-	cfg.LocalID = raft.ServerID(c.ID)
 
 	cfg.HeartbeatTimeout = 5000 * time.Millisecond
 	cfg.ElectionTimeout = 5000 * time.Millisecond
@@ -29,8 +28,8 @@ func (c Config) getRaftConfig() *raft.Config {
 	cfg.TrailingLogs = 10000
 
 	cfg.ShutdownOnRemove = true
-	cfg.Logger = hcLog
+	cfg.Logger = newLogAdapter("hashicorp_raft")
 
 	// NoSnapshotRestoreOnStart
-	return cfg
+	return *cfg
 }

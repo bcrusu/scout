@@ -105,6 +105,7 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 		}
 
 		b.subConns[address] = subConn
+		subConn.Connect()
 		log.Debug("Connection created")
 	}
 
@@ -250,7 +251,7 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	var conn balancer.SubConn
 
 	if isRead {
-		conn = part.readConns[0] // TODO: round robin
+		conn = part.readConns[0] // TODO: check conn state; round robin, etc
 	} else {
 		conn = part.writeConn
 	}

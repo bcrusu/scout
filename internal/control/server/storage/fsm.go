@@ -12,13 +12,14 @@ import (
 )
 
 var (
-	_   multiraft.FSM = (*FSM)(nil)
-	log               = logging.WithComponent("control_storage").NoContext()
+	_    multiraft.FSM = (*FSM)(nil)
+	logF               = logging.WithComponent("storage_fsm").NoContext()
 )
 
 type FSM struct {
-	lock               sync.RWMutex
-	version            uint64            // last applied raft log index; used for optimistic concurrency control
+	notifyCh           chan bool         // notify store
+	lock               sync.RWMutex      // guards all below
+	version            uint64            // used for optimistic concurrency control
 	clusterName        string            // read-only cluster name set during bootstrap
 	clusterCreatedTime time.Time         // records the time when the cluster was created (UTC)
 	partitionCount     uint32            // fixed number of data partitions
@@ -29,30 +30,34 @@ type FSM struct {
 
 func NewFSM() *FSM {
 	return &FSM{
-		tokens: map[string]uint64{},
+		notifyCh: make(chan bool, 1),
+		tokens:   map[string]uint64{},
 	}
 }
 
 func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
+	log := logF.With("index", index, "appendedAt", appendedAt)
+
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	f.version = index
 
 	cmd, err := utils.UnmarshalProto[Command](data)
 	if err != nil {
+		log.WithError(err).Debug("UnmarshalProto failed")
 		return err
 	}
 
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
+		log.WithError(err).Debug("FailedPrecondition")
 		return errors.FailedPrecondition
 	}
 
 	payload, err := getPayload(cmd)
 	if err != nil {
+		log.WithError(err).Debug("getPayload failed")
 		return err
 	}
 
-	log := log.With("index", index, "appendedAt", appendedAt)
 	var result any
 
 	log.Debugf("Applying command %T...", payload)
@@ -72,7 +77,10 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 		log.WithError(err).Debugf("Applying command %T failed", payload)
 		return err
 	} else {
-		log.Debugf("Applying command %T success", payload)
+		f.version++
+		logF.Debugf("Applying command %T success", payload)
+
+		f.notifyStore()
 		return result
 	}
 }
@@ -111,5 +119,14 @@ func (f *FSM) Restore(data []byte) error {
 	f.partitions = snap.Partitions
 	f.partitionCount = snap.PartitionCount
 
+	f.notifyStore()
 	return nil
+}
+
+func (f *FSM) notifyStore() {
+	select {
+	case f.notifyCh <- true:
+	default:
+		logF.Warn("Failed to notify store with latest FSM versions.")
+	}
 }

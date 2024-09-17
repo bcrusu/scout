@@ -1,4 +1,4 @@
-package leader
+package sessions
 
 type startSession struct {
 	stream        sessionStream
@@ -11,7 +11,7 @@ type sessionMessage interface {
 	ID() sessionID
 }
 
-type endSession struct {
+type sessionLoopDone struct {
 	id  sessionID
 	err error
 }
@@ -20,12 +20,13 @@ type sessionReceived struct {
 	id sessionID
 }
 
-type updateLeader struct {
-	id          sessionID
-	currentTerm map[partitionID]uint64
+type sessionPartStatus struct {
+	id       sessionID
+	leader   map[partitionID]uint64 // map[partition_id]raft_leader_term
+	follower map[partitionID]bool
 }
 
-func (m endSession) ID() sessionID {
+func (m sessionLoopDone) ID() sessionID {
 	return m.id
 }
 
@@ -33,6 +34,6 @@ func (m sessionReceived) ID() sessionID {
 	return m.id
 }
 
-func (m updateLeader) ID() sessionID {
+func (m sessionPartStatus) ID() sessionID {
 	return m.id
 }

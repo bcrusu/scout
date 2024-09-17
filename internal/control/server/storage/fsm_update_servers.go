@@ -7,7 +7,7 @@ import (
 // UpdateServers command will be applied in an async fire-and-forget manner and
 // current state could have changed since last check.
 func (f *FSM) applyUpdateServers(_ time.Time, cmd *UpdateServers) (*emptyResult, error) {
-	f.servers.Version++
+	changed := false
 
 	for _, update := range cmd.Servers {
 		server, ok := f.servers.Items[update.Id]
@@ -20,6 +20,11 @@ func (f *FSM) applyUpdateServers(_ time.Time, cmd *UpdateServers) (*emptyResult,
 		server.Version++
 		server.LastSeen = update.LastSeen
 		server.LastAddress = update.LastAddress
+		changed = true
+	}
+
+	if changed {
+		f.servers.Version++
 	}
 
 	return &emptyResult{}, nil

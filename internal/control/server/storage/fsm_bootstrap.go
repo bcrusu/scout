@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	groupNamePrefix = "part_"
+	partitionNamePrefix = "part_"
 )
 
 func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapResult, error) {
@@ -49,8 +49,8 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 		f.partitions.Items[id] = &Partition{
 			Version:      1,
 			Id:           id,
-			GroupName:    fmt.Sprintf("%s%d", groupNamePrefix, id),
-			GroupMembers: []*Partition_Member{}, // will be updated live by the partition assignment component
+			Name:         fmt.Sprintf("%s%d", partitionNamePrefix, id),
+			Members:      []*Partition_Member{}, // will be updated live by the partition assignment component
 			LastMemberId: 0,
 		}
 	}

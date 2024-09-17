@@ -8,6 +8,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -34,28 +35,28 @@ type Params struct {
 	PartitionCount uint32
 
 	valid       bool
-	clusterName string
-	peers       []string
-	ids         []uint64
-	names       []string
-	localID     uint64
-	localName   string
+	serverIDs   []uint64
+	serverNames []string
+	serverAddrs []string
+	identity    identity.Identity
 }
 
 // Bootstrapper is used only once, in the beginning of time, when a new baby cluster is born.
 type Bootstrapper struct {
 	raft       *multiraft.Raft
 	store      storage.Store
+	idStore    identity.IdentityStore
 	params     Params
 	cancelFunc context.CancelFunc
 }
 
 // NewBootstrapper returns a new Bootstrapper.
-func NewBootstrapper(raft *multiraft.Raft, store storage.Store, params Params) *Bootstrapper {
+func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.IdentityStore, params Params) *Bootstrapper {
 	return &Bootstrapper{
-		raft:   raft,
-		store:  store,
-		params: params,
+		raft:    raft,
+		store:   store,
+		idStore: idStore,
+		params:  params,
 	}
 }
 
@@ -70,25 +71,28 @@ func ValidateParams(p *Params) error {
 		return errors.Error("peer list contains duplicates.")
 	}
 
-	p.clusterName = p.ClusterName
-	p.peers = p.Peers
-	if !slices.Contains(p.Peers, p.LocalAddress) {
-		p.peers = append(p.peers, p.LocalAddress)
+	p.serverAddrs = slices.Clone(p.Peers)
+	if !slices.Contains(p.serverAddrs, p.LocalAddress) {
+		p.serverAddrs = append(p.serverAddrs, p.LocalAddress)
 	}
 
-	slices.Sort(p.peers)
+	slices.Sort(p.serverAddrs)
 
-	p.ids = make([]uint64, len(p.peers))
-	p.names = make([]string, len(p.peers))
+	p.serverIDs = make([]uint64, len(p.serverAddrs))
+	p.serverNames = make([]string, len(p.serverAddrs))
 
-	for i := range len(p.peers) {
-		p.ids[i] = uint64(i + 1)
-		p.names[i] = fmt.Sprintf("%s%d", serverNamePrefix, p.ids[i])
+	for i := range len(p.serverAddrs) {
+		p.serverIDs[i] = uint64(i + 1)
+		p.serverNames[i] = fmt.Sprintf("%s%d", serverNamePrefix, p.serverIDs[i])
 	}
 
-	idx := slices.Index(p.peers, p.LocalAddress)
-	p.localID = p.ids[idx]
-	p.localName = p.names[idx]
+	idx := slices.Index(p.serverAddrs, p.LocalAddress)
+	p.identity = identity.Identity{
+		ClusterName: p.ClusterName,
+		ServerID:    p.serverIDs[idx],
+		ServerName:  p.serverNames[idx],
+	}
+
 	p.valid = true
 	return nil
 }
@@ -104,7 +108,7 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		return errors.Error("params were not validated")
 	}
 
-	log := log.With("cluster", p.ClusterName, "ids", p.ids, "names", p.names, "peers", p.peers)
+	log := log.With("cluster", p.ClusterName, "ids", p.serverIDs, "names", p.serverNames, "addresses", p.serverAddrs)
 	log.Debug(ctx, "Bootstrapping the raft cluster...")
 
 	if err := b.bootstrapRaft(p); err != nil {
@@ -122,6 +126,14 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		} else {
 			log.WithError(err).Debug(ctx, "Initial write success.")
 		}
+
+		log.Debug(ctx, "Storing identity...")
+
+		if err := b.storeIdentityWithRetry(ctx, p); err != nil {
+			log.WithError(err).Debug(ctx, "Storing identity failed.")
+		} else {
+			log.WithError(err).Debug(ctx, "Storing identity success.")
+		}
 	})
 
 	b.cancelFunc = cancelFunc
@@ -129,18 +141,18 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 	return nil
 }
 
-func (b *Bootstrapper) Stop(ctx context.Context) {
+func (b *Bootstrapper) Stop() {
 	b.cancelFunc()
 }
 
 func (b *Bootstrapper) bootstrapRaft(p Params) error {
-	servers := make([]raft.Server, len(p.names))
+	servers := make([]raft.Server, len(p.serverNames))
 
-	for i, name := range p.names {
+	for i, name := range p.serverNames {
 		servers[i] = raft.Server{
 			Suffrage: raft.Voter,
 			ID:       raft.ServerID(name),
-			Address:  raft.ServerAddress(p.peers[i]),
+			Address:  raft.ServerAddress(p.serverAddrs[i]),
 		}
 	}
 
@@ -152,17 +164,17 @@ func (b *Bootstrapper) bootstrapRaft(p Params) error {
 }
 
 func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error {
-	servers := make([]*storage.Bootstrap_Server, len(p.ids))
-	for i, id := range p.ids {
+	servers := make([]*storage.Bootstrap_Server, len(p.serverIDs))
+	for i, id := range p.serverIDs {
 		servers[i] = &storage.Bootstrap_Server{
 			Id:      id,
-			Name:    p.names[i],
-			Address: p.peers[i],
+			Name:    p.serverNames[i],
+			Address: p.serverAddrs[i],
 		}
 	}
 
 	cmd := &storage.Bootstrap{
-		ClusterName:    p.clusterName,
+		ClusterName:    p.ClusterName,
 		Servers:        servers,
 		PartitionCount: p.PartitionCount,
 	}
@@ -173,9 +185,11 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 			return errors.NotLeader
 		}
 
-		if !b.store.IsEmpty() {
+		if clusterName := b.store.ClusterName(); clusterName == p.ClusterName {
 			log.Info(ctx, "Initial write was completed successfully by another server.")
 			return nil
+		} else if clusterName != "" {
+			return errors.Errorf("cannot perform initial write. Different cluster detected %s.", clusterName)
 		}
 
 		res, err := b.store.Bootstrap(cmd)
@@ -192,17 +206,25 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 			//  - then lost its leadership,
 			//  - then the current node was elected leader back again,
 			//  - and then performed the write above,
-			//  - with all of this happening between the IsEmpty and the ApplyBootstrap calls.
+			//  - with all of this happening between the ClusterName and the Bootstrap calls.
 			log.Warn(ctx, "Initial write was declined by the FSM.")
 		}
 		return nil
 	})
 }
 
-func (p *Params) LocalID() uint64 {
-	return p.localID
+func (b *Bootstrapper) storeIdentityWithRetry(ctx context.Context, p Params) error {
+	return utils.RetryE(ctx, retryBackoff, func() error {
+		if err := b.idStore.Set(p.identity); err != nil {
+			log.WithError(err).Error(ctx, "Storing identity failed. Retrying...")
+			return err
+		} else {
+			log.Info(ctx, "Stored identity successfully.")
+			return nil
+		}
+	})
 }
 
-func (p *Params) LocalName() string {
-	return p.localName
+func (p *Params) Identity() identity.Identity {
+	return p.identity
 }

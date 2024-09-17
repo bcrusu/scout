@@ -22,6 +22,14 @@ func (x *HelloDataServer) Validate() error {
 	err1 := x.Config.Validate()
 	err2 := x.DataServers.Validate()
 
+	for _, part := range x.Config.Partitions {
+		for _, member := range part.Members {
+			if x.DataServers.Servers[member.ServerId] == nil {
+				return errors.Error("HelloDataServer.Partitions.Members.ServerId missing from DataServers.Servers")
+			}
+		}
+	}
+
 	if err := errors.Join(err1, err2); err != nil {
 		return errors.Wrap(err, "HelloDataServer has invalid fields")
 	}
@@ -52,6 +60,46 @@ func (x *DataServerConfig) Validate() error {
 
 	if x.Version == 0 {
 		return errors.Error("DataServerConfig has missing fields")
+	}
+
+	for id, part := range x.Partitions {
+		if id != part.Id {
+			return errors.Error("DataServerConfig.Partitions.Id does not match")
+		}
+
+		if err := part.Validate(); err != nil {
+			return errors.Error("DataServerConfig.Partition is invalid")
+		}
+	}
+
+	return nil
+}
+
+func (x *DataServerConfig_Partition) Validate() error {
+	if x == nil {
+		return errors.Error("Partition is nil")
+	}
+
+	if x.Version == 0 || x.Id == 0 || x.Name == "" {
+		return errors.Error("Partition has missing fields")
+	}
+
+	for _, member := range x.Members {
+		if err := member.Validate(); err != nil {
+			return errors.Wrap(err, "Partition.Member is invalid")
+		}
+	}
+
+	return nil
+}
+
+func (x *DataServerConfig_Member) Validate() error {
+	if x == nil {
+		return errors.Error("Member is nil")
+	}
+
+	if x.Name == "" || x.ServerId == 0 {
+		return errors.Error("Member has missing fields")
 	}
 
 	return nil
@@ -215,9 +263,9 @@ func (x *ApiServerStatus) Validate() error {
 	return nil
 }
 
-func (x *GetConfig) Validate() error {
+func (x *Heartbeat) Validate() error {
 	if x == nil {
-		return errors.Error("GetConfig is nil")
+		return errors.Error("Heartbeat is nil")
 	}
 
 	return nil
