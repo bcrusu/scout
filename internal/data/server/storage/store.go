@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"bytes"
+	"slices"
+
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -10,13 +13,14 @@ var (
 	_ Store = (*store)(nil)
 )
 
-// Store exposes read-only operations executed directly on the FSM backing
-// storage, bypassing the Raft algorithm, which are not guaranteed to return
-// the latest commited data.
+// Store defines all possilbe way to interact with the Raft group and its backing FSM storage.
+// Read operations are executed directly on the FSM backing storage.
+// Write operations wait for the result/error from the FSM.
 type Store interface {
-	Get(key []byte) ([]byte, bool)
+	Get(keyspace uint64, key []byte) ([]byte, bool)
+
 	Set(*Set) error
-	Del(*Delete) error
+	Delete(*Delete) error
 }
 
 type store struct {
@@ -31,19 +35,30 @@ func NewStore(raft *multiraft.Raft, fsm *FSM) Store {
 	}
 }
 
-func (s *store) Get(key []byte) ([]byte, bool) {
-	s.fsm.lock.Lock()
-	defer s.fsm.lock.Unlock()
+func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
+	s.fsm.lock.RLock()
+	defer s.fsm.lock.RUnlock()
 
-	value, ok := s.fsm.items[string(key)]
-	return value, ok
+	ks, ok := s.fsm.keyspaces[keyspace]
+	if !ok {
+		return nil, false
+	}
+
+	i, found := slices.BinarySearchFunc(ks.Items, key, func(kv *Keyspace_KV, key []byte) int {
+		return bytes.Compare(kv.Key, key)
+	})
+	if !found {
+		return nil, false
+	}
+
+	return ks.Items[i].Value, true
 }
 
 func (s *store) Set(cmd *Set) error {
 	return apply(s.raft, cmd)
 }
 
-func (s *store) Del(cmd *Delete) error {
+func (s *store) Delete(cmd *Delete) error {
 	return apply(s.raft, cmd)
 }
 

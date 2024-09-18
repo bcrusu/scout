@@ -8,9 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Throttle tests", func() {
+var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 	It("Should send only once per interval", func() {
-		ch := make(chan int)
+		ch := make(chan int, chanSize)
 		th := utils.ThrottleChan(ch, 10*time.Second)
 
 		go func() {
@@ -27,7 +27,7 @@ var _ = Describe("Throttle tests", func() {
 
 	It("Should send after interval", func() {
 		interval := 2 * time.Millisecond
-		ch := make(chan int)
+		ch := make(chan int, chanSize)
 		th := utils.ThrottleChan(ch, interval)
 
 		counter := 0
@@ -46,4 +46,22 @@ var _ = Describe("Throttle tests", func() {
 		Expect(counter).To(Equal(expected))
 		close(ch)
 	})
-})
+
+	It("Should work with MakeThrottleChan", func() {
+		ch, th := utils.MakeThrottleChan[int](10*time.Second, chanSize)
+
+		go func() {
+			for i := range 100 {
+				ch <- 1000 + i
+			}
+			close(ch)
+		}()
+
+		Expect(<-th).To(Equal(1000))
+		Eventually(th).Should(BeEmpty())
+		Eventually(th).Should(BeClosed())
+	})
+},
+	Entry("chan with no buffer", 0),
+	Entry("chan with buffer", 5),
+)

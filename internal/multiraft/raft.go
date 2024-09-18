@@ -84,12 +84,12 @@ func (r *Raft) IsLeader() bool {
 }
 
 // GetLeader returns current leader identifier and address if available.
-func (r *Raft) GetLeader() (raft.ServerID, raft.ServerAddress, error) {
+func (r *Raft) GetLeader() (raft.ServerID, raft.ServerAddress, bool) {
 	addr, id := r.raft.LeaderWithID()
 	if id == "" {
-		return "", "", errors.UnknownLeader
+		return "", "", false
 	}
-	return id, addr, nil
+	return id, addr, true
 }
 
 // GetLeaderChan returns a chan used to observe leadership changes for current server.

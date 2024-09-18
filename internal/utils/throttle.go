@@ -28,3 +28,17 @@ func ThrottleChan[T any](ch <-chan T, interval time.Duration) <-chan T {
 
 	return result
 }
+
+// MakeThrottleChan will make a new souce chan along with a throttled counterpart.
+func MakeThrottleChan[T any](interval time.Duration, bufferSize ...int) (chan<- T, <-chan T) {
+	size := 0
+	if len(bufferSize) == 1 {
+		size = bufferSize[0]
+	} else if len(bufferSize) > 1 {
+		panic("unexpected bufferSize parameter")
+	}
+
+	source := make(chan T, size)
+	throttled := ThrottleChan(source, interval)
+	return source, throttled
+}

@@ -149,6 +149,10 @@ func (x *DataServers) Validate() error {
 			return errors.Error("DataServers.Partitions.Id does not match")
 		}
 
+		if id >= x.PartitionCount {
+			return errors.Error("DataServers.Partitions.Id is invalid")
+		}
+
 		if _, ok := x.Servers[part.WriteServerId]; !ok {
 			return errors.Error("DataServers.Partitions.WriteServer not found in server list")
 		}

@@ -11,7 +11,7 @@ import (
 var (
 	traceIDPrefix     = getRandTraceIDPrefix()
 	traceIDCounter    = &atomic.Uint64{}
-	traceIDServerName = &atomic.Value{}
+	traceIDServerName = &atomic.Pointer[string]{}
 )
 
 type ctxKeyTraceID struct{}
@@ -47,14 +47,14 @@ func SetServerName(serverName string) {
 		panic("SetServerName failed: server name is already set.")
 	}
 
-	traceIDServerName.Store(serverName)
+	traceIDServerName.Store(&serverName)
 }
 
 func getNextTraceID() string {
 	id := traceIDCounter.Add(1)
 
 	if v := traceIDServerName.Load(); v != nil {
-		return fmt.Sprintf("%s_%d_%s", traceIDPrefix, id, v.(string))
+		return fmt.Sprintf("%s_%d_%s", traceIDPrefix, id, *v)
 	} else {
 		return fmt.Sprintf("%s_%d", traceIDPrefix, id)
 	}

@@ -67,8 +67,6 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.Unavailable, "Unavailable")
 	case errors.NotLeader:
 		return status.Error(codes.Unavailable, "Not Leader")
-	case errors.UnknownLeader:
-		return status.Error(codes.NotFound, "Unknown Leader")
 	case errors.NotFound:
 		return status.Error(codes.NotFound, "Not found")
 	case errors.InvalidRequest:
@@ -115,9 +113,6 @@ func getGoError(err error) error {
 		}
 		return errors.ValidationError{Message: s.Message()}
 	case codes.NotFound:
-		if s.Message() == "Unknown Leader" {
-			return errors.UnknownLeader
-		}
 		return errors.NotFound
 	case codes.PermissionDenied:
 		return errors.PermissionDenied

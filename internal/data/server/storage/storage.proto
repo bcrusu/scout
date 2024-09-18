@@ -5,15 +5,28 @@ package storage;
 option go_package = "internal/data/server/storage";
 
 message Command {
+    // [optional] The FSM checks its current version with the one
+    // provided here and rejects the write if they do not match.
+    uint64 if_match = 1;
+
     oneof payload {
-        Set set = 1;
-        Delete delete = 2;
+        Set set = 2;
+        Delete delete = 3;
     }
+}
+
+message Keyspace {
+    message KV {
+        bytes key = 1;
+        bytes value = 2;
+    }
+
+    repeated KV items = 1;
 }
 
 message Snapshot {
     uint64 version = 1;
-    map<string, bytes> items = 2;
+    map<uint64, Keyspace> keyspaces = 2;
 }
 
 message Set {

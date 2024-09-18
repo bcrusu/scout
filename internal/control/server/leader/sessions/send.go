@@ -37,13 +37,13 @@ func (t *Tracker) makeServerHello(sess *session) *control.SessionOut {
 	case control.ServerType_Data:
 		out = newSessionOut(&control.HelloDataServer{
 			Config:      sess.dsConfig,
-			DataServers: t.dataServers.Load().(*control.DataServers),
+			DataServers: t.dataServers.Load(),
 		})
 	case control.ServerType_Api:
 		out = newSessionOut(&control.HelloApiServer{
 			Config:      sess.asConfig,
-			DataServers: t.dataServers.Load().(*control.DataServers),
-			ApiServers:  t.apiServers.Load().(*control.ApiServers),
+			DataServers: t.dataServers.Load(),
+			ApiServers:  t.apiServers.Load(),
 		})
 	}
 

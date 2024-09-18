@@ -27,11 +27,14 @@ type resolverBuilder struct {
 }
 
 func (b *resolverBuilder) Build(target resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](resolveThrottle, 1)
+
 	r := &resolverImpl{
-		clientConn:   clientConn,
-		opts:         opts,
-		publisher:    b.publisher,
-		resolveNowCh: make(chan resolver.ResolveNowOptions),
+		clientConn:     clientConn,
+		opts:           opts,
+		publisher:      b.publisher,
+		resolveNowCh:   resolveNowCh,
+		resolveNowChTh: resolveNowChTh,
 	}
 
 	go r.mainLoop()
@@ -44,10 +47,11 @@ func (b *resolverBuilder) Scheme() string {
 }
 
 type resolverImpl struct {
-	clientConn   resolver.ClientConn
-	opts         resolver.BuildOptions
-	resolveNowCh chan resolver.ResolveNowOptions
-	publisher    Publisher
+	clientConn     resolver.ClientConn
+	opts           resolver.BuildOptions
+	resolveNowCh   chan<- resolver.ResolveNowOptions
+	resolveNowChTh <-chan resolver.ResolveNowOptions
+	publisher      Publisher
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -61,11 +65,10 @@ func (r *resolverImpl) Close() {
 func (r *resolverImpl) mainLoop() {
 	dataServers := r.publisher.SubscribeDataServers()
 	defer dataServers.Unsubscribe()
-	resolveNowThrottled := utils.ThrottleChan(r.resolveNowCh, resolveThrottle)
 
 	for {
 		select {
-		case _, ok := <-resolveNowThrottled:
+		case _, ok := <-r.resolveNowChTh:
 			if !ok {
 				return
 			}

@@ -99,7 +99,7 @@ func (t *Tracker) handleGetDataServers(sess *session, msg *control.GetDataServer
 		return nil
 	}
 
-	ds := t.dataServers.Load().(*control.DataServers)
+	ds := t.dataServers.Load()
 	sess.trySend(newSessionOut(ds))
 	return nil
 }
@@ -112,7 +112,7 @@ func (t *Tracker) handleGetApiServers(sess *session, msg *control.GetApiServers)
 		return nil
 	}
 
-	as := t.apiServers.Load().(*control.ApiServers)
+	as := t.apiServers.Load()
 	sess.trySend(newSessionOut(as))
 	return nil
 }

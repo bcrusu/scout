@@ -63,13 +63,28 @@ func (c *dataClient) Stop() {
 }
 
 func (c *dataClient) Set(ctx context.Context, req *data.SetRequest, opts ...grpc.CallOption) (*data.SetResponse, error) {
+	ctx = withRouting(ctx, routing{
+		partitionID: req.PartitionId,
+		isWrite:     true,
+	})
+
 	return c.client.Set(ctx, req, opts...)
 }
 
 func (c *dataClient) Get(ctx context.Context, req *data.GetRequest, opts ...grpc.CallOption) (*data.GetResponse, error) {
+	ctx = withRouting(ctx, routing{
+		partitionID: req.PartitionId,
+		isWrite:     false,
+	})
+
 	return c.client.Get(ctx, req, opts...)
 }
 
-func (c *dataClient) Del(ctx context.Context, req *data.DelRequest, opts ...grpc.CallOption) (*data.DelResponse, error) {
-	return c.client.Del(ctx, req, opts...)
+func (c *dataClient) Delete(ctx context.Context, req *data.DeleteRequest, opts ...grpc.CallOption) (*data.DeleteResponse, error) {
+	ctx = withRouting(ctx, routing{
+		partitionID: req.PartitionId,
+		isWrite:     true,
+	})
+
+	return c.client.Delete(ctx, req, opts...)
 }

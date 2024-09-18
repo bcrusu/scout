@@ -26,7 +26,7 @@ type ControlService struct {
 	raft       *multiraft.Raft
 	store      storage.Store
 	cancelFunc context.CancelFunc
-	role       atomic.Value
+	role       atomic.Pointer[DrainerService]
 }
 
 type role interface {
@@ -74,7 +74,7 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 			// until the new role is ready. Could use and intermediary role type
 			// that retries, with backoff, until the new role is ready. Will leave it,
 			// for now, to the client to retry the request.
-			old := s.role.Swap(nil).(*DrainerService)
+			old := s.role.Swap(nil)
 			go old.Stop()
 
 			var new role
@@ -94,7 +94,7 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 
 			s.role.Store(drainer)
 		case <-ctx.Done():
-			old := s.role.Swap(nil).(*DrainerService)
+			old := s.role.Swap(nil)
 			old.Stop()
 			return
 		}
@@ -106,7 +106,7 @@ func (s *ControlService) getRole() (role, error) {
 	if v == nil {
 		return nil, errors.Unavailable
 	}
-	return v.(role), nil
+	return v, nil
 }
 
 func (s *ControlService) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {

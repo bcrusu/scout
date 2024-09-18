@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	_    utils.Lifecycle = (*Controller)(nil)
-	logC                 = logging.WithComponent("partition_controller").NoContext()
+	_                utils.Lifecycle = (*Controller)(nil)
+	logC                             = logging.WithComponent("partition_controller").NoContext()
+	debounceInterval                 = 100 * time.Millisecond
 )
 
 type Controller struct {
@@ -72,11 +73,12 @@ func (c *Controller) mainLoop(ctx context.Context) {
 	dataServersSubscriber := c.publisher.SubscribeDataServers()
 	defer configSubscriber.Unsubscribe()
 	defer dataServersSubscriber.Unsubscribe()
-	configDebounced := utils.DebounceChan(ctx, configSubscriber.ItemChan(), 100*time.Millisecond)
-	dataServersDebounced := utils.DebounceChan(ctx, dataServersSubscriber.ItemChan(), 100*time.Millisecond)
+	configDebounced := utils.DebounceChan(ctx, configSubscriber.ItemChan(), debounceInterval)
+	dataServersDebounced := utils.DebounceChan(ctx, dataServersSubscriber.ItemChan(), debounceInterval)
 
 	var config *control.DataServerConfig
 	var addrs addressMap
+	var addrsVersion uint64
 
 	syncNow := func() {
 		if config != nil && c.syncPartitions(ctx, config, addrs) {
@@ -86,11 +88,17 @@ func (c *Controller) mainLoop(ctx context.Context) {
 
 	for {
 		select {
-		case config = <-configDebounced:
-			syncNow()
+		case newConfig := <-configDebounced:
+			if newConfig.Version != config.Version {
+				config = newConfig
+				syncNow()
+			}
 		case x := <-dataServersDebounced:
-			addrs = c.getAddressMap(x)
-			syncNow()
+			if x.Version != addrsVersion {
+				addrs = c.getAddressMap(x)
+				addrsVersion = x.Version
+				syncNow()
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -197,7 +205,7 @@ func (c *Controller) getAddressMap(dataServers *control.DataServers) addressMap 
 
 // The controller needs to receive two pieces of info to be able to sync the partition:
 //   - 1. the local data server config: which gives the list of assigned
-//     partitions along with the list of group members for each partition.
+//     partitions along with the list of group member/server IDs for each partition.
 //   - 2. the data servers list: which gives the current address of each data server.
 //   - if either is missing, the sync cannot be performed, and
 //   - because these are received independently in separate events, as per design, they

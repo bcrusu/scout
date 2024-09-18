@@ -44,8 +44,8 @@ func (d *partitionDrainer) Get(ctx context.Context, req *data.GetRequest) (*data
 	return d.inner.Get(cctx, req)
 }
 
-func (d *partitionDrainer) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
+func (d *partitionDrainer) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
-	return d.inner.Del(cctx, req)
+	return d.inner.Delete(cctx, req)
 }

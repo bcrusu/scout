@@ -50,7 +50,7 @@ func (n *Follower) Get(ctx context.Context, req *data.GetRequest) (*data.GetResp
 		return nil, errors.InvalidRequest
 	}
 
-	value, ok := n.store.Get(req.Key)
+	value, ok := n.store.Get(req.Keyspace, req.Key)
 	if !ok {
 		return nil, errors.NotFound
 	}
@@ -60,6 +60,6 @@ func (n *Follower) Get(ctx context.Context, req *data.GetRequest) (*data.GetResp
 	}, nil
 }
 
-func (n *Follower) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
+func (n *Follower) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
 	return nil, errors.NotLeader
 }

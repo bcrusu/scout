@@ -64,3 +64,17 @@ func DebounceChan[T any](ctx context.Context, source <-chan T, pause time.Durati
 
 	return result
 }
+
+// MakeDebounceChan will make a new souce chan along with a debounced counterpart.
+func MakeDebounceChan[T any](ctx context.Context, pause time.Duration, bufferSize ...int) (chan<- T, <-chan T) {
+	size := 0
+	if len(bufferSize) == 1 {
+		size = bufferSize[0]
+	} else if len(bufferSize) > 1 {
+		panic("unexpected bufferSize parameter")
+	}
+
+	source := make(chan T, size)
+	debounced := DebounceChan(ctx, source, pause)
+	return source, debounced
+}

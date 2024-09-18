@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
@@ -50,10 +49,7 @@ func LifecycleStop[T Lifecycle](log logging.LoggerNoContext, instances ...T) {
 }
 
 // LifecycleRun starts the instance and runs until the context is done.
-func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, shutdownTimeout time.Duration, instance T) error {
-	ctx, cancelCtx := context.WithCancel(ctx)
-	defer cancelCtx()
-
+func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, instance T) error {
 	shutdownCh := make(chan any)
 	ctx = context.WithValue(ctx, ctxKeyShutdown{}, shutdownCh)
 
@@ -77,20 +73,7 @@ func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, shutdown
 
 	log.Info(ctx, "Stopping...")
 
-	stopped := make(chan any)
-	go func() {
-		LifecycleStop(log.NoContext(), instance)
-		close(stopped)
-	}()
-
-	select {
-	case <-time.After(shutdownTimeout):
-		log.Warn(ctx, "Failed to stop in the configured shutdown timeout. Canceling the context...")
-		cancelCtx()
-		<-time.After(time.Second)
-	case <-stopped:
-	}
-
+	LifecycleStop(log.NoContext(), instance)
 	return nil
 }
 

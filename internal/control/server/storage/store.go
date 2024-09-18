@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	_ Store = (*store)(nil)
+	_                Store = (*store)(nil)
+	debounceInterval       = 100 * time.Millisecond
 )
 
 // Store defines all possilbe way to interact with the Raft group and its backing FSM storage.
@@ -83,7 +84,7 @@ func (s *store) Stop() {
 }
 
 func (s *store) mainLoop(ctx context.Context) {
-	notifyDebounced := utils.DebounceChan(ctx, s.fsm.notifyCh, 100*time.Millisecond)
+	notifyDebounced := utils.DebounceChan(ctx, s.fsm.notifyCh, debounceInterval)
 
 	for {
 		select {

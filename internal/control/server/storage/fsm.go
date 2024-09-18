@@ -48,7 +48,7 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	}
 
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
-		log.WithError(err).Debug("FailedPrecondition")
+		log.WithError(err).Debug("Command version check failed", "fsm_version", f.version, "cmd_version", cmd.IfMatch)
 		return errors.FailedPrecondition
 	}
 

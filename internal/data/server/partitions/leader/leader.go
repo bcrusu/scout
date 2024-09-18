@@ -47,8 +47,9 @@ func (n *Leader) Set(ctx context.Context, req *data.SetRequest) (*data.SetRespon
 	}
 
 	payload := &storage.Set{
-		Key:   req.Key,
-		Value: req.Value,
+		Keyspace: req.Keyspace,
+		Key:      req.Key,
+		Value:    req.Value,
 	}
 
 	if err := n.store.Set(payload); err != nil {
@@ -63,7 +64,7 @@ func (n *Leader) Get(ctx context.Context, req *data.GetRequest) (*data.GetRespon
 		return nil, errors.InvalidRequest
 	}
 
-	value, ok := n.store.Get(req.Key)
+	value, ok := n.store.Get(req.Keyspace, req.Key)
 	if !ok {
 		return nil, errors.NotFound
 	}
@@ -73,18 +74,19 @@ func (n *Leader) Get(ctx context.Context, req *data.GetRequest) (*data.GetRespon
 	}, nil
 }
 
-func (n *Leader) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
+func (n *Leader) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
 	if req == nil || len(req.Key) == 0 {
 		return nil, errors.InvalidRequest
 	}
 
 	payload := &storage.Delete{
-		Key: req.Key,
+		Keyspace: req.Keyspace,
+		Key:      req.Key,
 	}
 
-	if err := n.store.Del(payload); err != nil {
+	if err := n.store.Delete(payload); err != nil {
 		return nil, err
 	}
 
-	return &data.DelResponse{}, nil
+	return &data.DeleteResponse{}, nil
 }

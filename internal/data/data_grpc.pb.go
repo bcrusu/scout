@@ -19,9 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Service_Get_FullMethodName = "/data.Service/Get"
-	Service_Set_FullMethodName = "/data.Service/Set"
-	Service_Del_FullMethodName = "/data.Service/Del"
+	Service_Get_FullMethodName    = "/data.Service/Get"
+	Service_Set_FullMethodName    = "/data.Service/Set"
+	Service_Delete_FullMethodName = "/data.Service/Delete"
 )
 
 // ServiceClient is the client API for Service service.
@@ -32,7 +32,7 @@ const (
 type ServiceClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
-	Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error)
+	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 }
 
 type serviceClient struct {
@@ -63,10 +63,10 @@ func (c *serviceClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.Ca
 	return out, nil
 }
 
-func (c *serviceClient) Del(ctx context.Context, in *DelRequest, opts ...grpc.CallOption) (*DelResponse, error) {
+func (c *serviceClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DelResponse)
-	err := c.cc.Invoke(ctx, Service_Del_FullMethodName, in, out, cOpts...)
+	out := new(DeleteResponse)
+	err := c.cc.Invoke(ctx, Service_Delete_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (c *serviceClient) Del(ctx context.Context, in *DelRequest, opts ...grpc.Ca
 type ServiceServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Set(context.Context, *SetRequest) (*SetResponse, error)
-	Del(context.Context, *DelRequest) (*DelResponse, error)
+	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -98,8 +98,8 @@ func (UnimplementedServiceServer) Get(context.Context, *GetRequest) (*GetRespons
 func (UnimplementedServiceServer) Set(context.Context, *SetRequest) (*SetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
-func (UnimplementedServiceServer) Del(context.Context, *DelRequest) (*DelResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Del not implemented")
+func (UnimplementedServiceServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -158,20 +158,20 @@ func _Service_Set_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Del_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DelRequest)
+func _Service_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Del(ctx, in)
+		return srv.(ServiceServer).Delete(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Del_FullMethodName,
+		FullMethod: Service_Delete_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Del(ctx, req.(*DelRequest))
+		return srv.(ServiceServer).Delete(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -192,8 +192,8 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Service_Set_Handler,
 		},
 		{
-			MethodName: "Del",
-			Handler:    _Service_Del_Handler,
+			MethodName: "Delete",
+			Handler:    _Service_Delete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

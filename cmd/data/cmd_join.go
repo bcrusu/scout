@@ -26,7 +26,7 @@ func newJoinCmd() *cobra.Command {
 			}
 
 			s := server.NewServer(serverConfig(config))
-			return utils.LifecycleRun(c.Context(), log, config.ShutdownTimeout, s)
+			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}
 

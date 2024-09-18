@@ -90,6 +90,23 @@ var _ = DescribeTableSubtree("Debounce tests", func(chanSize int) {
 		Expect(<-db).To(Equal(2))
 		Eventually(db).Should(BeClosed())
 	})
+
+	It("Should work with MakeDebounceChan", func() {
+		ch, db := utils.MakeDebounceChan[int](context.Background(), pause, chanSize)
+
+		go func() {
+			ch <- 1
+			ch <- 2
+			time.Sleep(pause * 2)
+			ch <- 3
+			ch <- 4
+			close(ch)
+		}()
+
+		Expect(<-db).To(Equal(2))
+		Expect(<-db).To(Equal(4))
+		Eventually(db).Should(BeClosed())
+	})
 },
 	Entry("chan with no buffer", 0),
 	Entry("chan with buffer", 5),

@@ -8,12 +8,12 @@ option go_package = "internal/data";
 service Service {
     rpc Get(GetRequest) returns (GetResponse);
     rpc Set(SetRequest) returns (SetResponse);
-    rpc Del(DelRequest) returns (DelResponse); 
+    rpc Delete(DeleteRequest) returns (DeleteResponse); 
 }
 
 message SetRequest {
-    uint64 keyspace = 1;
-    uint64 partition = 2;
+    uint32 partition_id = 1;
+    uint64 keyspace = 2;
     bytes key = 3;
     bytes value = 4;
 }
@@ -21,8 +21,8 @@ message SetRequest {
 message SetResponse {}
 
 message GetRequest {
-    uint64 keyspace = 1;
-    uint64 partition = 2;
+    uint32 partition_id = 1;
+    uint64 keyspace = 2;
     bytes key = 3;
 }
 
@@ -30,10 +30,10 @@ message GetResponse {
     bytes value = 1;
 }
 
-message DelRequest {
-    uint64 keyspace = 1;
-    uint64 partition = 2;
+message DeleteRequest {
+    uint32 partition_id = 1;
+    uint64 keyspace = 2;
     bytes key = 3;
 }
 
-message DelResponse {}
+message DeleteResponse {}

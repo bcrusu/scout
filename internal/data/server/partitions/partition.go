@@ -22,7 +22,7 @@ type partition struct {
 	fsm        *storage.FSM
 	log        logging.Logger
 	updateCh   chan updateCmd
-	role       atomic.Value
+	role       atomic.Pointer[partitionDrainer]
 	cancelFunc context.CancelFunc
 }
 
@@ -72,7 +72,7 @@ func (p *partition) mainLoop(ctx context.Context, version uint64, servers []raft
 		case isLeader = <-p.raft.GetLeaderChan():
 			// Setting to nil will reject new incoming requests with Unavailable error
 			// until the new partition leader/follower transition is ready.
-			old := p.role.Swap(nil).(*partitionDrainer)
+			old := p.role.Swap(nil)
 			go old.Stop()
 
 			store := storage.NewStore(p.raft, p.fsm)
@@ -108,7 +108,7 @@ func (p *partition) mainLoop(ctx context.Context, version uint64, servers []raft
 				updatedRaft = p.updateRaftServers(servers)
 			}
 		case <-ctx.Done():
-			old := p.role.Swap(nil).(*partitionDrainer)
+			old := p.role.Swap(nil)
 			old.Stop()
 			p.raft.Stop()
 			return
@@ -218,7 +218,7 @@ func (p *partition) getRole() (role, error) {
 	if v == nil {
 		return nil, errors.Unavailable
 	}
-	return v.(role), nil
+	return v, nil
 }
 
 func (p *partition) Set(ctx context.Context, req *data.SetRequest) (*data.SetResponse, error) {
@@ -237,10 +237,10 @@ func (p *partition) Get(ctx context.Context, req *data.GetRequest) (*data.GetRes
 	}
 }
 
-func (p *partition) Del(ctx context.Context, req *data.DelRequest) (*data.DelResponse, error) {
+func (p *partition) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
 	if role, err := p.getRole(); err != nil {
 		return nil, err
 	} else {
-		return role.Del(ctx, req)
+		return role.Delete(ctx, req)
 	}
 }

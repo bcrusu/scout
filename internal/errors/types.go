@@ -17,9 +17,6 @@ var (
 	// NotLeader signals that the invoked instance is not the group leader.
 	NotLeader = Error("not leader")
 
-	// UnknownLeader is a transient error which signals that the group leader is not known.
-	UnknownLeader = Error("unknown leader")
-
 	// NotRegistered signals that the accessed resource requires registration.
 	NotRegistered = Error("not registered")
 

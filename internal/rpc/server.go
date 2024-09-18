@@ -21,6 +21,7 @@ var (
 // ServerConfig is the server configuration
 type ServerConfig struct {
 	BindAddress          string
+	ShutdownTimeout      time.Duration
 	MaxConcurrentStreams uint32
 	MaxRecvMsgSize       uint64
 	MaxSendMsgSize       uint64
@@ -93,13 +94,15 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Stop() {
 	stopped := make(chan any)
 	go func() {
-		s.server.GracefulStop() // TODO: it will not return, waiting for long-lived streams
+		s.server.GracefulStop()
 		close(stopped)
 	}()
 
 	select {
-	// case <-ctx.Done(): // TODO
-	// 	s.server.Stop()
+	case <-time.After(s.config.ShutdownTimeout):
+		// this is expected to happen since there will be active long-lived streams...
+		logRS.NoContext().Debug("Failed to stop in the configured shutdown timeout.")
+		s.server.Stop()
 	case <-stopped:
 	}
 }

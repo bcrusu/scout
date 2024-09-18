@@ -35,11 +35,14 @@ func (*resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn,
 		return nil, err
 	}
 
+	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](resolveThrottle, 1)
+
 	r := &resolverImpl{
-		clientConn:   clientConn,
-		opts:         opts,
-		target:       target,
-		resolveNowCh: make(chan resolver.ResolveNowOptions),
+		clientConn:     clientConn,
+		opts:           opts,
+		target:         target,
+		resolveNowCh:   resolveNowCh,
+		resolveNowChTh: resolveNowChTh,
 	}
 
 	go r.mainLoop()
@@ -52,10 +55,11 @@ func (*resolverBuilder) Scheme() string {
 }
 
 type resolverImpl struct {
-	clientConn   resolver.ClientConn
-	opts         resolver.BuildOptions
-	target       discovery.Target
-	resolveNowCh chan resolver.ResolveNowOptions
+	clientConn     resolver.ClientConn
+	opts           resolver.BuildOptions
+	target         discovery.Target
+	resolveNowCh   chan<- resolver.ResolveNowOptions
+	resolveNowChTh <-chan resolver.ResolveNowOptions
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -67,7 +71,6 @@ func (r *resolverImpl) Close() {
 }
 
 func (r *resolverImpl) mainLoop() {
-	resolveNowThrottled := utils.ThrottleChan(r.resolveNowCh, resolveThrottle)
 	ticker := time.NewTicker(resolveInterval)
 	defer ticker.Stop()
 
@@ -91,7 +94,7 @@ func (r *resolverImpl) mainLoop() {
 
 	for {
 		select {
-		case _, ok := <-resolveNowThrottled:
+		case _, ok := <-r.resolveNowChTh:
 			if !ok {
 				close(reqCh)
 				<-resCh

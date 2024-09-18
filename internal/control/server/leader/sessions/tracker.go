@@ -22,11 +22,13 @@ const (
 )
 
 var (
-	logS                            = logging.WithComponent("session_tracker")
-	_               utils.Lifecycle = (*Tracker)(nil)
-	recvBurst                       = 5
-	recvLimit                       = rate.Limit(float64(recvBurst) / float64(time.Second))
-	recvMaxOffenses                 = 16 // after this the session will be closed
+	logS                                       = logging.WithComponent("session_tracker")
+	_                          utils.Lifecycle = (*Tracker)(nil)
+	recvBurst                                  = 5
+	recvLimit                                  = rate.Limit(float64(recvBurst) / float64(time.Second))
+	recvMaxOffenses                            = 16 // after this the session will be closed
+	updateServerListDebounce                   = 200 * time.Millisecond
+	updateServerConfigDebounce                 = 200 * time.Millisecond
 )
 
 type Tracker struct {
@@ -36,9 +38,9 @@ type Tracker struct {
 	cancelFunc            context.CancelFunc
 	dataServiceConfigJson string
 	apiServiceConfigJson  string
-	dataServers           atomic.Value // *DataServers
+	dataServers           atomic.Pointer[control.DataServers]
 	dataServersVersion    atomic.Uint64
-	apiServers            atomic.Value // *ApiServers
+	apiServers            atomic.Pointer[control.ApiServers]
 	apiServersVersion     atomic.Uint64
 }
 
@@ -143,6 +145,11 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	defer partitionsSubscriber.Unsubscribe()
 	defer writeServersTicker.Stop()
 
+	dsUpdateCh, dsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
+	asUpdateCh, asUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
+	dsConfigsUpdateCh, dsConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerConfigDebounce, 1)
+	asConfigsUpdateCh, asConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerConfigDebounce, 1)
+
 	servers := t.store.Servers()
 	partitions := t.store.Partitions()
 	dsConfigs := makeDataServerConfigs(servers, partitions, dsConfigs{})
@@ -154,8 +161,8 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	partitionStates := t.initPartitionStates()
 	runningLoops := 0
 
-	t.updateDataServers(servers, partitions, sessionsByServer, partitionStates)
-	t.updateApiServers(servers, sessionsByServer)
+	t.updateDataServerList(servers, partitions, sessionsByServer, partitionStates)
+	t.updateApiServerList(servers, sessionsByServer)
 
 	closeSession := func(id sessionID, err error) {
 		if sess, ok := sessionsById[id]; ok {
@@ -219,12 +226,11 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				continue
 			}
 
-			// TODO: debounce updateDataServers and updateApiServers calls for new sessions
 			switch new.serverType {
 			case control.ServerType_Data:
-				t.updateDataServers(servers, partitions, sessionsByServer, partitionStates)
+				dsUpdateCh <- true
 			case control.ServerType_Api:
-				t.updateApiServers(servers, sessionsByServer)
+				asUpdateCh <- true
 			}
 		case msg := <-t.sessionCh:
 			if x, ok := msg.(sessionLoopDone); ok {
@@ -250,8 +256,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 						part.leaderTerm = term
 					}
 				}
-				// TODO: debounce updateDataServers for leadership change
-				t.updateDataServers(servers, partitions, sessionsByServer, partitionStates)
+				dsUpdateCh <- true
 			default:
 				logS.Errorf(ctx, "Unknown session message type %T", msg)
 			}
@@ -263,15 +268,23 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				}
 			}
 
-			t.updateDataServers(servers, partitions, sessionsByServer, partitionStates)
-			t.updateApiServers(servers, sessionsByServer)
-			dsConfigs = t.updateDataServerConfigs(servers, partitions, sessionsByServer, dsConfigs)
-			asConfigs = t.updateApiServerConfigs(servers, sessionsByServer, asConfigs)
+			dsUpdateCh <- true
+			asUpdateCh <- true
+			dsConfigsUpdateCh <- true
+			asConfigsUpdateCh <- true
 		case partitions = <-partitionsSubscriber.ItemChan():
-			t.updateDataServers(servers, partitions, sessionsByServer, partitionStates)
-			dsConfigs = t.updateDataServerConfigs(servers, partitions, sessionsByServer, dsConfigs)
+			dsUpdateCh <- true
+			dsConfigsUpdateCh <- true
 		case <-writeServersTicker.C:
 			t.writeUpdateServers(ctx, servers, sessionsByServer)
+		case <-dsUpdateChDb:
+			t.updateDataServerList(servers, partitions, sessionsByServer, partitionStates)
+		case <-asUpdateChDb:
+			t.updateApiServerList(servers, sessionsByServer)
+		case <-dsConfigsUpdateChDb:
+			dsConfigs = t.updateDataServerConfigs(servers, partitions, sessionsByServer, dsConfigs)
+		case <-asConfigsUpdateChDb:
+			asConfigs = t.updateApiServerConfigs(servers, sessionsByServer, asConfigs)
 		case <-ctx.Done():
 			goto SHUTDOWN
 		}
@@ -313,7 +326,7 @@ func (t *Tracker) initPartitionStates() partitionStates {
 	return result
 }
 
-func (t *Tracker) updateDataServers(servers *storage.Servers, partitions *storage.Partitions, sessions sessionsByServer, partitionStates partitionStates) {
+func (t *Tracker) updateDataServerList(servers *storage.Servers, partitions *storage.Partitions, sessions sessionsByServer, partitionStates partitionStates) {
 	ds := &control.DataServers{
 		Version:           t.dataServersVersion.Add(1),
 		Servers:           map[uint64]*control.DataServers_Server{},
@@ -353,7 +366,7 @@ func (t *Tracker) updateDataServers(servers *storage.Servers, partitions *storag
 	sessions.trySendAll(newSessionOut(ds))
 }
 
-func (t *Tracker) updateApiServers(servers *storage.Servers, sessions sessionsByServer) {
+func (t *Tracker) updateApiServerList(servers *storage.Servers, sessions sessionsByServer) {
 	as := &control.ApiServers{
 		Version:           t.apiServersVersion.Add(1),
 		Servers:           map[uint64]*control.ApiServers_Server{},
