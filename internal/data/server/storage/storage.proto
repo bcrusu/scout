@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package storage;
+package data.storage;
 
 option go_package = "internal/data/server/storage";
 

@@ -102,7 +102,7 @@ func (n *Server) getComponentsForBootstrap() ([]utils.Lifecycle, error) {
 	params := bootstrap.Params{
 		ClusterName:    n.config.ClusterName,
 		LocalAddress:   n.bconfig.LocalAddress,
-		Peers:          n.bconfig.Peers,
+		InitialServers: n.bconfig.InitialServers,
 		PartitionCount: n.bconfig.PartitionCount,
 	}
 
@@ -139,12 +139,11 @@ func (n *Server) buildRaft(serverName string) (storage.Store, *multiraft.Transpo
 		BindAddress:    n.config.Server.BindAddress,
 		RequestTimeout: 2 * time.Second,
 		Transport:      transportService,
-		FSM:            fsm,
 	}
 
 	mraft := multiraft.NewMultiRaft(config)
 
-	raft, err := mraft.New(raftGroupName, raft.ServerID(serverName))
+	raft, err := mraft.New(raftGroupName, fsm, raft.ServerID(serverName))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "failed to create raft group")
 	}

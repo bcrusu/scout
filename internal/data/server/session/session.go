@@ -116,7 +116,9 @@ func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan 
 		case err := <-loopDoneCh:
 			go drainLoop()
 			streamCancel()
-			<-loopDoneCh // wait for partner
+
+			log.WithError(err).Trace("Session loop done.")
+			log.WithError(<-loopDoneCh).Trace("Session loop done.") // wait for partner
 
 			if err != nil && !errors.Is(err, io.EOF) {
 				log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
@@ -124,7 +126,6 @@ func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan 
 				log.Debug("Session stream ended. Reconnecting...")
 			}
 
-			close(sendCh)
 			return
 		case <-heartbeatTicker.C:
 			if gotHello {
@@ -160,8 +161,8 @@ func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan 
 		case <-ctx.Done():
 			go drainLoop()
 			streamCancel()
-			<-loopDoneCh
-			<-loopDoneCh
+			log.WithError(<-loopDoneCh).Trace("Session loop done.")
+			log.WithError(<-loopDoneCh).Trace("Session loop done.")
 			return
 		}
 	}
@@ -173,9 +174,16 @@ func (m *Session) sendLoop(stream stream, sendCh <-chan *control.SessionIn, done
 		return
 	}
 
-	for in := range sendCh {
-		if err := stream.Send(in); err != nil {
-			doneCh <- err
+	for {
+		select {
+		case in := <-sendCh:
+			log.Tracef("Sending session message %T.", in.Payload)
+			if err := stream.Send(in); err != nil {
+				doneCh <- err
+				return
+			}
+		case <-stream.Context().Done():
+			doneCh <- nil
 			return
 		}
 	}
@@ -197,10 +205,7 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 		return
 	}
 
-	// recvCh <- payload.HelloDataServer
-	recvCh <- &control.HelloDataServer{
-		Config: &control.DataServerConfig{},
-	}
+	recvCh <- payload.HelloDataServer
 
 	for {
 		out, err := stream.Recv()

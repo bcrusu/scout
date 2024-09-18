@@ -11,7 +11,6 @@ type Config struct {
 	BindAddress    string
 	RequestTimeout time.Duration
 	Transport      multiraft.Transport
-	FSM            FSM
 }
 
 // TODO: make configurable

@@ -91,7 +91,6 @@ func (n *Server) buildMultiRaft() (*storage.FSM, *multiraft.TransportService, *m
 		BindAddress:    n.config.Server.BindAddress,
 		RequestTimeout: 2 * time.Second,
 		Transport:      transportService,
-		FSM:            fsm,
 	}
 
 	mraft := multiraft.NewMultiRaft(config)

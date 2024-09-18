@@ -52,7 +52,7 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 	log := logB.With("address", leaderAddress)
 
 	if leaderAddress == b.subConnAddr {
-		log.Debug("UpdateClientConnState invoked with the same address")
+		log.Trace("UpdateClientConnState invoked with the same address")
 		return nil
 	} else {
 		b.closeSubConn()

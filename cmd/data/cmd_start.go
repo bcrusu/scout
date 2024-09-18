@@ -15,7 +15,7 @@ func newStartCmd() *cobra.Command {
 		Short:   "Starts from existing configuration on disk.",
 		RunE: func(c *cobra.Command, args []string) error {
 			log := logging.WithComponent("cmd_start")
-			config, err := cmd.GetConfig(c)
+			config, err := cmd.GetConfig(c, true)
 			if err != nil {
 				return err
 			}

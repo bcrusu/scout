@@ -33,9 +33,8 @@ func AddCommonParameters(c *cobra.Command) {
 }
 
 func AddDiscoveryParameters(c *cobra.Command) {
-	c.PersistentFlags().String("discovery", "static", "Cluster discovery method. Possible values are 'static' or 'dns'.")
-	c.PersistentFlags().StringSlice("servers", nil, "Server address list used for static discovery.")
-	c.PersistentFlags().String("target", "", "The gRPC resolver target. For DNS discovery the expected format is: 'dns:[//authority/]host[:port]'.")
+	c.PersistentFlags().StringSlice("discovery-servers", nil, "Server address list used for static discovery.")
+	c.PersistentFlags().String("discovery-dns", "", "The gRPC resolver target. For DNS discovery the expected format is: 'dns:[//authority/]host[:port]'.")
 }
 
 func AddServerConfigParameters(c *cobra.Command) {
@@ -46,7 +45,7 @@ func AddServerConfigParameters(c *cobra.Command) {
 	c.PersistentFlags().Duration("shutdown-timeout", 5*time.Second, "Server shutdown timeout.")
 }
 
-func GetConfig(c *cobra.Command) (Config, error) {
+func GetConfig(c *cobra.Command, needsDiscovery bool) (Config, error) {
 	server, err1 := getServerConfig(c)
 
 	clusterName, err2 := c.Flags().GetString("cluster-name")
@@ -60,6 +59,9 @@ func GetConfig(c *cobra.Command) (Config, error) {
 	}
 
 	discovery, err4 := getDiscoveryTarget(c)
+	if err4 == nil && needsDiscovery && discovery == "" {
+		err4 = errors.Error("missing discovery parameter")
+	}
 
 	err := errors.Join(err1, err2, err3, err4)
 	if err != nil {
@@ -104,45 +106,34 @@ func getServerConfig(c *cobra.Command) (rpc.ServerConfig, error) {
 }
 
 func getDiscoveryTarget(c *cobra.Command) (discovery.DiscoveryTarget, error) {
-	d, err := c.Flags().GetString("discovery")
+	servers, err := c.Flags().GetStringSlice("discovery-servers")
 	if err != nil {
 		return "", err
 	}
 
-	var result discovery.DiscoveryTarget
+	dnsTarget, err := c.Flags().GetString("discovery-dns")
+	if err != nil {
+		return "", err
+	}
 
-	switch d {
-	case "servers":
-		peers, err := c.Flags().GetStringSlice("servers")
-		if err != nil {
-			return "", err
-		}
-		if len(peers) == 0 {
-			return "", errors.Error("servers parameter cannot be empty")
-		}
+	if len(servers) > 0 && dnsTarget != "" {
+		return "", errors.Error("multiple discovery methods are not supported")
+	}
 
-		for _, a := range peers {
+	switch {
+	case len(servers) > 0:
+		for _, a := range servers {
 			if !storage.IsValidAddress(a) {
 				return "", errors.Error("servers contains invalid address")
 			}
 		}
 
-		result = discovery.Static(peers...)
-	case "dns":
-		target, err := c.Flags().GetString("target")
-		if err != nil {
-			return "", err
-		}
-		if len(target) == 0 {
-			return "", errors.Error("target parameter cannot be empty")
-		}
-
-		result = discovery.DNS(target)
+		return discovery.Static(servers...), nil
+	case dnsTarget != "":
+		return discovery.DNS(dnsTarget), nil
 	default:
-		return "", errors.Errorf("unknown discovery type %q", d)
+		return "", nil
 	}
-
-	return result, nil
 }
 
 func parseBytes(c *cobra.Command, name string) (uint64, error) {

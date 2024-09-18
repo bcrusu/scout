@@ -89,7 +89,7 @@ func (c *Controller) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case newConfig := <-configDebounced:
-			if newConfig.Version != config.Version {
+			if config == nil || newConfig.Version != config.Version {
 				config = newConfig
 				syncNow()
 			}
@@ -149,7 +149,7 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 		servers, localID := c.getRaftServers(config, addrs)
 
 		groupID := config.Name
-		raft, err := c.multiraft.New(groupID, localID)
+		raft, err := c.multiraft.New(groupID, c.fsm, localID)
 		if err != nil {
 			logC.WithError(err).Error("Failed to start Raft.", "partition", config.Id, "group", groupID)
 			continue

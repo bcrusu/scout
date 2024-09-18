@@ -17,17 +17,17 @@ func newBootstrapCmd() *cobra.Command {
 		Short:   "Bootstraps a new cluster. Must be executed using the same params on all bootstrapped servers.",
 		RunE: func(c *cobra.Command, args []string) error {
 			log := logging.WithComponent("cmd_bootstrap")
-			config, err := cmd.GetConfig(c)
+			config, err := cmd.GetConfig(c, false)
 			if err != nil {
 				return err
 			}
 
-			peers, err1 := c.Flags().GetStringSlice("initial-servers")
+			servers, err1 := c.Flags().GetStringSlice("initial-servers")
 			partitionCount, err2 := c.Flags().GetUint32("partition-count")
 			if err := errors.Join(err1, err2); err != nil {
 				return err
 			}
-			for _, a := range peers {
+			for _, a := range servers {
 				if !storage.IsValidAddress(a) {
 					return errors.Error("initial-servers contains invalid address")
 				}
@@ -35,7 +35,7 @@ func newBootstrapCmd() *cobra.Command {
 
 			bconfig := server.BootstrapConfig{
 				LocalAddress:   config.Server.BindAddress,
-				Peers:          peers,
+				InitialServers: servers,
 				PartitionCount: partitionCount,
 			}
 

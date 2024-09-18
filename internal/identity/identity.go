@@ -1,8 +1,17 @@
 package identity
 
 import (
+	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/tracing"
 	"github.com/google/uuid"
+)
+
+var (
+	// TODO: implement on-disk persistence
+	token    = uuid.New().String()
+	identity *Identity
+	log      = logging.WithComponent("identity").NoContext()
 )
 
 // Identity is the name of the machine.
@@ -32,44 +41,44 @@ type IdentityStore interface {
 }
 
 type identityStore struct {
-	token    string
-	identity *Identity
 }
 
 // NewStore returns an IdentityStore instance.
 func NewStore(dataDir string) (IdentityStore, error) {
-	// TODO: implement on-disk persistence
 
 	// tracing.SetServerName(s.identity.ServerName)
 
-	return &identityStore{
-		token: uuid.New().String(),
-	}, nil
+	return &identityStore{}, nil
 }
 
 // Signals an empty store.
 func (s *identityStore) IsEmpty() bool {
-	return s.identity == nil
+	return identity == nil
 }
 
 // Generates and returns the unique token used by servers to register
 // with the control plane. Further calls will return the same value.
 func (s *identityStore) Token() string {
-	return s.token
+	return token
 }
 
 // Persists the identity received from the control plane. Further calls
 // will return error. Stored state is immutable.
 func (s *identityStore) Set(i Identity) error {
-	s.identity = &i
-	tracing.SetServerName(s.identity.ServerName)
+	if identity != nil {
+		return errors.Error("identity was already set")
+	}
+
+	identity = &i
+	tracing.SetServerName(identity.ServerName)
+	log.Info("Stored identity.", "cluster", i.ClusterName, "server_id", i.ServerID, "server_name", i.ServerName)
 	return nil
 }
 
 // Returns the stored state.
 func (s *identityStore) Get() (Identity, bool) {
-	if s.identity == nil {
+	if identity == nil {
 		return Identity{}, false
 	}
-	return *s.identity, true
+	return *identity, true
 }

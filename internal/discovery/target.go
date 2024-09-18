@@ -43,7 +43,7 @@ func Static(addresses ...string) DiscoveryTarget {
 // String returns the corresponding gRPC target string.
 func (t Target) String() string {
 	q := url.Values{}
-	q.Add("cluster ", t.ClusterName)
+	q.Add("cluster", t.ClusterName)
 	q.Add("discovery", t.Discovery)
 
 	u := url.URL{

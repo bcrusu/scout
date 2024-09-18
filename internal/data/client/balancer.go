@@ -159,6 +159,11 @@ func (b *balancerImpl) makePicker(ds *control.DataServers) *picker {
 	for partID := range ds.PartitionCount {
 		part := ds.Partitions[partID]
 
+		var write *subConn
+		if part.WriteServerId != 0 {
+			write = b.subConns[part.WriteServerId]
+		}
+
 		read := make([]*subConn, len(part.ReadServerIds))
 		for i, serverID := range part.ReadServerIds {
 			read[i] = b.subConns[serverID]
@@ -166,7 +171,7 @@ func (b *balancerImpl) makePicker(ds *control.DataServers) *picker {
 
 		partitions[partID] = &partition{
 			id:    partID,
-			write: b.subConns[part.WriteServerId],
+			write: write,
 			read:  utils.ShuffleSlice(read),
 		}
 	}
@@ -251,6 +256,11 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	part := p.partitions[routing.partitionID]
 
 	if routing.isWrite {
+		if part.write == nil {
+			logLB.Debug("Write server not available.", "partition_id", part.id)
+			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
+		}
+
 		if part.write.state != connectivity.Ready {
 			logLB.Debug("Write connection not ready.", "partition_id", part.id)
 			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable

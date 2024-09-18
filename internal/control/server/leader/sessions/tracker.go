@@ -25,7 +25,7 @@ var (
 	logS                                       = logging.WithComponent("session_tracker")
 	_                          utils.Lifecycle = (*Tracker)(nil)
 	recvBurst                                  = 5
-	recvLimit                                  = rate.Limit(float64(recvBurst) / float64(time.Second))
+	recvLimit                                  = rate.Limit(float64(recvBurst) / float64(time.Second.Seconds()))
 	recvMaxOffenses                            = 16 // after this the session will be closed
 	updateServerListDebounce                   = 200 * time.Millisecond
 	updateServerConfigDebounce                 = 200 * time.Millisecond
@@ -221,6 +221,8 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			go t.sessionSendLoop(new, x.stream)
 			go t.sessionRecvLoop(new, x.stream)
 			runningLoops += 2
+
+			new.log.Info(ctx, "Started new session.")
 
 			if !needsUpdate {
 				continue

@@ -5,12 +5,12 @@ func ContainsDuplicates[T comparable](slice []T) bool {
 	m := map[T]bool{}
 
 	for _, item := range slice {
-		if _, ok := m[item]; ok {
-			return false
+		if m[item] {
+			return true
 		}
 
 		m[item] = true
 	}
 
-	return true
+	return false
 }

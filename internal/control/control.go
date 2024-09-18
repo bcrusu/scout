@@ -22,16 +22,16 @@ func (x *HelloDataServer) Validate() error {
 	err1 := x.Config.Validate()
 	err2 := x.DataServers.Validate()
 
+	if err := errors.Join(err1, err2); err != nil {
+		return errors.Wrap(err, "HelloDataServer has invalid fields")
+	}
+
 	for _, part := range x.Config.Partitions {
 		for _, member := range part.Members {
 			if x.DataServers.Servers[member.ServerId] == nil {
 				return errors.Error("HelloDataServer.Partitions.Members.ServerId missing from DataServers.Servers")
 			}
 		}
-	}
-
-	if err := errors.Join(err1, err2); err != nil {
-		return errors.Wrap(err, "HelloDataServer has invalid fields")
 	}
 
 	return nil
@@ -80,7 +80,7 @@ func (x *DataServerConfig_Partition) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.Version == 0 || x.Id == 0 || x.Name == "" {
+	if x.Version == 0 || x.Name == "" {
 		return errors.Error("Partition has missing fields")
 	}
 
@@ -153,8 +153,10 @@ func (x *DataServers) Validate() error {
 			return errors.Error("DataServers.Partitions.Id is invalid")
 		}
 
-		if _, ok := x.Servers[part.WriteServerId]; !ok {
-			return errors.Error("DataServers.Partitions.WriteServer not found in server list")
+		if part.WriteServerId != 0 {
+			if _, ok := x.Servers[part.WriteServerId]; !ok {
+				return errors.Error("DataServers.Partitions.WriteServer not found in server list")
+			}
 		}
 
 		for _, serverID := range part.ReadServerIds {
@@ -218,10 +220,6 @@ func (x *DataServers_Partition) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.Id == 0 || len(x.ReadServerIds) == 0 || x.WriteServerId == 0 {
-		return errors.Error("Partition has missing fields")
-	}
-
 	return nil
 }
 
@@ -252,7 +250,7 @@ func (x *DataServerStatus_Partition) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.Id == 0 || x.LeaderTerm == 0 {
+	if x.LeaderTerm == 0 {
 		return errors.Error("Partition has missing fields")
 	}
 

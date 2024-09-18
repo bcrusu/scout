@@ -21,9 +21,8 @@ func NewMultiRaft(baseConfig Config) *MultiRaft {
 	logs := multiraft.NewLogStore(newLogAdapter("raft_log_store"))
 	stable := multiraft.NewStableStore(newLogAdapter("raft_stable_store"))
 	snapshot := multiraft.NewSnapshotStore(newLogAdapter("raft_snapshot_store"))
-	fsm := &fsmAdapter{baseConfig.FSM}
 
-	multi := multiraft.NewRaft(fsm, logs, stable, snapshot, baseConfig.Transport)
+	multi := multiraft.NewRaft(logs, stable, snapshot, baseConfig.Transport)
 
 	return &MultiRaft{
 		baseConfig: baseConfig,
@@ -31,14 +30,15 @@ func NewMultiRaft(baseConfig Config) *MultiRaft {
 	}
 }
 
-func (r *MultiRaft) New(groupID string, localID raft.ServerID) (*Raft, error) {
+func (r *MultiRaft) New(groupID string, fsm FSM, localID raft.ServerID) (*Raft, error) {
 	leaderChan := make(chan bool, 1)
 
 	config := r.baseConfig.getRaftConfig()
 	config.LocalID = localID
 	config.NotifyCh = leaderChan
 
-	group, err := r.multi.New(groupID, config)
+	fsmAdapter := &fsmAdapter{fsm}
+	group, err := r.multi.New(groupID, fsmAdapter, config)
 	if err != nil {
 		return nil, err
 	}

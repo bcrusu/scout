@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"sync/atomic"
+	"time"
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/follower"
@@ -26,7 +27,7 @@ type ControlService struct {
 	raft       *multiraft.Raft
 	store      storage.Store
 	cancelFunc context.CancelFunc
-	role       atomic.Pointer[DrainerService]
+	role       atomic.Pointer[roleDrainer]
 }
 
 type role interface {
@@ -47,14 +48,6 @@ func (s *ControlService) RegisterToServer(server *grpc.Server) {
 }
 
 func (s *ControlService) Start(ctx context.Context) error {
-	// start as follower
-	role := NewDrainerService(follower.New(s.raft, s.store))
-	s.role.Store(role)
-
-	if err := role.Start(ctx); err != nil {
-		return errors.Wrap(err, "failed to start as follower")
-	}
-
 	mainLoop, cancelFunc := utils.WithCancelAndWait(s.mainLoop)
 
 	s.cancelFunc = cancelFunc
@@ -67,38 +60,73 @@ func (s *ControlService) Stop() {
 }
 
 func (s *ControlService) mainLoop(ctx context.Context) {
+	if !s.waitBootstrapped(ctx) || !s.setRole(ctx, s.raft.IsLeader()) {
+		return
+	}
+
 	for {
 		select {
 		case isLeader := <-s.raft.GetLeaderChan():
-			// Setting to nil will reject new incoming requests with Unavailable error
-			// until the new role is ready. Could use and intermediary role type
-			// that retries, with backoff, until the new role is ready. Will leave it,
-			// for now, to the client to retry the request.
-			old := s.role.Swap(nil)
-			go old.Stop()
-
-			var new role
-			if isLeader {
-				new = leader.New(s.raft, s.store)
-			} else {
-				new = follower.New(s.raft, s.store)
-			}
-
-			drainer := NewDrainerService(new)
-
-			if err := drainer.Start(ctx); err != nil {
-				log.WithError(err).Errorf(ctx, "Failed to start role %T. Shutting down...", new)
-				utils.LifecycleShutdown(ctx)
+			if !s.setRole(ctx, isLeader) {
 				return
 			}
-
-			s.role.Store(drainer)
 		case <-ctx.Done():
 			old := s.role.Swap(nil)
 			old.Stop()
 			return
 		}
 	}
+}
+
+func (s *ControlService) waitBootstrapped(ctx context.Context) bool {
+	if s.store.Bootstrapped() {
+		return true
+	}
+
+	ticker := time.NewTicker(time.Second / 2)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if s.store.Bootstrapped() {
+				return true
+			}
+		case <-s.raft.GetLeaderChan():
+			// drain leader chan as Raft blocks sending here
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
+func (s *ControlService) setRole(ctx context.Context, isLeader bool) bool {
+	// Setting to nil will reject new incoming requests with Unavailable error
+	// until the new role is ready. Could use and intermediary role type
+	// that retries, with backoff, until the new role is ready. Will leave it,
+	// for now, to the client to retry the request.
+	old := s.role.Swap(nil)
+	if old != nil {
+		go old.Stop()
+	}
+
+	var new role
+	if isLeader {
+		new = leader.New(s.raft, s.store)
+	} else {
+		new = follower.New(s.raft, s.store)
+	}
+
+	drainer := newRoleDrainer(new)
+
+	if err := drainer.Start(ctx); err != nil {
+		log.WithError(err).Errorf(ctx, "Failed to start role %T. Shutting down...", new)
+		utils.LifecycleShutdown(ctx)
+		return false
+	}
+
+	s.role.Store(drainer)
+	return true
 }
 
 func (s *ControlService) getRole() (role, error) {
@@ -110,7 +138,9 @@ func (s *ControlService) getRole() (role, error) {
 }
 
 func (s *ControlService) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
-	if role, err := s.getRole(); err != nil {
+	if !s.store.Bootstrapped() {
+		return nil, errors.Unavailable
+	} else if role, err := s.getRole(); err != nil {
 		return nil, err
 	} else {
 		return role.Discover(ctx, req)
@@ -118,7 +148,9 @@ func (s *ControlService) Discover(ctx context.Context, req *control.DiscoverRequ
 }
 
 func (s *ControlService) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {
-	if role, err := s.getRole(); err != nil {
+	if !s.store.Bootstrapped() {
+		return nil, errors.Unavailable
+	} else if role, err := s.getRole(); err != nil {
 		return nil, err
 	} else {
 		return role.Register(ctx, req)
@@ -126,7 +158,9 @@ func (s *ControlService) Register(ctx context.Context, req *control.RegisterRequ
 }
 
 func (s *ControlService) NewSession(stream grpc.BidiStreamingServer[control.SessionIn, control.SessionOut]) error {
-	if role, err := s.getRole(); err != nil {
+	if !s.store.Bootstrapped() {
+		return errors.Unavailable
+	} else if role, err := s.getRole(); err != nil {
 		return err
 	} else {
 		return role.NewSession(stream)

@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
+	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/rpc/routing"
 	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
 	"github.com/bcrusu/graph/internal/tracing"
@@ -112,13 +113,13 @@ func (r *resolverImpl) mainLoop() {
 }
 
 func (r *resolverImpl) resolveNow(ctx context.Context) {
-	client := r.createClient()
-	if err := client.Start(ctx); err != nil {
+	conn, client := r.createClient()
+	if err := conn.Start(ctx); err != nil {
 		logR.WithError(err).Warnf(ctx, "Failed to start control client for resolver")
 		r.clientConn.ReportError(err)
 		return
 	}
-	defer client.Stop()
+	defer conn.Stop()
 
 	req := &control.DiscoverRequest{
 		ClusterName: r.target.ClusterName,
@@ -138,7 +139,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) {
 	}
 }
 
-func (r *resolverImpl) createClient() ControlClient {
+func (r *resolverImpl) createClient() (*rpc.Conn, control.ServiceClient) {
 	cfg := serviceconfig.DefaultServiceConfig().WithLBRoundRobin()
 
 	dialOpts := []grpc.DialOption{
@@ -149,12 +150,10 @@ func (r *resolverImpl) createClient() ControlClient {
 		grpc.WithDefaultServiceConfig(cfg.ToJson()),
 	}
 
-	opts := []Option{
-		WithTarget(r.target),
-		WithDialOptions(dialOpts...),
-	}
+	conn := rpc.NewConn(r.target.Discovery, dialOpts...)
+	client := control.NewServiceClient(conn)
 
-	return New(opts...)
+	return conn, client
 }
 
 func (r *resolverImpl) updateState(ctx context.Context, resp *control.DiscoverResponse) error {

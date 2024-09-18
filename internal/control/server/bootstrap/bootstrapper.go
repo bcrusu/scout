@@ -31,7 +31,7 @@ var (
 type Params struct {
 	ClusterName    string
 	LocalAddress   string
-	Peers          []string
+	InitialServers []string
 	PartitionCount uint32
 
 	valid       bool
@@ -62,16 +62,16 @@ func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity
 
 // ValidateParams ensures that we have everything required to start the show.
 func ValidateParams(p *Params) error {
-	if p == nil || !storage.IsValidClusterName(p.ClusterName) || storage.IsValidAddress(p.LocalAddress) ||
+	if p == nil || !storage.IsValidClusterName(p.ClusterName) || !storage.IsValidAddress(p.LocalAddress) ||
 		!storage.IsValidPartitionCount(p.PartitionCount) {
-		return errors.InvalidRequest
+		return errors.Error("invalid bootstrap parameters")
 	}
 
-	if utils.ContainsDuplicates(p.Peers) {
-		return errors.Error("peer list contains duplicates.")
+	if utils.ContainsDuplicates(p.InitialServers) {
+		return errors.Error("initial server list contains duplicates.")
 	}
 
-	p.serverAddrs = slices.Clone(p.Peers)
+	p.serverAddrs = slices.Clone(p.InitialServers)
 	if !slices.Contains(p.serverAddrs, p.LocalAddress) {
 		p.serverAddrs = append(p.serverAddrs, p.LocalAddress)
 	}
@@ -134,6 +134,8 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		} else {
 			log.WithError(err).Debug(ctx, "Storing identity success.")
 		}
+
+		log.Debug(ctx, "Bootstrap success.")
 	})
 
 	b.cancelFunc = cancelFunc
@@ -180,16 +182,16 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 	}
 
 	return utils.RetryE(ctx, retryBackoff, func() error {
-		if !b.raft.IsLeader() {
-			log.Info(ctx, "Not leader. Backing off...")
-			return errors.NotLeader
-		}
-
 		if clusterName := b.store.ClusterName(); clusterName == p.ClusterName {
 			log.Info(ctx, "Initial write was completed successfully by another server.")
 			return nil
 		} else if clusterName != "" {
 			return errors.Errorf("cannot perform initial write. Different cluster detected %s.", clusterName)
+		}
+
+		if !b.raft.IsLeader() {
+			log.Info(ctx, "Not leader. Backing off...")
+			return errors.NotLeader
 		}
 
 		res, err := b.store.Bootstrap(cmd)

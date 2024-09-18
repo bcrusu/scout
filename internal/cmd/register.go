@@ -73,7 +73,7 @@ func registerWithRetry(ctx context.Context, log logging.Logger, config Config, s
 		if err != nil {
 			log.WithError(err).Error(ctx, "Register failed. Retrying...")
 		} else {
-			log.Info(ctx, "Registered with success.")
+			log.Info(ctx, "Registered with success.", "server_id", resp.ServerId, "server_name", resp.ServerName)
 		}
 		return resp, err
 	})

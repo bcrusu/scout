@@ -33,7 +33,7 @@ var (
 type Store interface {
 	utils.Lifecycle
 
-	IsEmpty() bool
+	Bootstrapped() bool
 	ClusterName() string
 	PartitionCount() uint32
 	Servers() *Servers
@@ -136,8 +136,8 @@ func (s *store) PartitionCount() uint32 {
 	return s.partitionCount
 }
 
-func (s *store) IsEmpty() bool {
-	return s.ClusterName() == ""
+func (s *store) Bootstrapped() bool {
+	return s.ClusterName() != ""
 }
 
 func (s *store) Servers() *Servers {
