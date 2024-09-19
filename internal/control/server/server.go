@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/control/server/bootstrap"
+	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
@@ -25,26 +26,26 @@ var (
 )
 
 type Server struct {
-	config     Config
-	bconfig    *BootstrapConfig
+	config     config.Config
+	bparams    *bootstrap.Params
 	components []utils.Lifecycle
 }
 
-func NewServer(config Config) *Server {
+func NewServer(config config.Config) *Server {
 	return &Server{
 		config: config,
 	}
 }
 
-func NewServerForBootstrap(config Config, bconfig BootstrapConfig) *Server {
+func NewServerForBootstrap(config config.Config, bparams bootstrap.Params) *Server {
 	return &Server{
 		config:  config,
-		bconfig: &bconfig,
+		bparams: &bparams,
 	}
 }
 
 func (n *Server) Start(ctx context.Context) (err error) {
-	if n.bconfig == nil {
+	if n.bparams == nil {
 		n.components, err = n.getComponents()
 	} else {
 		n.components, err = n.getComponentsForBootstrap()
@@ -77,7 +78,7 @@ func (n *Server) getComponents() ([]utils.Lifecycle, error) {
 		return nil, err
 	}
 
-	controlService := NewControlService(raft, store)
+	controlService := NewControlService(n.config.Service, raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
 
 	return []utils.Lifecycle{
@@ -99,25 +100,18 @@ func (n *Server) getComponentsForBootstrap() ([]utils.Lifecycle, error) {
 		return nil, errors.Errorf("selver is alredy part of cluster %s; cannot bootstrap.", id.ClusterName)
 	}
 
-	params := bootstrap.Params{
-		ClusterName:    n.config.ClusterName,
-		LocalAddress:   n.bconfig.LocalAddress,
-		InitialServers: n.bconfig.InitialServers,
-		PartitionCount: n.bconfig.PartitionCount,
-	}
-
-	if err := bootstrap.ValidateParams(&params); err != nil {
+	if err := bootstrap.ValidateParams(n.bparams); err != nil {
 		return nil, err
 	}
 
-	store, transportService, raft, err := n.buildRaft(params.Identity().ServerName)
+	store, transportService, raft, err := n.buildRaft(n.bparams.Identity().ServerName)
 	if err != nil {
 		return nil, err
 	}
 
-	controlService := NewControlService(raft, store)
+	controlService := NewControlService(n.config.Service, raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
-	bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore, params)
+	bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore, *n.bparams)
 
 	return []utils.Lifecycle{
 		store,

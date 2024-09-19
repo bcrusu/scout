@@ -18,34 +18,33 @@ var (
 	logRS                 = logging.WithComponent("rpc_server")
 )
 
-// ServerConfig is the server configuration
+// ServerConfig is the gRPC server configuration.
 type ServerConfig struct {
-	BindAddress          string
-	ShutdownTimeout      time.Duration
-	MaxConcurrentStreams uint32
-	MaxRecvMsgSize       uint64
-	MaxSendMsgSize       uint64
+	BindAddress          string        `yaml:"bindAddress"`
+	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s"`
+	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000"`
+	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB"`
 }
 
-// Server represents the gRPC server
+// Server represents the gRPC server.
 type Server struct {
 	config   ServerConfig
 	services []Service
 	server   *grpc.Server
 }
 
-// Service represents a service served by the gRPC server
+// Service represents a service served by the gRPC server.
 type Service interface {
 	RegisterToServer(server *grpc.Server)
 }
 
-// NewServer returns a new Server instance
+// NewServer returns a new Server instance.
 func NewServer(config ServerConfig, services ...Service) *Server {
 	options := []grpc.ServerOption{
 		grpc.Creds(insecure.NewCredentials()), // TODO
 		grpc.MaxConcurrentStreams(config.MaxConcurrentStreams),
-		grpc.MaxRecvMsgSize(int(config.MaxRecvMsgSize)),
-		grpc.MaxSendMsgSize(int(config.MaxSendMsgSize)),
+		grpc.MaxRecvMsgSize(int(config.MaxMessageSize.MustParse())),
+		grpc.MaxSendMsgSize(int(config.MaxMessageSize.MustParse())),
 		grpc.WaitForHandlers(true),
 		grpc.ConnectionTimeout(10 * time.Second),
 		grpc.ChainUnaryInterceptor(
@@ -74,7 +73,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 	}
 }
 
-// Start the server
+// Start the server.
 func (s *Server) Start(ctx context.Context) error {
 	listener, err := net.Listen("tcp", s.config.BindAddress)
 	if err != nil {
@@ -90,7 +89,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop the server
+// Stop the server, with no survivors.
 func (s *Server) Stop() {
 	stopped := make(chan any)
 	go func() {

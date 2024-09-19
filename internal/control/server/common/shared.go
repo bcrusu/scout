@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/control"
+	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
@@ -17,18 +18,18 @@ var (
 
 // Shared implements common functionality for both leader and follower roles.
 type Shared struct {
+	config            config.Service
 	raft              *multiraft.Raft
 	store             storage.Store
 	serviceConfigJson string
 }
 
-func New(raft *multiraft.Raft, store storage.Store) *Shared {
-	scfg := serviceconfig.DefaultServiceConfig().WithLBGraphControl()
-
+func New(config config.Service, raft *multiraft.Raft, store storage.Store) *Shared {
 	return &Shared{
+		config:            config,
 		raft:              raft,
 		store:             store,
-		serviceConfigJson: scfg.ToJson(),
+		serviceConfigJson: config.ControlClient.GetServiceConfigJson(serviceconfig.LBNameGraphControl, control.Service_ServiceDesc),
 	}
 }
 

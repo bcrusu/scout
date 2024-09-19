@@ -5,9 +5,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bcrusu/graph/internal/api"
 	"github.com/bcrusu/graph/internal/control"
+	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/convert"
 	"github.com/bcrusu/graph/internal/control/server/storage"
+	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
@@ -32,6 +35,7 @@ var (
 )
 
 type Tracker struct {
+	config                config.Service
 	store                 storage.Store
 	startSessionCh        chan startSession
 	sessionCh             chan sessionMessage
@@ -78,16 +82,14 @@ type sessions map[sessionID]*session
 type sessionsByServer map[serverID]*session
 type partitionStates map[partitionID]*partitionState
 
-func NewTracker(store storage.Store) *Tracker {
-	dscfg := serviceconfig.DefaultServiceConfig().WithLBGraphData()
-	ascfg := serviceconfig.DefaultServiceConfig().WithLBGraphApi()
-
+func NewTracker(config config.Service, store storage.Store) *Tracker {
 	return &Tracker{
+		config:                config,
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
-		dataServiceConfigJson: dscfg.ToJson(),
-		apiServiceConfigJson:  ascfg.ToJson(),
+		dataServiceConfigJson: config.DataClient.GetServiceConfigJson(serviceconfig.LBNameGraphData, data.Service_ServiceDesc),
+		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameGraphApi, api.Service_ServiceDesc),
 	}
 }
 

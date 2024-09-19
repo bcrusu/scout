@@ -39,11 +39,12 @@ func (*resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn,
 	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](resolveThrottle, 1)
 
 	r := &resolverImpl{
-		clientConn:     clientConn,
-		opts:           opts,
-		target:         target,
-		resolveNowCh:   resolveNowCh,
-		resolveNowChTh: resolveNowChTh,
+		clientConn:      clientConn,
+		opts:            opts,
+		clusterName:     target.ClusterName,
+		discoveryTarget: target.DiscoveryTarget(),
+		resolveNowCh:    resolveNowCh,
+		resolveNowChTh:  resolveNowChTh,
 	}
 
 	go r.mainLoop()
@@ -56,11 +57,12 @@ func (*resolverBuilder) Scheme() string {
 }
 
 type resolverImpl struct {
-	clientConn     resolver.ClientConn
-	opts           resolver.BuildOptions
-	target         discovery.Target
-	resolveNowCh   chan<- resolver.ResolveNowOptions
-	resolveNowChTh <-chan resolver.ResolveNowOptions
+	clientConn      resolver.ClientConn
+	opts            resolver.BuildOptions
+	clusterName     string
+	discoveryTarget string
+	resolveNowCh    chan<- resolver.ResolveNowOptions
+	resolveNowChTh  <-chan resolver.ResolveNowOptions
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -122,7 +124,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) {
 	defer conn.Stop()
 
 	req := &control.DiscoverRequest{
-		ClusterName: r.target.ClusterName,
+		ClusterName: r.clusterName,
 	}
 
 	resp, err := client.Discover(ctx, req)
@@ -140,17 +142,15 @@ func (r *resolverImpl) resolveNow(ctx context.Context) {
 }
 
 func (r *resolverImpl) createClient() (*rpc.Conn, control.ServiceClient) {
-	cfg := serviceconfig.DefaultServiceConfig().WithLBRoundRobin()
-
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(r.opts.DialCreds),
 		grpc.WithCredentialsBundle(r.opts.CredsBundle),
 		grpc.WithContextDialer(r.opts.Dialer),
 		grpc.WithDisableServiceConfig(),
-		grpc.WithDefaultServiceConfig(cfg.ToJson()),
+		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 	}
 
-	conn := rpc.NewConn(r.target.Discovery, dialOpts...)
+	conn := rpc.NewConn(r.discoveryTarget, dialOpts...)
 	client := control.NewServiceClient(conn)
 
 	return conn, client
@@ -162,8 +162,8 @@ func (r *resolverImpl) updateState(ctx context.Context, resp *control.DiscoverRe
 		return err
 	}
 
-	// update discovery target with latest cluster servers; maybe should not mutate the target struct?
-	r.target.Discovery = routing.FormatTargetStatic(allAddresses)
+	// update discovery target with latest cluster servers
+	r.discoveryTarget = routing.FormatTargetStatic(allAddresses)
 
 	parseResult := r.clientConn.ParseServiceConfig(resp.ServiceConfigJson)
 	if parseResult.Err != nil {

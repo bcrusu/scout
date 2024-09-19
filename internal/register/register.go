@@ -1,4 +1,4 @@
-package cmd
+package register
 
 import (
 	"context"
@@ -18,11 +18,21 @@ var (
 		MinDelay: 2 * time.Second,
 		MaxDelay: 30 * time.Second,
 	}
+
+	log = logging.WithComponent("register")
 )
 
+type Params struct {
+	ServerType  control.ServerType
+	ClusterName string
+	BindAddress string
+	DataDir     string
+	Discovery   discovery.Discovery
+}
+
 // Register provides reusable functionality for registering a node in the cluster.
-func Register(ctx context.Context, log logging.Logger, config Config, serverType control.ServerType) error {
-	idStore, err := identity.NewStore(config.DataDir)
+func Register(ctx context.Context, params Params) error {
+	idStore, err := identity.NewStore(params.DataDir)
 	if err != nil {
 		return err
 	}
@@ -31,13 +41,13 @@ func Register(ctx context.Context, log logging.Logger, config Config, serverType
 		return errors.Errorf("cannot register, already part of cluster %s", id.ClusterName)
 	}
 
-	res, err := registerWithRetry(ctx, log, config, serverType, idStore.Token())
+	res, err := registerWithRetry(ctx, params, idStore.Token())
 	if err != nil {
 		return err
 	}
 
 	id := identity.Identity{
-		ClusterName: config.ClusterName,
+		ClusterName: params.ClusterName,
 		ServerID:    res.ServerId,
 		ServerName:  res.ServerName,
 	}
@@ -49,9 +59,9 @@ func Register(ctx context.Context, log logging.Logger, config Config, serverType
 	return nil
 }
 
-func registerWithRetry(ctx context.Context, log logging.Logger, config Config, serverType control.ServerType, token string) (*control.RegisterResponse, error) {
+func registerWithRetry(ctx context.Context, params Params, token string) (*control.RegisterResponse, error) {
 	opts := []client.Option{
-		client.WithTarget(discovery.NewTarget(config.ClusterName, config.Discovery)),
+		client.WithTarget(discovery.NewTarget(params.ClusterName, params.Discovery)),
 	}
 
 	client := client.New(opts...)
@@ -62,10 +72,10 @@ func registerWithRetry(ctx context.Context, log logging.Logger, config Config, s
 	defer client.Stop()
 
 	req := &control.RegisterRequest{
-		ClusterName: config.ClusterName,
+		ClusterName: params.ClusterName,
 		Token:       token,
-		Address:     config.Server.BindAddress,
-		Type:        serverType,
+		Address:     params.BindAddress,
+		Type:        params.ServerType,
 	}
 
 	return utils.RetryR(ctx, registerBackoff, func() (*control.RegisterResponse, error) {

@@ -23,10 +23,10 @@ var (
 )
 
 type Config struct {
-	Server      rpc.ServerConfig
-	ClusterName string
-	Discovery   discovery.DiscoveryTarget
-	DataDir     string
+	Server      rpc.ServerConfig    `yaml:"server"`
+	ClusterName string              `yaml:"clusterName"`
+	DataDir     string              `yaml:"dataDir"`
+	Discovery   discovery.Discovery `yaml:"discovery"`
 }
 
 type Server struct {

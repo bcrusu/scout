@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/bcrusu/graph/internal/cmd"
 	"github.com/bcrusu/graph/internal/control/server"
+	"github.com/bcrusu/graph/internal/control/server/bootstrap"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
@@ -17,29 +17,30 @@ func newBootstrapCmd() *cobra.Command {
 		Short:   "Bootstraps a new cluster. Must be executed using the same params on all bootstrapped servers.",
 		RunE: func(c *cobra.Command, args []string) error {
 			log := logging.WithComponent("cmd_bootstrap")
-			config, err := cmd.GetConfig(c, false)
+			config, err := getConfig(c)
 			if err != nil {
 				return err
 			}
 
-			servers, err1 := c.Flags().GetStringSlice("initial-servers")
+			initialServers, err1 := c.Flags().GetStringSlice("initial-servers")
 			partitionCount, err2 := c.Flags().GetUint32("partition-count")
 			if err := errors.Join(err1, err2); err != nil {
 				return err
 			}
-			for _, a := range servers {
+			for _, a := range initialServers {
 				if !storage.IsValidAddress(a) {
 					return errors.Error("initial-servers contains invalid address")
 				}
 			}
 
-			bconfig := server.BootstrapConfig{
+			bparams := bootstrap.Params{
+				ClusterName:    config.ClusterName,
 				LocalAddress:   config.Server.BindAddress,
-				InitialServers: servers,
+				InitialServers: initialServers,
 				PartitionCount: partitionCount,
 			}
 
-			s := server.NewServerForBootstrap(serverConfig(config), bconfig)
+			s := server.NewServerForBootstrap(config, bparams)
 			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}

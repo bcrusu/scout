@@ -12,39 +12,28 @@ const (
 	Scheme = "graph"
 )
 
-type DiscoveryTarget = string
+type Discovery struct {
+	Servers []string `yaml:"servers"`
+	DNS     string   `yaml:"dns"`
+}
 
 type Target struct {
 	ClusterName string
-	Discovery   DiscoveryTarget
+	discovery   string
 }
 
-func NewTarget(clusterName string, discovery DiscoveryTarget) Target {
+func NewTarget(clusterName string, discovery Discovery) Target {
 	return Target{
 		ClusterName: clusterName,
-		Discovery:   discovery,
+		discovery:   discovery.String(),
 	}
-}
-
-// DNS uses dns to discover the control plane cluster.
-// The expected target format is 'dns:[//authority/]host[:port]'.
-func DNS(target string) DiscoveryTarget {
-	if !strings.HasPrefix(target, "dns:") {
-		target = "dns:" + target
-	}
-	return target
-}
-
-// Static uses a static list of addresses to discover the control plane cluster.
-func Static(addresses ...string) DiscoveryTarget {
-	return routing.FormatTargetStatic(addresses)
 }
 
 // String returns the corresponding gRPC target string.
 func (t Target) String() string {
 	q := url.Values{}
 	q.Add("cluster", t.ClusterName)
-	q.Add("discovery", t.Discovery)
+	q.Add("discovery", t.discovery)
 
 	u := url.URL{
 		Scheme:   Scheme,
@@ -55,8 +44,35 @@ func (t Target) String() string {
 	return u.String()
 }
 
+func (t Target) DiscoveryTarget() string {
+	return t.discovery
+}
+
 func (t Target) IsValid() bool {
-	return t.ClusterName != "" && t.Discovery != ""
+	return t.ClusterName != "" && t.discovery != ""
+}
+
+func (d Discovery) String() string {
+	if len(d.Servers) > 0 {
+		return routing.FormatTargetStatic(d.Servers)
+	}
+
+	target := d.DNS
+	if !strings.HasPrefix(target, "dns:") {
+		target = "dns:" + target
+	}
+	return target
+}
+
+func (d Discovery) IsValid() bool {
+	count := 0
+	if len(d.Servers) > 0 {
+		count++
+	}
+	if d.DNS != "" {
+		count++
+	}
+	return count == 1
 }
 
 // ParseTarget parses the URL to extract discovery target.
@@ -78,7 +94,7 @@ func ParseTarget(u url.URL) (Target, error) {
 
 	return Target{
 		ClusterName: clusterName,
-		Discovery:   discovery,
+		discovery:   discovery,
 	}, nil
 }
 

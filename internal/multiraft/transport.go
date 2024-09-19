@@ -29,6 +29,7 @@ func NewTransportService(localAddress string, dialOpts ...grpc.DialOption) *Tran
 		// TODO: transport.WithHeartbeatTimeout()
 	}
 
+	// TODO: add serviceconfig to dialOpts
 	address := raft.ServerAddress(localAddress)
 	manager := transport.New(address, dialOpts, opts...)
 
