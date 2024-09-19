@@ -3,3 +3,4 @@ Procfile
 /control
 /data
 /api
+/*.yaml

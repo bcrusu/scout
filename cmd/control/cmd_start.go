@@ -19,7 +19,7 @@ func newStartCmd() *cobra.Command {
 				return err
 			}
 
-			s := server.NewServer(config)
+			s := server.NewServer(config, server.DoStart)
 			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}

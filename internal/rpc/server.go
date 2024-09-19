@@ -20,10 +20,10 @@ var (
 
 // ServerConfig is the gRPC server configuration.
 type ServerConfig struct {
-	BindAddress          string        `yaml:"bindAddress"`
-	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s"`
-	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000"`
-	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB"`
+	BindAddress          string        `yaml:"bindAddress" validate:"required,minLen:2,maxLen:128"`
+	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s" validate:"positive"`
+	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
+	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB" validate:"min:1KB"`
 }
 
 // Server represents the gRPC server.

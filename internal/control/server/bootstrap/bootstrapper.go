@@ -108,6 +108,10 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		return errors.Error("params were not validated")
 	}
 
+	if id, ok := b.idStore.Get(); ok {
+		return errors.Errorf("cannot bootstrap, already part of cluster %s", id.ClusterName)
+	}
+
 	log := log.With("cluster", p.ClusterName, "ids", p.serverIDs, "names", p.serverNames, "addresses", p.serverAddrs)
 	log.Debug(ctx, "Bootstrapping the raft cluster...")
 

@@ -6,10 +6,16 @@ import (
 
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/rpc/routing"
+	"github.com/bcrusu/graph/internal/validation"
 )
 
 const (
 	Scheme = "graph"
+)
+
+var (
+	_ validation.CanValidate = (*Target)(nil)
+	_ validation.CanValidate = (*Discovery)(nil)
 )
 
 type Discovery struct {
@@ -48,8 +54,14 @@ func (t Target) DiscoveryTarget() string {
 	return t.discovery
 }
 
-func (t Target) IsValid() bool {
-	return t.ClusterName != "" && t.discovery != ""
+func (t Target) Validate() error {
+	if t.ClusterName == "" {
+		return errors.Error("cluster name is missing")
+	}
+	if t.discovery == "" {
+		return errors.Error("discovery is missing")
+	}
+	return nil
 }
 
 func (d Discovery) String() string {
@@ -64,15 +76,14 @@ func (d Discovery) String() string {
 	return target
 }
 
-func (d Discovery) IsValid() bool {
-	count := 0
-	if len(d.Servers) > 0 {
-		count++
+func (d Discovery) Validate() error {
+	if len(d.Servers) > 0 && d.DNS != "" {
+		return errors.Error("multiple discovery methods are not supported")
 	}
-	if d.DNS != "" {
-		count++
+	if len(d.Servers) == 0 && d.DNS == "" {
+		return errors.Error("is empty")
 	}
-	return count == 1
+	return nil
 }
 
 // ParseTarget parses the URL to extract discovery target.

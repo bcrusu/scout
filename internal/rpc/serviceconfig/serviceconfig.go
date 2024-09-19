@@ -31,16 +31,16 @@ var (
 
 // Config represents the configuration params for gRPC clients.
 type Config struct {
-	CallTimeout    time.Duration `yaml:"callTimeout" default:"5s"`
-	StreamTimeout  time.Duration `yaml:"streamTimeout" default:"10m"`
-	MaxMessageSize utils.Bytes   `yaml:"maxMessageSize" default:"5MB"`
+	CallTimeout    time.Duration `yaml:"callTimeout" default:"5s" validate:"min:500ms"`
+	StreamTimeout  time.Duration `yaml:"streamTimeout" default:"10m" validate:"min:10s"`
+	MaxMessageSize utils.Bytes   `yaml:"maxMessageSize" default:"5MB" validate:"min:1KB"`
 	Retry          Retry         `yaml:"retry"`
 }
 
 type Retry struct {
-	MaxAttempts uint32        `yaml:"maxAttempts" default:"3"`
-	MinDelay    time.Duration `yaml:"minDelay" default:"200ms"`
-	MaxDelay    time.Duration `yaml:"maxDelay" default:"500ms"`
+	MaxAttempts uint32        `yaml:"maxAttempts" default:"3" validate:"min:1,max:10"`
+	MinDelay    time.Duration `yaml:"minDelay" default:"200ms" validate:"min:50ms,max:1s"`
+	MaxDelay    time.Duration `yaml:"maxDelay" default:"500ms" validate:"min:200ms,max:3s"`
 }
 
 // GetServiceConfigJson returns the ServiceConfig json for the provided service specification.

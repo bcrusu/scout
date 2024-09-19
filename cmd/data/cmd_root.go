@@ -7,6 +7,7 @@ import (
 	"github.com/bcrusu/graph/internal/data/server"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/graph/internal/validation"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -60,19 +61,9 @@ func getConfig(c *cobra.Command) (server.Config, error) {
 		cfg.DataDir = flags.DataDir
 	}
 
-	if err := validateConfig(cfg); err != nil {
+	if err := validation.Validate(cfg); err != nil {
 		return server.Config{}, err
 	}
 
 	return cfg, nil
-}
-
-func validateConfig(cfg server.Config) error {
-	if !cfg.Discovery.IsValid() {
-		return errors.Error("missing discovery config parameters")
-	}
-
-	// TODO: validate cfg
-
-	return nil
 }

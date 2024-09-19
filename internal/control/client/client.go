@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -45,8 +44,8 @@ func New(opts ...Option) ControlClient {
 }
 
 func (c *controlClient) Start(ctx context.Context) error {
-	if !c.opts.target.IsValid() {
-		return errors.Error("missing connection target")
+	if err := c.opts.target.Validate(); err != nil {
+		return err
 	}
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))

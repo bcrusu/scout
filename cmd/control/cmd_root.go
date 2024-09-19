@@ -7,6 +7,7 @@ import (
 	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/graph/internal/validation"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -61,15 +62,9 @@ func getConfig(c *cobra.Command) (config.Config, error) {
 		cfg.DataDir = flags.DataDir
 	}
 
-	if err := validateConfig(cfg); err != nil {
+	if err := validation.Validate(cfg); err != nil {
 		return config.Config{}, err
 	}
 
 	return cfg, nil
-}
-
-func validateConfig(cfg config.Config) error {
-	// TODO: validate cfg
-
-	return nil
 }

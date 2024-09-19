@@ -2,8 +2,6 @@ package main
 
 import (
 	"github.com/bcrusu/graph/internal/control/server"
-	"github.com/bcrusu/graph/internal/control/server/bootstrap"
-	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
@@ -22,31 +20,14 @@ func newBootstrapCmd() *cobra.Command {
 				return err
 			}
 
-			initialServers, err1 := c.Flags().GetStringSlice("initial-servers")
-			partitionCount, err2 := c.Flags().GetUint32("partition-count")
-			if err := errors.Join(err1, err2); err != nil {
-				return err
-			}
-			for _, a := range initialServers {
-				if !storage.IsValidAddress(a) {
-					return errors.Error("initial-servers contains invalid address")
-				}
+			if config.Bootstrap == nil {
+				return errors.Error("missing bootstrap config")
 			}
 
-			bparams := bootstrap.Params{
-				ClusterName:    config.ClusterName,
-				LocalAddress:   config.Server.BindAddress,
-				InitialServers: initialServers,
-				PartitionCount: partitionCount,
-			}
-
-			s := server.NewServerForBootstrap(config, bparams)
+			s := server.NewServer(config, server.DoBootstrap)
 			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}
-
-	c.Flags().StringSlice("initial-servers", nil, "Initial server list. If not included, the local server will be appended.")
-	c.Flags().Uint32("partition-count", 16, "The number of partitions in the data storage cluster.")
 
 	return c
 }

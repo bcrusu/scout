@@ -16,16 +16,16 @@ func SetDefaults[T any](instance *T) error {
 		return errors.Error("input is not a struct")
 	}
 
-	return setDefaults(val)
+	return setDefaultsRec(val)
 }
 
-func setDefaults(val reflect.Value) error {
+func setDefaultsRec(val reflect.Value) error {
 	typ := val.Type()
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
 
 		if field.Type.Kind() == reflect.Struct {
-			if err := setDefaults(val.Field(i)); err != nil {
+			if err := setDefaultsRec(val.Field(i)); err != nil {
 				return err
 			}
 		}
