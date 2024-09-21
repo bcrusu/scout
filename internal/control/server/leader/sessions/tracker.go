@@ -12,6 +12,7 @@ import (
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/events"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
 	"github.com/bcrusu/graph/internal/utils"
@@ -140,11 +141,11 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 }
 
 func (t *Tracker) mainLoop(ctx context.Context) {
-	serversSubscriber := t.store.SubscribeServers()
-	partitionsSubscriber := t.store.SubscribePartitions()
+	serversSub := events.Subscribe[*storage.Servers]()
+	partitionsSub := events.Subscribe[*storage.Partitions]()
 	writeServersTicker := time.NewTicker(writeServersInterval)
-	defer serversSubscriber.Unsubscribe()
-	defer partitionsSubscriber.Unsubscribe()
+	defer serversSub.Unsubscribe()
+	defer partitionsSub.Unsubscribe()
 	defer writeServersTicker.Stop()
 
 	dsUpdateCh, dsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
@@ -264,7 +265,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			default:
 				logS.Errorf(ctx, "Unknown session message type %T", msg)
 			}
-		case servers = <-serversSubscriber.ItemChan():
+		case servers = <-serversSub.Items():
 			// close sessions for removed servers
 			for serverID, sess := range sessionsByServer {
 				if x := servers.ByID(uint64(serverID)); x == nil {
@@ -276,7 +277,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			asUpdateCh <- true
 			dsConfigsUpdateCh <- true
 			asConfigsUpdateCh <- true
-		case partitions = <-partitionsSubscriber.ItemChan():
+		case partitions = <-partitionsSub.Items():
 			dsUpdateCh <- true
 			dsConfigsUpdateCh <- true
 		case <-writeServersTicker.C:

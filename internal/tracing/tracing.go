@@ -44,7 +44,7 @@ func GetTraceID(ctx context.Context) (string, bool) {
 // SetServerName sets, only once, the current server name.
 func SetServerName(serverName string) {
 	if v := traceIDServerName.Load(); v != nil {
-		panic("SetServerName failed: server name is already set.")
+		panic("server name is already set.")
 	}
 
 	traceIDServerName.Store(&serverName)

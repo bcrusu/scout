@@ -1,6 +1,7 @@
 package utils_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/bcrusu/graph/internal/utils"
@@ -11,7 +12,7 @@ import (
 var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 	It("Should send only once per interval", func() {
 		ch := make(chan int, chanSize)
-		th := utils.ThrottleChan(ch, 10*time.Second)
+		th := utils.ThrottleChan(context.Background(), ch, 10*time.Second)
 
 		go func() {
 			for i := range 100 {
@@ -28,7 +29,7 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 	It("Should send after interval", func() {
 		interval := 2 * time.Millisecond
 		ch := make(chan int, chanSize)
-		th := utils.ThrottleChan(ch, interval)
+		th := utils.ThrottleChan(context.Background(), ch, interval)
 
 		counter := 0
 		go func() {
@@ -45,6 +46,33 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 
 		Expect(counter).To(Equal(expected))
 		close(ch)
+	})
+
+	It("Should not leak goroutine when chan is closed", func() {
+		ch := make(chan int, chanSize)
+		th := utils.ThrottleChan(context.Background(), ch, 10*time.Millisecond)
+
+		go func() {
+			ch <- 1
+			close(ch)
+		}()
+
+		Expect(<-th).To(Equal(1))
+		Eventually(th).Should(BeClosed())
+	})
+
+	It("Should not leak goroutine when ctx is canceled", func() {
+		cctx, cancel := context.WithCancel(context.Background())
+		ch := make(chan int, chanSize)
+		th := utils.ThrottleChan(cctx, ch, 10*time.Millisecond)
+
+		go func() {
+			ch <- 1
+		}()
+
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+		Eventually(th).Should(BeClosed())
 	})
 
 	It("Should work with MakeThrottleChan", func() {

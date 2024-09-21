@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -45,11 +44,7 @@ func New(opts ...Option) DataClient {
 }
 
 func (c *dataClient) Start(ctx context.Context) error {
-	if c.opts.publisher == nil {
-		return errors.Error("missing data servers publisher")
-	}
-
-	resolver := &resolverBuilder{c.opts.publisher}
+	resolver := &resolverBuilder{}
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(resolver))
 
 	c.conn = rpc.NewConn(dummyTarget, dialOpts...)

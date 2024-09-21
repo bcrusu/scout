@@ -83,14 +83,13 @@ func (n *Server) addComponents(idStore identity.IdentityStore, client client.Con
 		return errors.Error("server identity not found; must join a cluster first.")
 	}
 
-	session := session.New(client, id, n.config.Server.BindAddress)
-
 	fsm, transportService, mraft, err := n.buildMultiRaft()
 	if err != nil {
 		return err
 	}
 
-	partitionController := partitions.NewController(id, mraft, fsm, session)
+	session := session.New(client, id, n.config.Server.BindAddress)
+	partitionController := partitions.NewController(id, mraft, fsm)
 	dataService := NewDataService(partitionController)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
 

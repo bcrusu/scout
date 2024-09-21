@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/events"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
 )
@@ -43,17 +44,12 @@ type Store interface {
 	Register(*Register) (*RegisterResult, error)
 	UpdateServers(*UpdateServers) error
 	UpdateServersAsync(*UpdateServers) error
-
-	SubscribeServers() utils.Subscriber[*Servers]
-	SubscribePartitions() utils.Subscriber[*Partitions]
 }
 
 type store struct {
 	raft       *multiraft.Raft
 	fsm        *FSM
 	cancelFunc context.CancelFunc
-	sPublisher utils.Publisher[*Servers]
-	pPublisher utils.Publisher[*Partitions]
 	// all below are cached copies of FSM fields
 	lock           sync.RWMutex
 	clusterName    string
@@ -64,10 +60,8 @@ type store struct {
 
 func NewStore(raft *multiraft.Raft, fsm *FSM) *store {
 	return &store{
-		raft:       raft,
-		fsm:        fsm,
-		sPublisher: utils.NewPubSub[*Servers](1),
-		pPublisher: utils.NewPubSub[*Partitions](1),
+		raft: raft,
+		fsm:  fsm,
 	}
 }
 
@@ -110,11 +104,11 @@ func (s *store) mainLoop(ctx context.Context) {
 			s.fsm.lock.RUnlock()
 
 			if sPublish {
-				s.sPublisher.PublishAttempt(s.servers)
+				events.TryPublish(s.servers)
 			}
 
 			if pPublish {
-				s.pPublisher.PublishAttempt(s.partitions)
+				events.TryPublish(s.partitions)
 			}
 
 			s.lock.Unlock()
@@ -167,14 +161,6 @@ func (s *store) UpdateServers(cmd *UpdateServers) error {
 
 func (s *store) UpdateServersAsync(cmd *UpdateServers) error {
 	return applyAsync(s.raft, cmd)
-}
-
-func (s *store) SubscribeServers() utils.Subscriber[*Servers] {
-	return s.sPublisher.Subscribe(1)
-}
-
-func (s *store) SubscribePartitions() utils.Subscriber[*Partitions] {
-	return s.pPublisher.Subscribe(1)
 }
 
 func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/client"
 	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/events"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
@@ -16,12 +17,12 @@ import (
 )
 
 var (
-	_                      utils.Lifecycle = (*Session)(nil)
-	heartbeatInterval                      = utils.AddJitter(5*time.Second, 0.15)
-	sendChSize                             = 32
-	getDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
-	newSessionThrottle                     = utils.AddJitter(5*time.Second, 0.15)
-	log                                    = logging.WithComponent("data_session").NoContext()
+	_                          utils.Lifecycle = (*Session)(nil)
+	heartbeatInterval                          = utils.AddJitter(5*time.Second, 0.15)
+	sendChSize                                 = 32
+	refreshDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
+	newSessionThrottle                         = utils.AddJitter(5*time.Second, 0.15)
+	log                                        = logging.WithComponent("data_session").NoContext()
 
 	retryBackoff = &utils.Backoff{
 		MinDelay: 3 * time.Second,
@@ -30,23 +31,19 @@ var (
 )
 
 type Session struct {
-	client          client.ControlClient
-	id              identity.Identity
-	address         string
-	configPublisher utils.Publisher[*control.DataServerConfig]
-	dsPublisher     utils.Publisher[*control.DataServers]
-	cancelFunc      context.CancelFunc
+	client     client.ControlClient
+	id         identity.Identity
+	address    string
+	cancelFunc context.CancelFunc
 }
 
 type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
 
 func New(client client.ControlClient, id identity.Identity, address string) *Session {
 	return &Session{
-		client:          client,
-		id:              id,
-		address:         address,
-		configPublisher: utils.NewPubSub[*control.DataServerConfig](1),
-		dsPublisher:     utils.NewPubSub[*control.DataServers](1),
+		client:  client,
+		id:      id,
+		address: address,
 	}
 }
 
@@ -62,19 +59,9 @@ func (m *Session) Stop() {
 	m.cancelFunc()
 }
 
-func (s *Session) SubscribeDataServerConfig() utils.Subscriber[*control.DataServerConfig] {
-	return s.configPublisher.Subscribe(1)
-}
-
-func (s *Session) SubscribeDataServers() utils.Subscriber[*control.DataServers] {
-	return s.dsPublisher.Subscribe(1)
-}
-
 func (m *Session) mainLoop(ctx context.Context) {
-	getDataServersThrottled := utils.ThrottleChan(m.dsPublisher.NotifyChan(), getDataServersThrottle)
-
 	for {
-		m.runSessionStream(ctx, getDataServersThrottled)
+		m.runSessionStream(ctx)
 
 		select {
 		case <-ctx.Done():
@@ -84,8 +71,12 @@ func (m *Session) mainLoop(ctx context.Context) {
 	}
 }
 
-func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan any) {
+func (m *Session) runSessionStream(ctx context.Context) {
+	dataServerStatusSub := events.Subscribe[*control.DataServerStatus]()
+	refreshDataServersSub := events.SubscribeThrottled[events.RefreshDataServers](ctx, refreshDataServersThrottle)
 	heartbeatTicker := time.NewTicker(heartbeatInterval)
+	defer dataServerStatusSub.Unsubscribe()
+	defer refreshDataServersSub.Unsubscribe()
 	defer heartbeatTicker.Stop()
 
 	streamCtx, streamCancel := context.WithCancel(ctx)
@@ -133,7 +124,7 @@ func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan 
 					ConfigVersion: config.Version,
 				})
 			}
-		case <-getDataServersCh:
+		case <-refreshDataServersSub.Items():
 			if gotHello {
 				sendCh <- m.newSessionIn(&control.GetDataServers{
 					IfNoMatch: dataServers.Version,
@@ -146,17 +137,18 @@ func (m *Session) runSessionStream(ctx context.Context, getDataServersCh <-chan 
 				dataServers = x.DataServers
 				gotHello = true
 
-				m.dsPublisher.PublishAttempt(dataServers)
-				m.configPublisher.PublishAttempt(config)
+				events.TryPublish(dataServers)
+				events.TryPublish(config)
 			case *control.DataServerConfig:
 				config = x
-				m.configPublisher.PublishAttempt(config)
+				events.TryPublish(config)
 			case *control.DataServers:
 				dataServers = x
-				m.dsPublisher.PublishAttempt(dataServers)
+				events.TryPublish(dataServers)
 			default:
 				log.Warnf("Unhandled receive message type %T.", msg)
 			}
+		case <-dataServerStatusSub.Items():
 		// TODO: send DataServerStatus
 		case <-ctx.Done():
 			go drainLoop()

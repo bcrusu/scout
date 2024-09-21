@@ -1,11 +1,13 @@
 package utils
 
 import (
+	"context"
 	"time"
 )
 
 // ThrottleChan wraps the channel to throttle its output to max once per provided interval.
-func ThrottleChan[T any](ch <-chan T, interval time.Duration) <-chan T {
+// The result chan will be closed when the source is closed or the context is canceled.
+func ThrottleChan[T any](ctx context.Context, ch <-chan T, interval time.Duration) <-chan T {
 	if interval < 0 {
 		interval = 0
 	}
@@ -13,32 +15,39 @@ func ThrottleChan[T any](ch <-chan T, interval time.Duration) <-chan T {
 	result := make(chan T, cap(ch))
 
 	go func() {
+		defer close(result)
 		var last time.Time
 
-		for x := range ch {
-			now := time.Now()
-			if last.Before(now.Add(-interval)) {
-				last = now
-				result <- x
+		for {
+			select {
+			case x, ok := <-ch:
+				if !ok {
+					return
+				}
+
+				now := time.Now()
+				if last.Before(now.Add(-interval)) {
+					last = now
+					result <- x
+				}
+			case <-ctx.Done():
+				return
 			}
 		}
-
-		close(result)
 	}()
 
 	return result
 }
 
+// MakeThrottleChanContext will make a new souce chan along with a throttled counterpart.
+func MakeThrottleChanContext[T any](ctx context.Context, interval time.Duration, bufferSize ...int) (chan<- T, <-chan T) {
+	size := GetOptionalParameter(0, bufferSize)
+	source := make(chan T, size)
+	throttled := ThrottleChan(ctx, source, interval)
+	return source, throttled
+}
+
 // MakeThrottleChan will make a new souce chan along with a throttled counterpart.
 func MakeThrottleChan[T any](interval time.Duration, bufferSize ...int) (chan<- T, <-chan T) {
-	size := 0
-	if len(bufferSize) == 1 {
-		size = bufferSize[0]
-	} else if len(bufferSize) > 1 {
-		panic("unexpected bufferSize parameter")
-	}
-
-	source := make(chan T, size)
-	throttled := ThrottleChan(source, interval)
-	return source, throttled
+	return MakeThrottleChanContext[T](context.Background(), interval, bufferSize...)
 }

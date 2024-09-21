@@ -200,7 +200,7 @@ var _ = Describe("PubSub tests", func() {
 		})
 	})
 
-	Context("When all subscribers unsubscribes", func() {
+	Context("When all subscribers unsubscribe", func() {
 		It("Publish should not block", func() {
 			pub := utils.NewPubSub[int](10)
 			sub1 := pub.Subscribe(0)

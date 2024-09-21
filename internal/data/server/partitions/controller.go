@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/storage"
+	"github.com/bcrusu/graph/internal/events"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
@@ -19,13 +20,13 @@ var (
 	_                utils.Lifecycle = (*Controller)(nil)
 	logC                             = logging.WithComponent("partition_controller").NoContext()
 	debounceInterval                 = 100 * time.Millisecond
+	statusInterval                   = 500 * time.Millisecond
 )
 
 type Controller struct {
 	id         identity.Identity
 	multiraft  *multiraft.MultiRaft
 	fsm        *storage.FSM
-	publisher  Publisher
 	cancelFunc context.CancelFunc
 	lock       sync.RWMutex
 	partitions map[uint32]*partition
@@ -33,17 +34,11 @@ type Controller struct {
 
 type addressMap map[uint64]raft.ServerAddress
 
-type Publisher interface {
-	SubscribeDataServerConfig() utils.Subscriber[*control.DataServerConfig]
-	SubscribeDataServers() utils.Subscriber[*control.DataServers]
-}
-
-func NewController(id identity.Identity, multiraft *multiraft.MultiRaft, fsm *storage.FSM, publisher Publisher) *Controller {
+func NewController(id identity.Identity, multiraft *multiraft.MultiRaft, fsm *storage.FSM) *Controller {
 	return &Controller{
 		id:         id,
 		multiraft:  multiraft,
 		fsm:        fsm,
-		publisher:  publisher,
 		partitions: map[uint32]*partition{},
 	}
 }
@@ -69,12 +64,12 @@ func (c *Controller) Stop() {
 }
 
 func (c *Controller) mainLoop(ctx context.Context) {
-	configSubscriber := c.publisher.SubscribeDataServerConfig()
-	dataServersSubscriber := c.publisher.SubscribeDataServers()
-	defer configSubscriber.Unsubscribe()
-	defer dataServersSubscriber.Unsubscribe()
-	configDebounced := utils.DebounceChan(ctx, configSubscriber.ItemChan(), debounceInterval)
-	dataServersDebounced := utils.DebounceChan(ctx, dataServersSubscriber.ItemChan(), debounceInterval)
+	dataServerConfigSub := events.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval, 1)
+	dataServersSub := events.SubscribeDebounced[*control.DataServers](ctx, debounceInterval, 1)
+	statusTicker := time.NewTicker(statusInterval)
+	defer statusTicker.Stop()
+	defer dataServerConfigSub.Unsubscribe()
+	defer dataServersSub.Unsubscribe()
 
 	var config *control.DataServerConfig
 	var addrs addressMap
@@ -82,23 +77,25 @@ func (c *Controller) mainLoop(ctx context.Context) {
 
 	syncNow := func() {
 		if config != nil && c.syncPartitions(ctx, config, addrs) {
-			dataServersSubscriber.NotifyPublisher()
+			events.TryPublishRefreshDataServers()
 		}
 	}
 
 	for {
 		select {
-		case newConfig := <-configDebounced:
+		case newConfig := <-dataServerConfigSub.Items():
 			if config == nil || newConfig.Version != config.Version {
 				config = newConfig
 				syncNow()
 			}
-		case x := <-dataServersDebounced:
+		case x := <-dataServersSub.Items():
 			if x.Version != addrsVersion {
 				addrs = c.getAddressMap(x)
 				addrsVersion = x.Version
 				syncNow()
 			}
+		case <-statusTicker.C:
+			//TODO
 		case <-ctx.Done():
 			return
 		}

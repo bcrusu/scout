@@ -1,27 +1,13 @@
 package client
 
 import (
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc"
 )
 
 type Option func(*options)
 
 type options struct {
-	publisher   Publisher
 	dialOptions []grpc.DialOption
-}
-
-type Publisher interface {
-	SubscribeDataServers() utils.Subscriber[*control.DataServers]
-}
-
-// WithDataServers sets the data servers source.
-func WithDataServers(publisher Publisher) Option {
-	return func(o *options) {
-		o.publisher = publisher
-	}
 }
 
 // WithDialOptions configures the gRPC connection dial options.

@@ -5,6 +5,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/events"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc/attributes"
@@ -22,9 +23,7 @@ var (
 	logR            = logging.WithComponent("data_resolver").NoContext()
 )
 
-type resolverBuilder struct {
-	publisher Publisher
-}
+type resolverBuilder struct{}
 
 func (b *resolverBuilder) Build(target resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
 	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](resolveThrottle, 1)
@@ -32,7 +31,6 @@ func (b *resolverBuilder) Build(target resolver.Target, clientConn resolver.Clie
 	r := &resolverImpl{
 		clientConn:     clientConn,
 		opts:           opts,
-		publisher:      b.publisher,
 		resolveNowCh:   resolveNowCh,
 		resolveNowChTh: resolveNowChTh,
 	}
@@ -51,7 +49,6 @@ type resolverImpl struct {
 	opts           resolver.BuildOptions
 	resolveNowCh   chan<- resolver.ResolveNowOptions
 	resolveNowChTh <-chan resolver.ResolveNowOptions
-	publisher      Publisher
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -63,8 +60,8 @@ func (r *resolverImpl) Close() {
 }
 
 func (r *resolverImpl) mainLoop() {
-	dataServers := r.publisher.SubscribeDataServers()
-	defer dataServers.Unsubscribe()
+	dataServersSub := events.Subscribe[*control.DataServers]()
+	defer dataServersSub.Unsubscribe()
 
 	for {
 		select {
@@ -72,8 +69,8 @@ func (r *resolverImpl) mainLoop() {
 			if !ok {
 				return
 			}
-			dataServers.NotifyPublisher()
-		case ds := <-dataServers.ItemChan():
+			events.TryPublishRefreshDataServers()
+		case ds := <-dataServersSub.Items():
 			if err := r.updateState(ds); err != nil {
 				logR.WithError(err).Warn("Failed to update resolver state.")
 				r.clientConn.ReportError(err)
