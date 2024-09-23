@@ -4,6 +4,8 @@ package control;
 
 option go_package = "internal/control";
 
+import "google/protobuf/duration.proto";
+
 // Service represents the control plane service.
 service Service {
     // Discover is used early by clients to discover the control
@@ -118,33 +120,40 @@ message HelloApiServer {
 }
 
 message Heartbeat {
-    uint64 config_version = 1;
+    string config_e_tag = 1;
 }
 
 message DataServerConfig {
-    message Member {
+    enum ReplicaState {
+        Joining = 0;
+        Voter = 1;
+        NonVoter = 2;
+        Leaving = 3;
+    }
+
+    message Replica {
         string name = 1;
         uint64 server_id = 2;
-        bool voter = 3;
+        ReplicaState state = 3;
     }
 
     message Partition {
-        uint64 version = 1;
+        string e_tag = 1;
         uint32 id = 2;
         string name = 3;
-        repeated Member members = 4;
+        map<string, Replica> replicas = 4;
     }
 
-    uint64 version = 1;
+    string e_tag = 1;
     map<uint32, Partition> partitions = 2;
 }
 
 message ApiServerConfig {
-    uint64 version = 1;
+    string e_tag = 1;
 }
 
 message GetDataServers {
-    uint64 if_no_match = 1;
+    string if_no_match = 1;
 }
 
 message DataServers {
@@ -159,7 +168,7 @@ message DataServers {
         uint64 write_server_id = 3;
     }
 
-    uint64 version = 1;
+    string e_tag = 1;
     map<uint64, Server> servers = 2;
     map<uint32, Partition> partitions = 3;
     uint32 partition_count = 4;
@@ -167,7 +176,7 @@ message DataServers {
 }
 
 message GetApiServers {
-    uint64 if_no_match = 1;
+    string if_no_match = 1;
 }
 
 message ApiServers {
@@ -176,19 +185,24 @@ message ApiServers {
         string address = 2;
     }
 
-    uint64 version = 1;
+    string e_tag = 1;
     map<uint64, Server> servers = 2;
     string service_config_json = 3;
 }
 
 message DataServerStatus {
-    message Partition {
-        uint32 id = 1;
-        bool leader = 2;
+    message Replica {
+        string name = 1;
+        bool is_leader = 2;
         uint64 leader_term = 3;
+        google.protobuf.Duration leader_last_contact = 4;
+		uint64 commited_index = 5;
+		uint64 applied_index = 6;
+        bool done_joining = 7;
+        bool done_leaving = 8;
     }
 
-    map<uint32, Partition> partitions = 1;
+    map<uint32, Replica> replicas = 1;
 }
 
 message ApiServerStatus {}

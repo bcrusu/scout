@@ -66,3 +66,18 @@ func CloneProto[T proto.Message](orig T) T {
 	}
 	return t
 }
+
+func CloneProtoMap[K comparable, V proto.Message](orig map[K]V) map[K]V {
+	result := map[K]V{}
+
+	for k, v := range orig {
+		clone := proto.Clone(v)
+		v, ok := clone.(V)
+		if !ok {
+			panic("CloneProto failed")
+		}
+		result[k] = v
+	}
+
+	return result
+}

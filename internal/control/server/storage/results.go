@@ -9,4 +9,6 @@ type RegisterResult struct {
 	ServerName string
 }
 
-type emptyResult struct{}
+type UpdateResult struct {
+	NewVersion uint64
+}

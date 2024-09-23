@@ -8,7 +8,6 @@ import (
 	"github.com/bcrusu/graph/internal/control/client"
 	"github.com/bcrusu/graph/internal/data/server/partitions"
 	"github.com/bcrusu/graph/internal/data/server/session"
-	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
@@ -83,13 +82,13 @@ func (n *Server) addComponents(idStore identity.IdentityStore, client client.Con
 		return errors.Error("server identity not found; must join a cluster first.")
 	}
 
-	fsm, transportService, mraft, err := n.buildMultiRaft()
+	transportService, mraft, err := n.buildMultiRaft()
 	if err != nil {
 		return err
 	}
 
-	session := session.New(client, id, n.config.Server.BindAddress)
-	partitionController := partitions.NewController(id, mraft, fsm)
+	session := session.New(id, n.config.Server.BindAddress, client)
+	partitionController := partitions.NewController(id, mraft)
 	dataService := NewDataService(partitionController)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
 
@@ -112,8 +111,7 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) buildMultiRaft() (*storage.FSM, *multiraft.TransportService, *multiraft.MultiRaft, error) {
-	fsm := storage.NewFSM()
+func (n *Server) buildMultiRaft() (*multiraft.TransportService, *multiraft.MultiRaft, error) {
 	dialOpts := rpc.DefaultDialOptions()
 	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
 
@@ -126,5 +124,5 @@ func (n *Server) buildMultiRaft() (*storage.FSM, *multiraft.TransportService, *m
 
 	mraft := multiraft.NewMultiRaft(config)
 
-	return fsm, transportService, mraft, nil
+	return transportService, mraft, nil
 }

@@ -17,22 +17,37 @@ var (
 // Read operations are executed directly on the FSM backing storage.
 // Write operations wait for the result/error from the FSM.
 type Store interface {
+	HasData() bool
+	AppliedIndex() uint64
 	Get(keyspace uint64, key []byte) ([]byte, bool)
 
 	Set(*Set) error
-	Delete(*Delete) error
+	Delete(delete *Delete) error
 }
 
 type store struct {
-	raft *multiraft.Raft
-	fsm  *FSM
+	raft        *multiraft.Raft
+	fsm         *FSM
+	partitionID uint32
 }
 
-func NewStore(raft *multiraft.Raft, fsm *FSM) Store {
+func NewStore(raft *multiraft.Raft, fsm *FSM, partitionID uint32) Store {
 	return &store{
-		raft: raft,
-		fsm:  fsm,
+		raft:        raft,
+		fsm:         fsm,
+		partitionID: partitionID,
 	}
+}
+
+func (s *store) HasData() bool {
+	return s.AppliedIndex() != 0
+}
+
+func (s *store) AppliedIndex() uint64 {
+	s.fsm.lock.RLock()
+	index := s.fsm.index
+	s.fsm.lock.RUnlock()
+	return index
 }
 
 func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
@@ -55,16 +70,16 @@ func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
 }
 
 func (s *store) Set(cmd *Set) error {
-	return apply(s.raft, cmd)
+	return apply(s.raft, s.partitionID, cmd)
 }
 
 func (s *store) Delete(cmd *Delete) error {
-	return apply(s.raft, cmd)
+	return apply(s.raft, s.partitionID, cmd)
 }
 
-func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {
+func applyR[R any](raft *multiraft.Raft, partitionID uint32, payload payload) (R, error) {
 	var zero R
-	cmd, err := newCommand(payload)
+	cmd, err := newCommand(partitionID, payload)
 	if err != nil {
 		return zero, err
 	}
@@ -86,8 +101,8 @@ func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {
 	}
 }
 
-func apply(raft *multiraft.Raft, payload payload) error {
-	result, err := applyR[any](raft, payload)
+func apply(raft *multiraft.Raft, partitionID uint32, payload payload) error {
+	result, err := applyR[any](raft, partitionID, payload)
 	if err != nil {
 		return err
 	} else if result != nil {

@@ -1,6 +1,8 @@
 package storage
 
-import "github.com/bcrusu/graph/internal/logging"
+import (
+	"github.com/bcrusu/graph/internal/logging"
+)
 
 func (s *Server) AddToLog(log logging.Logger) logging.Logger {
 	return log.With(

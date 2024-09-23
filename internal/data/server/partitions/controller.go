@@ -7,39 +7,34 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/storage"
-	"github.com/bcrusu/graph/internal/events"
+	"github.com/bcrusu/graph/internal/data/server/events"
+	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
-	"github.com/hashicorp/raft"
 )
 
 var (
-	_                utils.Lifecycle = (*Controller)(nil)
-	logC                             = logging.WithComponent("partition_controller").NoContext()
-	debounceInterval                 = 100 * time.Millisecond
-	statusInterval                   = 500 * time.Millisecond
+	_                     utils.Lifecycle = (*Controller)(nil)
+	logC                                  = logging.WithComponent("partition_controller").NoContext()
+	debounceInterval                      = 100 * time.Millisecond
+	publishStatusInterval                 = 20 * time.Second
 )
 
 type Controller struct {
 	id         identity.Identity
 	multiraft  *multiraft.MultiRaft
-	fsm        *storage.FSM
 	cancelFunc context.CancelFunc
 	lock       sync.RWMutex
-	partitions map[uint32]*partition
+	replicas   map[uint32]*replica // map[partition_id]*replica
 }
 
-type addressMap map[uint64]raft.ServerAddress
-
-func NewController(id identity.Identity, multiraft *multiraft.MultiRaft, fsm *storage.FSM) *Controller {
+func NewController(id identity.Identity, multiraft *multiraft.MultiRaft) *Controller {
 	return &Controller{
-		id:         id,
-		multiraft:  multiraft,
-		fsm:        fsm,
-		partitions: map[uint32]*partition{},
+		id:        id,
+		multiraft: multiraft,
+		replicas:  map[uint32]*replica{},
 	}
 }
 
@@ -57,182 +52,107 @@ func (c *Controller) Stop() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	for _, part := range c.partitions {
+	for _, part := range c.replicas {
 		part.Stop()
 	}
-	clear(c.partitions)
 }
 
 func (c *Controller) mainLoop(ctx context.Context) {
-	dataServerConfigSub := events.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval, 1)
-	dataServersSub := events.SubscribeDebounced[*control.DataServers](ctx, debounceInterval, 1)
-	statusTicker := time.NewTicker(statusInterval)
-	defer statusTicker.Stop()
+	dataServerConfigSub := eventbus.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval)
+	publishStatusTicker := time.NewTicker(publishStatusInterval)
+	defer publishStatusTicker.Stop()
 	defer dataServerConfigSub.Unsubscribe()
-	defer dataServersSub.Unsubscribe()
 
 	var config *control.DataServerConfig
-	var addrs addressMap
-	var addrsVersion uint64
-
-	syncNow := func() {
-		if config != nil && c.syncPartitions(ctx, config, addrs) {
-			events.TryPublishRefreshDataServers()
-		}
-	}
 
 	for {
 		select {
 		case newConfig := <-dataServerConfigSub.Items():
-			if config == nil || newConfig.Version != config.Version {
+			if config == nil || newConfig.ETag != config.ETag {
 				config = newConfig
-				syncNow()
+				c.syncPartitions(ctx, config)
 			}
-		case x := <-dataServersSub.Items():
-			if x.Version != addrsVersion {
-				addrs = c.getAddressMap(x)
-				addrsVersion = x.Version
-				syncNow()
-			}
-		case <-statusTicker.C:
-			//TODO
+		case <-publishStatusTicker.C:
+			eventbus.TryPublish(c.getPartitionsStatus())
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (c *Controller) GetPartition(id uint32) (data.ServiceServer, bool) {
+func (c *Controller) GetServiceForPartition(id uint32) (data.ServiceServer, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	if part, ok := c.partitions[id]; !ok {
+	if part, ok := c.replicas[id]; !ok {
 		return nil, false
 	} else {
-		return part, true
+		return part.getService()
 	}
 }
 
-func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataServerConfig, addrs addressMap) bool {
+func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataServerConfig) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	needsServersUpdate := false
+	// stop unassigned
+	for id, part := range c.replicas {
+		var replicaConfig *control.DataServerConfig_Replica
+		if config, ok := dsConfig.Partitions[id]; ok {
+			replicaConfig = c.getLocalReplicaConfig(config)
+		}
 
-	// stop unassigned and update changed partitions first
-	for id, part := range c.partitions {
-		config, found := dsConfig.Partitions[id]
-
-		if !found {
+		if replicaConfig == nil || part.name != replicaConfig.Name {
 			go part.Stop()
-			delete(c.partitions, id)
-		} else if c.canSyncPartition(config, addrs) {
-			servers, _ := c.getRaftServers(config, addrs)
-			go part.Update(config.Version, servers)
-		} else {
-			needsServersUpdate = true
+			delete(c.replicas, id)
 		}
 	}
 
-	// create newly assigned
-	for _, config := range dsConfig.Partitions {
-		if _, ok := c.partitions[config.Id]; ok {
+	// start/update assigned
+	for id, config := range dsConfig.Partitions {
+		replicaConfig := c.getLocalReplicaConfig(config)
+		if replicaConfig == nil {
 			continue
-		} else if !c.canSyncPartition(config, addrs) {
-			needsServersUpdate = true
-			continue
-		}
-
-		servers, localID := c.getRaftServers(config, addrs)
-
-		groupID := config.Name
-		raft, err := c.multiraft.New(groupID, c.fsm, localID)
-		if err != nil {
-			logC.WithError(err).Error("Failed to start Raft.", "partition", config.Id, "group", groupID)
+		} else if part, ok := c.replicas[id]; ok {
+			// update existing
+			part.updateCh <- config
 			continue
 		}
 
-		part := &partition{
-			id:       config.Id,
-			raft:     raft,
-			fsm:      c.fsm,
-			log:      logging.WithComponent("partition").With("id", config.Id, "group", groupID),
-			updateCh: make(chan updateCmd),
+		replica := &replica{
+			name:        replicaConfig.Name,
+			multiraft:   c.multiraft,
+			log:         logging.WithComponent("partition").With("id", id, "name", config.Name).NoContext(),
+			updateCh:    make(chan *control.DataServerConfig_Partition, 1),
+			getStatusCh: make(chan getStatusCmd),
 		}
 
-		go part.Start(ctx, config.Version, servers)
-		c.partitions[config.Id] = part
+		go replica.Start(ctx, config)
+		c.replicas[id] = replica
 	}
-
-	return needsServersUpdate
 }
 
-func (c *Controller) getRaftServers(config *control.DataServerConfig_Partition, addrs addressMap) ([]raft.Server, raft.ServerID) {
-	servers := make([]raft.Server, len(config.Members))
-	var localID raft.ServerID
-
-	for i, member := range config.Members {
-		if member.ServerId == c.id.ServerID {
-			localID = raft.ServerID(member.Name)
-		}
-
-		servers[i] = raft.Server{
-			ID:       raft.ServerID(member.Name),
-			Address:  addrs[member.ServerId],
-			Suffrage: raft.Voter,
-		}
-
-		if !member.Voter {
-			servers[i].Suffrage = raft.Nonvoter
+func (c *Controller) getLocalReplicaConfig(config *control.DataServerConfig_Partition) *control.DataServerConfig_Replica {
+	for _, replica := range config.Replicas {
+		if replica.ServerId == c.id.ServerID {
+			return replica
 		}
 	}
-
-	return servers, localID
+	logC.Warn("Partition replica not found.", "id", config.Id, "name", config.Name, "server_id", c.id.ServerID)
+	return nil
 }
 
-func (c *Controller) getAddressMap(dataServers *control.DataServers) addressMap {
-	result := addressMap{}
+func (c *Controller) getPartitionsStatus() events.ReplicaStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
-	for _, ds := range dataServers.Servers {
-		result[ds.Id] = raft.ServerAddress(ds.Address)
+	result := events.ReplicaStatus{}
+
+	for id, replica := range c.replicas {
+		if status := replica.getStatus(); status != nil {
+			result[id] = status
+		}
 	}
 
 	return result
-}
-
-// The controller needs to receive two pieces of info to be able to sync the partition:
-//   - 1. the local data server config: which gives the list of assigned
-//     partitions along with the list of group member/server IDs for each partition.
-//   - 2. the data servers list: which gives the current address of each data server.
-//   - if either is missing, the sync cannot be performed, and
-//   - because these are received independently in separate events, as per design, they
-//     could become out of sync resulting in the same situation (e.g. a new server is
-//     registered in the cluster and then added to the partition members list. If the
-//     local server receives first the config, containing the new member, it will need to
-//     wait for the data server list before being able to sync).
-//   - The events are kept separate because they convey information with different
-//     characteristics: data server config is expected to change slowly, while
-//     the server address list could change with every data server restart cycle.
-func (c *Controller) canSyncPartition(config *control.DataServerConfig_Partition, addrs addressMap) bool {
-	if len(addrs) == 0 {
-		return false
-	}
-
-	found := false
-	for _, member := range config.Members {
-		if _, ok := addrs[member.ServerId]; !ok {
-			return false
-		}
-
-		found = found || member.ServerId == c.id.ServerID
-	}
-
-	if !found {
-		// This signals a bug in the control plane data server config maker
-		// with local data server receiving a partition config where it is not
-		// part of group members. The partition should have not been included...
-		logC.Errorf("Local server not found in config.")
-	}
-
-	return found
 }

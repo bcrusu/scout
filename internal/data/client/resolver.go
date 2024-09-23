@@ -5,7 +5,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/events"
+	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
 	"google.golang.org/grpc/attributes"
@@ -60,7 +60,7 @@ func (r *resolverImpl) Close() {
 }
 
 func (r *resolverImpl) mainLoop() {
-	dataServersSub := events.Subscribe[*control.DataServers]()
+	dataServersSub := eventbus.Subscribe[*control.DataServers]()
 	defer dataServersSub.Unsubscribe()
 
 	for {
@@ -69,7 +69,7 @@ func (r *resolverImpl) mainLoop() {
 			if !ok {
 				return
 			}
-			events.TryPublishRefreshDataServers()
+			eventbus.TryPublishRefreshDataServers()
 		case ds := <-dataServersSub.Items():
 			if err := r.updateState(ds); err != nil {
 				logR.WithError(err).Warn("Failed to update resolver state.")

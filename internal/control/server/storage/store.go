@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/events"
+	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
 )
@@ -42,8 +42,8 @@ type Store interface {
 
 	Bootstrap(*Bootstrap) (*BootstrapResult, error)
 	Register(*Register) (*RegisterResult, error)
-	UpdateServers(*UpdateServers) error
-	UpdateServersAsync(*UpdateServers) error
+	UpdateServerStatus(*UpdateServerStatus) (*UpdateResult, error)
+	UpdatePartitionStatus(*UpdatePartitionStatus) (*UpdateResult, error)
 }
 
 type store struct {
@@ -89,26 +89,28 @@ func (s *store) mainLoop(ctx context.Context) {
 			s.clusterName = s.fsm.clusterName
 			s.partitionCount = s.fsm.partitionCount
 
-			sPublish := false
-			if s.servers == nil || s.servers.Version != s.fsm.servers.Version {
+			publishServers := false
+			if s.servers == nil || s.servers.ItemsVersion != s.fsm.servers.ItemsVersion ||
+				s.servers.StatusVersion != s.fsm.servers.StatusVersion {
 				s.servers = utils.CloneProto(s.fsm.servers)
-				sPublish = true
+				publishServers = true
 			}
 
-			pPublish := false
-			if s.partitions == nil || s.partitions.Version != s.fsm.partitions.Version {
+			publishPartitions := false
+			if s.partitions == nil || s.partitions.ItemsVersion != s.fsm.partitions.ItemsVersion ||
+				s.partitions.StatusVersion != s.fsm.partitions.StatusVersion {
 				s.partitions = utils.CloneProto(s.fsm.partitions)
-				pPublish = true
+				publishPartitions = true
 			}
 
 			s.fsm.lock.RUnlock()
 
-			if sPublish {
-				events.TryPublish(s.servers)
+			if publishServers {
+				eventbus.TryPublish(s.servers)
 			}
 
-			if pPublish {
-				events.TryPublish(s.partitions)
+			if publishPartitions {
+				eventbus.TryPublish(s.partitions)
 			}
 
 			s.lock.Unlock()
@@ -154,13 +156,12 @@ func (s *store) Register(cmd *Register) (*RegisterResult, error) {
 	return applyR[*RegisterResult](s.raft, cmd)
 }
 
-func (s *store) UpdateServers(cmd *UpdateServers) error {
-	_, err := applyR[*emptyResult](s.raft, cmd)
-	return err
+func (s *store) UpdateServerStatus(cmd *UpdateServerStatus) (*UpdateResult, error) {
+	return applyR[*UpdateResult](s.raft, cmd)
 }
 
-func (s *store) UpdateServersAsync(cmd *UpdateServers) error {
-	return applyAsync(s.raft, cmd)
+func (s *store) UpdatePartitionStatus(cmd *UpdatePartitionStatus) (*UpdateResult, error) {
+	return applyR[*UpdateResult](s.raft, cmd)
 }
 
 func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {

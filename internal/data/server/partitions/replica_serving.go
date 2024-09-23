@@ -15,100 +15,91 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-type partition struct {
-	data.ServiceServer
+type replicaServing struct {
 	id         uint32
 	raft       *multiraft.Raft
-	fsm        *storage.FSM
+	store      storage.Store
 	log        logging.Logger
-	updateCh   chan updateCmd
-	role       atomic.Pointer[partitionDrainer]
+	updateCh   chan updateServersCmd
+	partition  atomic.Pointer[partitionDrainer]
 	cancelFunc context.CancelFunc
 }
 
-type role interface {
+type partition interface {
 	data.ServiceServer
 	utils.Lifecycle
 }
 
-type updateCmd struct {
-	version uint64
+type updateServersCmd struct {
+	etag    string
 	servers []raft.Server
 }
 
-func (p *partition) Start(ctx context.Context, version uint64, servers []raft.Server) {
-	if err := p.bootstrapRaft(ctx, servers); err != nil {
-		p.log.WithError(err).Error(ctx, "Bootstrap Raft group failed.")
-		return
-	}
-
+func (p *replicaServing) Start(ctx context.Context, etag string, servers []raft.Server) {
 	mainLoop, cancelFunc := utils.WithCancelAndWait(func(ctx context.Context) {
-		p.mainLoop(ctx, version, servers)
+		p.mainLoop(ctx, etag, servers)
 	})
 
 	p.cancelFunc = cancelFunc
 	go mainLoop(ctx)
 }
 
-func (p *partition) Stop() {
+func (p *replicaServing) Stop() {
 	if p.cancelFunc != nil {
 		p.cancelFunc()
 	}
 }
 
-func (p *partition) Update(version uint64, servers []raft.Server) {
-	p.updateCh <- updateCmd{
-		version: version,
-		servers: servers,
-	}
-}
-
-func (p *partition) mainLoop(ctx context.Context, version uint64, servers []raft.Server) {
+func (p *replicaServing) mainLoop(ctx context.Context, etag string, servers []raft.Server) {
 	isLeader := false
 	updatedRaft := false
 
 	for {
 		select {
-		case isLeader = <-p.raft.GetLeaderChan():
+		case next := <-p.raft.LeaderChan():
+			if next == isLeader {
+				continue
+			}
+			isLeader = next
+
 			// Setting to nil will reject new incoming requests with Unavailable error
 			// until the new partition leader/follower transition is ready.
-			old := p.role.Swap(nil)
+			old := p.partition.Swap(nil)
 			go old.Stop()
 
-			store := storage.NewStore(p.raft, p.fsm)
-			var new role
+			var new partition
 
 			if isLeader {
-				new = leader.New(p.id, store)
+				new = leader.New(p.id, p.store)
 			} else {
-				new = follower.New(p.id, store)
+				new = follower.New(p.id, p.store)
 			}
 
 			drainer := newPartitionDrainer(new)
 
 			if err := drainer.Start(ctx); err != nil {
-				p.log.WithError(err).Errorf(ctx, "Failed to start partition %d role %T. Shutting down...", p.id, new)
+				p.log.WithError(err).Errorf(ctx, "Failed to start. Shutting down...", "is_leader", isLeader)
 				utils.LifecycleShutdown(ctx)
 				return
 			}
 
-			p.role.Store(drainer)
+			p.partition.Store(drainer)
 
 			if isLeader && !updatedRaft {
 				updatedRaft = p.updateRaftServers(servers)
 			}
 		case cmd := <-p.updateCh:
-			if cmd.version == version {
+			if cmd.etag == etag {
 				continue
 			}
-			version = cmd.version
+			etag = cmd.etag
 			servers = cmd.servers
 
 			if isLeader {
 				updatedRaft = p.updateRaftServers(servers)
 			}
 		case <-ctx.Done():
-			old := p.role.Swap(nil)
+			old := p.partition.Swap(nil)
 			old.Stop()
 			p.raft.Stop()
 			return
@@ -116,27 +107,7 @@ func (p *partition) mainLoop(ctx context.Context, version uint64, servers []raft
 	}
 }
 
-func (p *partition) bootstrapRaft(ctx context.Context, newServers []raft.Server) error {
-	if oldServers, err := p.raft.GetServers(); err != nil {
-		return err
-	} else if len(oldServers) == 0 {
-		p.log.Debug(ctx, "Bootstrapping Raft group...")
-
-		if err := p.raft.Bootstrap(newServers...); err != nil {
-			return err
-		} else {
-			p.log.Debug(ctx, "Bootstrap Raft group success.")
-		}
-	} else {
-		// later, the partition leader will take ownership over the group and
-		// update Raft members to match the partition config.
-		p.log.Debug(ctx, "Raft group already bootstrapped.")
-	}
-
-	return nil
-}
-
-func (p *partition) updateRaftServers(newServers []raft.Server) bool {
+func (p *replicaServing) updateRaftServers(newServers []raft.Server) bool {
 	oldServers, err := p.raft.GetServers()
 	if err != nil {
 		p.log.NoContext().WithError(err).Error("Failed to get Raft servers.")
@@ -156,7 +127,7 @@ func (p *partition) updateRaftServers(newServers []raft.Server) bool {
 		return new.Address != old.Address || new.Suffrage != old.Suffrage
 	}
 
-	// It is paramount that the Raft group does not lose quorum during member
+	// It is paramount that the Raft group does not lose quorum during config
 	// update which would need manual operator interention for recovery.
 	// First, will add/update the new servers. If leader status is lost, return
 	// early, else if errors are encountered, skip removing existing servers.
@@ -213,34 +184,10 @@ func (p *partition) updateRaftServers(newServers []raft.Server) bool {
 	return true
 }
 
-func (p *partition) getRole() (role, error) {
-	v := p.role.Load()
+func (p *replicaServing) getService() (data.ServiceServer, bool) {
+	v := p.partition.Load()
 	if v == nil {
-		return nil, errors.Unavailable
+		return nil, false
 	}
-	return v, nil
-}
-
-func (p *partition) Set(ctx context.Context, req *data.SetRequest) (*data.SetResponse, error) {
-	if role, err := p.getRole(); err != nil {
-		return nil, err
-	} else {
-		return role.Set(ctx, req)
-	}
-}
-
-func (p *partition) Get(ctx context.Context, req *data.GetRequest) (*data.GetResponse, error) {
-	if role, err := p.getRole(); err != nil {
-		return nil, err
-	} else {
-		return role.Get(ctx, req)
-	}
-}
-
-func (p *partition) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
-	if role, err := p.getRole(); err != nil {
-		return nil, err
-	} else {
-		return role.Delete(ctx, req)
-	}
+	return v, true
 }

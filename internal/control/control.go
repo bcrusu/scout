@@ -27,9 +27,13 @@ func (x *HelloDataServer) Validate() error {
 	}
 
 	for _, part := range x.Config.Partitions {
-		for _, member := range part.Members {
-			if x.DataServers.Servers[member.ServerId] == nil {
-				return errors.Error("HelloDataServer.Partitions.Members.ServerId missing from DataServers.Servers")
+		for name, replica := range part.Replicas {
+			if x.DataServers.Servers[replica.ServerId] == nil {
+				return errors.Error("HelloDataServer.Partitions.Replicas.ServerId missing from DataServers.Servers")
+			}
+
+			if name != replica.Name {
+				return errors.Error("HelloDataServer.Partitions.Replicas.Name does not match")
 			}
 		}
 	}
@@ -58,7 +62,7 @@ func (x *DataServerConfig) Validate() error {
 		return errors.Error("DataServerConfig is nil")
 	}
 
-	if x.Version == 0 {
+	if x.ETag == "" {
 		return errors.Error("DataServerConfig has missing fields")
 	}
 
@@ -80,26 +84,30 @@ func (x *DataServerConfig_Partition) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.Version == 0 || x.Name == "" {
+	if x.ETag == "" || x.Name == "" {
 		return errors.Error("Partition has missing fields")
 	}
 
-	for _, member := range x.Members {
-		if err := member.Validate(); err != nil {
-			return errors.Wrap(err, "Partition.Member is invalid")
+	for _, replica := range x.Replicas {
+		if err := replica.Validate(); err != nil {
+			return errors.Wrap(err, "Partition.Replicas is invalid")
 		}
 	}
 
 	return nil
 }
 
-func (x *DataServerConfig_Member) Validate() error {
+func (x *DataServerConfig_Replica) Validate() error {
 	if x == nil {
-		return errors.Error("Member is nil")
+		return errors.Error("Replica is nil")
 	}
 
 	if x.Name == "" || x.ServerId == 0 {
-		return errors.Error("Member has missing fields")
+		return errors.Error("Replica has missing fields")
+	}
+
+	if _, ok := DataServerConfig_ReplicaState_name[int32(x.State)]; !ok {
+		return errors.Error("Invalid Mode")
 	}
 
 	return nil
@@ -110,7 +118,7 @@ func (x *ApiServerConfig) Validate() error {
 		return errors.Error("ApiServerConfig is nil")
 	}
 
-	if x.Version == 0 {
+	if x.ETag == "" {
 		return errors.Error("ApiServerConfig has missing fields")
 	}
 
@@ -122,7 +130,7 @@ func (x *DataServers) Validate() error {
 		return errors.Error("DataServers is nil")
 	}
 
-	if x.Version == 0 || len(x.Servers) == 0 || len(x.Partitions) == 0 || x.PartitionCount == 0 || x.ServiceConfigJson == "" {
+	if x.ETag == "" || len(x.Servers) == 0 || len(x.Partitions) == 0 || x.PartitionCount == 0 || x.ServiceConfigJson == "" {
 		return errors.Error("DataServers has missing fields")
 	}
 
@@ -174,7 +182,7 @@ func (x *ApiServers) Validate() error {
 		return errors.Error("ApiServers is nil")
 	}
 
-	if x.Version == 0 || len(x.Servers) == 0 || x.ServiceConfigJson == "" {
+	if x.ETag == "" || len(x.Servers) == 0 || x.ServiceConfigJson == "" {
 		return errors.Error("ApiServers has missing fields")
 	}
 
@@ -228,29 +236,21 @@ func (x *DataServerStatus) Validate() error {
 		return errors.Error("DataServerStatus is nil")
 	}
 
-	if len(x.Partitions) == 0 {
-		return errors.Error("DataServerStatus has missing fields")
-	}
-
-	for id, part := range x.Partitions {
-		if err := part.Validate(); err != nil {
-			return errors.Wrap(err, "DataServerStatus.Partitions is invalid")
-		}
-
-		if id != part.Id {
-			return errors.Error("DataServerStatus.Partitions.Id does not match")
+	for _, replica := range x.Replicas {
+		if err := replica.Validate(); err != nil {
+			return errors.Wrap(err, "DataServerStatus.Replicas is invalid")
 		}
 	}
 
 	return nil
 }
 
-func (x *DataServerStatus_Partition) Validate() error {
+func (x *DataServerStatus_Replica) Validate() error {
 	if x == nil {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.LeaderTerm == 0 {
+	if x.LeaderTerm == 0 || x.LeaderLastContact.AsDuration() < 0 {
 		return errors.Error("Partition has missing fields")
 	}
 

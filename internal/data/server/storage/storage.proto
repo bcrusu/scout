@@ -9,9 +9,11 @@ message Command {
     // provided here and rejects the write if they do not match.
     uint64 if_match = 1;
 
+    uint32 partition_id = 2;
+
     oneof payload {
-        Set set = 2;
-        Delete delete = 3;
+        Set set = 3;
+        Delete delete = 4;
     }
 }
 
@@ -25,8 +27,9 @@ message Keyspace {
 }
 
 message Snapshot {
-    uint64 version = 1;
-    map<uint64, Keyspace> keyspaces = 2;
+    uint64 index = 1;
+    uint64 version = 2;
+    map<uint64, Keyspace> keyspaces = 3;
 }
 
 message Set {

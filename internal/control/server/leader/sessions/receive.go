@@ -80,11 +80,11 @@ func (t *Tracker) handleHeartbeat(sess *session, msg *control.Heartbeat) error {
 
 	switch sess.serverType {
 	case control.ServerType_Data:
-		if msg.ConfigVersion != sess.dsConfig.Version {
+		if msg.ConfigETag != sess.dsConfig.ETag {
 			sess.trySend(newSessionOut(sess.dsConfig))
 		}
 	case control.ServerType_Api:
-		if msg.ConfigVersion != sess.asConfig.Version {
+		if msg.ConfigETag != sess.asConfig.ETag {
 			sess.trySend(newSessionOut(sess.asConfig))
 		}
 	}
@@ -96,7 +96,7 @@ func (t *Tracker) handleGetDataServers(sess *session, msg *control.GetDataServer
 	if err := msg.Validate(); err != nil {
 		sess.log.WithError(err).Error(sess.ctx, "Invalid GetDataServers request.")
 		return errors.InvalidRequest
-	} else if msg.IfNoMatch != 0 && msg.IfNoMatch == t.dataServersVersion.Load() {
+	} else if msg.IfNoMatch != "" && msg.IfNoMatch == t.dataServers.Load().ETag {
 		return nil
 	}
 
@@ -109,7 +109,7 @@ func (t *Tracker) handleGetApiServers(sess *session, msg *control.GetApiServers)
 	if err := msg.Validate(); err != nil {
 		sess.log.WithError(err).Error(sess.ctx, "Invalid GetApiServers request.")
 		return errors.InvalidRequest
-	} else if msg.IfNoMatch != 0 && msg.IfNoMatch == t.apiServersVersion.Load() {
+	} else if msg.IfNoMatch != "" && msg.IfNoMatch == t.apiServers.Load().ETag {
 		return nil
 	}
 
@@ -124,32 +124,20 @@ func (t *Tracker) handleDataServerStatus(sess *session, msg *control.DataServerS
 		return errors.InvalidRequest
 	} else if sess.serverType != control.ServerType_Data {
 		return errors.PermissionDenied
+	} else if len(msg.Replicas) == 0 {
+		return nil
 	}
 
 	count := t.store.PartitionCount()
-
-	cmd := sessionPartStatus{
-		id:       sess.id,
-		leader:   map[partitionID]uint64{},
-		follower: map[partitionID]bool{},
-	}
-
-	for id, part := range msg.Partitions {
+	for id := range msg.Replicas {
 		if id >= count {
 			return errors.InvalidRequest
 		}
-
-		pid := partitionID(id)
-
-		if part.Leader {
-			cmd.leader[pid] = part.LeaderTerm
-		} else {
-			cmd.follower[pid] = true
-		}
 	}
 
-	if len(msg.Partitions) > 0 {
-		t.sessionCh <- cmd
+	t.sessionCh <- dataServerStatus{
+		id:     sess.id,
+		status: msg,
 	}
 
 	return nil

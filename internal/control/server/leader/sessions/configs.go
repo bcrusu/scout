@@ -1,91 +1,71 @@
 package sessions
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/bcrusu/graph/internal/control"
+	"github.com/bcrusu/graph/internal/control/server/convert"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 )
 
-type dsConfigs map[serverID]*control.DataServerConfig
-type asConfigs map[serverID]*control.ApiServerConfig
+type dsConfigs map[uint64]*control.DataServerConfig
+type asConfigs map[uint64]*control.ApiServerConfig
 type dsPartMap map[uint32]*control.DataServerConfig_Partition
 
-func makeDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions, oldConfigs dsConfigs) dsConfigs {
-	byServer := map[serverID]dsPartMap{}
+func makeDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
+	byServer := map[uint64]dsPartMap{}
 
 	for _, p := range partitions.Items {
 		partition := &control.DataServerConfig_Partition{
-			Version: p.Version,
-			Id:      p.Id,
-			Name:    p.Name,
-			Members: make([]*control.DataServerConfig_Member, len(p.Members)),
+			ETag:     strconv.FormatUint(p.Version, 10),
+			Id:       p.Id,
+			Name:     p.Name,
+			Replicas: map[string]*control.DataServerConfig_Replica{},
 		}
 
-		for i, member := range p.Members {
-			partition.Members[i] = &control.DataServerConfig_Member{
-				Name:     member.Name,
-				ServerId: member.ServerId,
-				Voter:    member.Voter,
+		for _, replica := range p.Replicas {
+			partition.Replicas[replica.Name] = &control.DataServerConfig_Replica{
+				Name:     replica.Name,
+				ServerId: replica.ServerId,
+				State:    convert.FromReplicaState(replica.State),
 			}
 		}
 
 		// could have used the same iteration above, but looks cleaner this way
-		for _, member := range p.Members {
-			sid := serverID(member.ServerId)
-			if byServer[sid] == nil {
-				byServer[sid] = dsPartMap{}
+		for _, replica := range p.Replicas {
+			if byServer[replica.ServerId] == nil {
+				byServer[replica.ServerId] = dsPartMap{}
 			}
 
-			byServer[sid][partition.Id] = partition
+			byServer[replica.ServerId][partition.Id] = partition
 		}
-	}
-
-	getNextVersion := func(new, old *control.DataServerConfig) uint64 {
-		if old == nil {
-			return 1
-		}
-
-		if len(new.Partitions) != len(old.Partitions) {
-			return old.Version + 1
-		}
-
-		for pid, newPart := range new.Partitions {
-			if oldPart, ok := old.Partitions[pid]; !ok || newPart.Version != oldPart.Version {
-				return old.Version + 1
-			}
-		}
-
-		return old.Version
 	}
 
 	result := dsConfigs{}
-	for _, server := range servers.ByType(storage.ServerType_Data) {
-		sid := serverID(server.Id)
-		old := oldConfigs[sid]
+	for id := range servers.ByType(storage.ServerType_Data) {
+		partitions := byServer[id]
 
-		new := &control.DataServerConfig{
-			Partitions: byServer[sid],
+		etags := make([]string, 0, len(partitions))
+		for id, part := range partitions {
+			etags = append(etags, fmt.Sprintf("part %d:%s", id, part.ETag))
 		}
 
-		new.Version = getNextVersion(new, old)
-		result[sid] = new
+		result[id] = &control.DataServerConfig{
+			ETag:       makeETag(etags...),
+			Partitions: partitions,
+		}
 	}
 
 	return result
 }
 
-func makeApiServerConfigs(servers *storage.Servers, oldConfigs asConfigs) asConfigs {
+func makeApiServerConfigs(servers *storage.Servers) asConfigs {
 	result := asConfigs{}
-	for _, server := range servers.ByType(storage.ServerType_Api) {
-		sid := serverID(server.Id)
-		new := oldConfigs[sid]
-
-		if new == nil {
-			new = &control.ApiServerConfig{
-				Version: 1,
-			}
+	for id := range servers.ByType(storage.ServerType_Api) {
+		result[id] = &control.ApiServerConfig{
+			ETag: "",
 		}
-
-		result[sid] = new
 	}
 
 	return result

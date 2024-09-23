@@ -1,10 +1,10 @@
-package events_test
+package eventbus_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/bcrusu/graph/internal/events"
+	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/utils/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,6 +15,10 @@ func TestUtils(t *testing.T) {
 }
 
 var _ = Describe("MessageBus tests", func() {
+	type testEvent struct {
+		payload string
+	}
+
 	bufferSize := 10
 
 	shortPause := func() <-chan time.Time {
@@ -23,23 +27,44 @@ var _ = Describe("MessageBus tests", func() {
 
 	Context("When there are no subscribers", func() {
 		It("Publisher should not block", func() {
-			events.SetMessageBus(events.NewMessageBus())
+			eventbus.SetMessageBus(eventbus.NewMessageBus())
 
-			events.Publish(1)
-			events.TryPublish(1)
+			eventbus.Publish(1)
+			eventbus.TryPublish(1)
+		})
+
+		It("Should store last message published and send it to new subscribers", func() {
+			eventbus.SetMessageBus(eventbus.NewMessageBus())
+
+			eventbus.Publish[int32](32)
+			eventbus.Publish[uint8](17)
+			eventbus.Publish("test1")
+			eventbus.Publish(testEvent{"hello!"})
+			eventbus.Publish[*testEvent](nil)
+			sub1 := eventbus.Subscribe[int32]()
+			sub2 := eventbus.Subscribe[uint8]()
+			sub3 := eventbus.Subscribe[string]()
+			sub4 := eventbus.Subscribe[testEvent]()
+			sub5 := eventbus.Subscribe[*testEvent]()
+
+			Expect(<-sub1.Items()).To(Equal(int32(32)))
+			Expect(<-sub2.Items()).To(Equal(uint8(17)))
+			Expect(<-sub3.Items()).To(Equal("test1"))
+			Expect(<-sub4.Items()).To(Equal(testEvent{"hello!"}))
+			Expect(<-sub5.Items()).To(BeNil())
 		})
 	})
 
 	Context("When there are subscribers", func() {
 		var (
-			sub1 *events.Subscriber[int]
-			sub2 *events.Subscriber[int]
+			sub1 *eventbus.Subscriber[int]
+			sub2 *eventbus.Subscriber[int]
 		)
 
 		BeforeEach(func() {
-			events.SetMessageBus(events.NewMessageBus())
-			sub1 = events.Subscribe[int](bufferSize)
-			sub2 = events.Subscribe[int](bufferSize)
+			eventbus.SetMessageBus(eventbus.NewMessageBus())
+			sub1 = eventbus.Subscribe[int](bufferSize)
+			sub2 = eventbus.Subscribe[int](bufferSize)
 
 			Expect(sub1).NotTo(BeNil())
 			Expect(sub2).NotTo(BeNil())
@@ -63,18 +88,18 @@ var _ = Describe("MessageBus tests", func() {
 				case <-doneCh:
 					Fail("Subscriber did not wait")
 				case <-shortPause():
-					events.TryPublish(1)
+					eventbus.TryPublish(1)
 				}
 			})
 
 			It("Publish should succeed", func() {
-				go events.Publish(88)
+				go eventbus.Publish(88)
 				Expect(<-sub1.Items()).To(Equal(88))
 				Expect(<-sub2.Items()).To(Equal(88))
 			})
 
 			It("TryPublish should succeed", func() {
-				go events.TryPublish(88)
+				go eventbus.TryPublish(88)
 				Expect(<-sub1.Items()).To(Equal(88))
 				Expect(<-sub2.Items()).To(Equal(88))
 			})
@@ -82,9 +107,9 @@ var _ = Describe("MessageBus tests", func() {
 
 		Context("When buffer has items", func() {
 			It("Should consume in order", func() {
-				events.Publish(3)
-				events.Publish(2)
-				events.Publish(1)
+				eventbus.Publish(3)
+				eventbus.Publish(2)
+				eventbus.Publish(1)
 
 				Expect(<-sub1.Items()).To(Equal(3))
 				Expect(<-sub1.Items()).To(Equal(2))
@@ -98,7 +123,7 @@ var _ = Describe("MessageBus tests", func() {
 		Context("When buffer is full", func() {
 			BeforeEach(func() {
 				for i := range bufferSize {
-					events.Publish(i)
+					eventbus.Publish(i)
 				}
 			})
 
@@ -106,7 +131,7 @@ var _ = Describe("MessageBus tests", func() {
 				doneCh := make(chan bool)
 
 				go func() {
-					events.Publish(99)
+					eventbus.Publish(99)
 					close(doneCh)
 				}()
 
@@ -120,7 +145,7 @@ var _ = Describe("MessageBus tests", func() {
 			})
 
 			It("TryPublish should fail", func() {
-				Expect(events.TryPublish(99)).To(BeFalse())
+				Expect(eventbus.TryPublish(99)).To(BeFalse())
 			})
 		})
 	})
@@ -138,8 +163,8 @@ var _ = Describe("MessageBus tests", func() {
 		}
 
 		It("Should panic trying any action", func() {
-			events.SetMessageBus(events.NewMessageBus())
-			sub := events.Subscribe[int](10)
+			eventbus.SetMessageBus(eventbus.NewMessageBus())
+			sub := eventbus.Subscribe[int](10)
 			sub.Unsubscribe()
 			r1 := catchPanic(func() { <-sub.Items() })
 			r2 := catchPanic(func() { sub.Unsubscribe() })
@@ -150,13 +175,13 @@ var _ = Describe("MessageBus tests", func() {
 
 	Context("When all subscribers unsubscribe", func() {
 		It("Publish should not block", func() {
-			events.SetMessageBus(events.NewMessageBus())
-			sub1 := events.Subscribe[int](10)
-			sub2 := events.Subscribe[int](10)
+			eventbus.SetMessageBus(eventbus.NewMessageBus())
+			sub1 := eventbus.Subscribe[int](10)
+			sub2 := eventbus.Subscribe[int](10)
 			sub1.Unsubscribe()
 			sub2.Unsubscribe()
 
-			events.Publish(77)
+			eventbus.Publish(77)
 		})
 	})
 })

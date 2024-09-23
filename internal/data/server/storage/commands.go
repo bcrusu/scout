@@ -10,7 +10,7 @@ type payload interface {
 }
 
 // NewCommand returns a new commmand with the specified payload.
-func newCommand(payload payload) (*Command, error) {
+func newCommand(partitionID uint32, payload payload) (*Command, error) {
 	var p isCommand_Payload
 
 	switch x := payload.(type) {
@@ -23,7 +23,8 @@ func newCommand(payload payload) (*Command, error) {
 	}
 
 	return &Command{
-		Payload: p,
+		PartitionId: partitionID,
+		Payload:     p,
 	}, nil
 }
 

@@ -3,10 +3,9 @@ package storage
 import (
 	"bytes"
 	"slices"
-	"time"
 )
 
-func (f *FSM) applyDelete(_ time.Time, cmd *Delete) (*DeleteResult, error) {
+func (f *FSM) applyDelete(cmd *Delete) (*DeleteResult, error) {
 	keyspace, ok := f.keyspaces[cmd.Keyspace]
 	if !ok {
 		return &DeleteResult{Deleted: false}, nil

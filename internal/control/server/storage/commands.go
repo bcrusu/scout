@@ -18,8 +18,10 @@ func newCommand(payload payload) (*Command, error) {
 		p = &Command_Bootstrap{Bootstrap: x}
 	case *Register:
 		p = &Command_Register{Register: x}
-	case *UpdateServers:
-		p = &Command_UpdateServers{UpdateServers: x}
+	case *UpdateServerStatus:
+		p = &Command_UpdateServerStatus{UpdateServerStatus: x}
+	case *UpdatePartitionStatus:
+		p = &Command_UpdatePartitionStatus{UpdatePartitionStatus: x}
 	default:
 		return nil, errors.Errorf("newCommand: unhandled payload type %T", payload)
 	}
@@ -35,13 +37,16 @@ func getPayload(cmd *Command) (payload, error) {
 		return x.Bootstrap, nil
 	case *Command_Register:
 		return x.Register, nil
-	case *Command_UpdateServers:
-		return x.UpdateServers, nil
+	case *Command_UpdateServerStatus:
+		return x.UpdateServerStatus, nil
+	case *Command_UpdatePartitionStatus:
+		return x.UpdatePartitionStatus, nil
 	default:
 		return nil, errors.Errorf("getPayload: unhandled payload type %T", cmd.Payload)
 	}
 }
 
-func (*Bootstrap) isPayload()     {}
-func (*Register) isPayload()      {}
-func (*UpdateServers) isPayload() {}
+func (*Bootstrap) isPayload()             {}
+func (*Register) isPayload()              {}
+func (*UpdateServerStatus) isPayload()    {}
+func (*UpdatePartitionStatus) isPayload() {}

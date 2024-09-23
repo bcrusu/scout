@@ -63,16 +63,23 @@ func (s *ControlService) Stop() {
 }
 
 func (s *ControlService) mainLoop(ctx context.Context) {
-	if !s.waitBootstrapped(ctx) || !s.setRole(ctx, s.raft.IsLeader()) {
+	if !s.waitBootstrapped(ctx) {
+		return
+	}
+
+	isLeader := s.raft.IsLeader()
+
+	if !s.setRole(ctx, isLeader) {
 		return
 	}
 
 	for {
 		select {
-		case isLeader := <-s.raft.GetLeaderChan():
-			if !s.setRole(ctx, isLeader) {
+		case next := <-s.raft.LeaderChan():
+			if next != isLeader && !s.setRole(ctx, next) {
 				return
 			}
+			isLeader = next
 		case <-ctx.Done():
 			old := s.role.Swap(nil)
 			old.Stop()
@@ -95,8 +102,6 @@ func (s *ControlService) waitBootstrapped(ctx context.Context) bool {
 			if s.store.Bootstrapped() {
 				return true
 			}
-		case <-s.raft.GetLeaderChan():
-			// drain leader chan as Raft blocks sending here
 		case <-ctx.Done():
 			return false
 		}

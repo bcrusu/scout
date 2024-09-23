@@ -1,6 +1,8 @@
 package convert
 
 import (
+	"fmt"
+
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 )
@@ -14,6 +16,21 @@ func FromServerType(in storage.ServerType) control.ServerType {
 	case storage.ServerType_Api:
 		return control.ServerType_Api
 	default:
-		return control.ServerType_Unknown
+		panic(fmt.Sprintf("unhandled ServerType %s", in))
+	}
+}
+
+func FromReplicaState(in storage.Partition_ReplicaState) control.DataServerConfig_ReplicaState {
+	switch in {
+	case storage.Partition_Joining:
+		return control.DataServerConfig_Joining
+	case storage.Partition_Voter:
+		return control.DataServerConfig_Voter
+	case storage.Partition_NonVoter:
+		return control.DataServerConfig_NonVoter
+	case storage.Partition_Leaving:
+		return control.DataServerConfig_Leaving
+	default:
+		panic(fmt.Sprintf("unhandled Partition_ReplicaState %s", in))
 	}
 }

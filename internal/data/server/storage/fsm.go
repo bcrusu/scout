@@ -17,6 +17,7 @@ var (
 
 type FSM struct {
 	lock      sync.RWMutex // guards all below
+	index     uint64       // last applied raft index
 	version   uint64       // used for optimistic concurrency control
 	keyspaces map[uint64]*Keyspace
 }
@@ -33,14 +34,22 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	cmd, err := utils.UnmarshalProto[Command](data)
-	if err != nil {
+	var result any
+
+	if cmd, err := utils.UnmarshalProto[Command](data); err != nil {
 		log.WithError(err).Debug("UnmarshalProto failed")
-		return err
+		result = err
+	} else {
+		result = f.applyCommand(cmd, log)
 	}
 
+	f.index = index
+	return result
+}
+
+func (f *FSM) applyCommand(cmd *Command, log logging.LoggerNoContext) any {
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
-		log.WithError(err).Debug("Command version check failed", "fsm_version", f.version, "cmd_version", cmd.IfMatch)
+		log.Debug("Command version check failed", "fsm_version", f.version, "cmd_version", cmd.IfMatch)
 		return errors.FailedPrecondition
 	}
 
@@ -56,9 +65,9 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 
 	switch x := payload.(type) {
 	case *Set:
-		result, err = f.applySet(appendedAt, x)
+		result, err = f.applySet(x)
 	case *Delete:
-		result, err = f.applyDelete(appendedAt, x)
+		result, err = f.applyDelete(x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
@@ -66,12 +75,12 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	if err != nil {
 		log.WithError(err).Debugf("Applying command %T failed", payload)
 		return err
-	} else {
-		f.version++
-		logF.Debugf("Applying command %T success", payload)
-
-		return result
 	}
+
+	f.version++
+	logF.Debugf("Applying command %T success", payload)
+
+	return result
 }
 
 func (f *FSM) Snapshot() ([]byte, error) {
@@ -79,6 +88,7 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	defer f.lock.RUnlock()
 
 	snap := &Snapshot{
+		Index:     f.index,
 		Version:   f.version,
 		Keyspaces: f.keyspaces,
 	}
@@ -96,6 +106,7 @@ func (f *FSM) Restore(data []byte) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	f.index = snap.Index
 	f.version = snap.Version
 	f.keyspaces = snap.Keyspaces
 	return nil

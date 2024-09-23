@@ -2,7 +2,9 @@ package multiraft
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/bcrusu/graph/internal/errors"
@@ -22,13 +24,20 @@ type Raft struct {
 	bindAddress    raft.ServerAddress
 	requestTimeout time.Duration
 	raft           *raft.Raft
-	leaderChan     chan bool
 }
 
 type FSM interface {
 	Apply(index uint64, appendedAt time.Time, data []byte) any
 	Snapshot() ([]byte, error)
 	Restore(data []byte) error
+}
+
+type Stats struct {
+	IsLeader          bool
+	LeaderTerm        uint64
+	LeaderLastContact time.Duration
+	CommitedIndex     uint64
+	AppliedIndex      uint64
 }
 
 type fsmAdapter struct {
@@ -92,9 +101,9 @@ func (r *Raft) GetLeader() (raft.ServerID, raft.ServerAddress, bool) {
 	return id, addr, true
 }
 
-// GetLeaderChan returns a chan used to observe leadership changes for current server.
-func (r *Raft) GetLeaderChan() <-chan bool {
-	return r.leaderChan
+// LeaderChan returns a chan used to observe leadership changes for current server.
+func (r *Raft) LeaderChan() <-chan bool {
+	return r.raft.LeaderCh()
 }
 
 // AddOrUpdateServer adds the provided server to the running cluster. If already part of
@@ -189,6 +198,36 @@ func (r *Raft) ApplyAsync(cmd []byte) error {
 
 	r.raft.Apply(cmd, 0)
 	return nil
+}
+
+// GetStats returns info about current Raft instance.
+func (r *Raft) GetStats() Stats {
+	rstats := r.raft.Stats()
+
+	termStr, ok := rstats["term"]
+	if !ok || termStr == "" {
+		panic("term missing from raft stats map")
+	}
+
+	term, err := strconv.ParseUint(termStr, 10, 64)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse raft term %q", termStr))
+	}
+
+	isLeader := r.IsLeader()
+
+	lastContact := time.Duration(0)
+	if !isLeader {
+		lastContact = max(0, time.Since(r.raft.LastContact()))
+	}
+
+	return Stats{
+		IsLeader:          isLeader,
+		LeaderTerm:        term,
+		LeaderLastContact: lastContact,
+		CommitedIndex:     r.raft.CommitIndex(),
+		AppliedIndex:      r.raft.AppliedIndex(),
+	}
 }
 
 func (r *Raft) checkLeader() error {

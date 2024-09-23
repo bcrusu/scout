@@ -3,10 +3,9 @@ package storage
 import (
 	"bytes"
 	"slices"
-	"time"
 )
 
-func (f *FSM) applySet(_ time.Time, cmd *Set) (*SetResult, error) {
+func (f *FSM) applySet(cmd *Set) (*SetResult, error) {
 	keyspace, ok := f.keyspaces[cmd.Keyspace]
 	if !ok {
 		keyspace = &Keyspace{}

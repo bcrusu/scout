@@ -1,7 +1,8 @@
-package events
+package eventbus
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,9 +12,10 @@ import (
 
 // MessageBus routes messages between participants.
 type MessageBus struct {
-	nextID   atomic.Uint64
-	subsLock sync.RWMutex
-	subs     map[uint64]any
+	nextID  atomic.Uint64
+	lock    sync.Mutex
+	subs    map[uint64]any
+	lastMsg map[reflect.Type]any
 }
 
 // Subscriber is the recipient of memssages.
@@ -28,11 +30,15 @@ type Subscriber[T any] struct {
 // NewMessageBus creates a new MessageBus.
 func NewMessageBus() *MessageBus {
 	return &MessageBus{
-		subs: map[uint64]any{},
+		subs:    map[uint64]any{},
+		lastMsg: map[reflect.Type]any{},
 	}
 }
 
 func addSubscriber[T any](bus *MessageBus, chanIn chan<- T, chanOut <-chan T) *Subscriber[T] {
+	bus.lock.Lock()
+	defer bus.lock.Unlock()
+
 	sub := &Subscriber[T]{
 		id:      bus.nextID.Add(1),
 		chanIn:  chanIn,
@@ -40,9 +46,12 @@ func addSubscriber[T any](bus *MessageBus, chanIn chan<- T, chanOut <-chan T) *S
 		bus:     bus,
 	}
 
-	bus.subsLock.Lock()
+	// enqueue last message sent
+	if lastMsg, ok := bus.lastMsg[reflect.TypeFor[T]()]; ok {
+		sub.chanIn <- lastMsg.(T)
+	}
+
 	bus.subs[sub.id] = sub
-	bus.subsLock.Unlock()
 	return sub
 }
 
@@ -62,19 +71,23 @@ func subscribeThrottledAt[T any](bus *MessageBus, ctx context.Context, throttle 
 }
 
 func publishAt[T any](bus *MessageBus, msg T) {
-	bus.subsLock.RLock()
+	bus.lock.Lock()
+	defer bus.lock.Unlock()
+
+	bus.lastMsg[reflect.TypeFor[T]()] = msg
 
 	for _, subAny := range bus.subs {
 		if sub, ok := subAny.(*Subscriber[T]); ok {
 			sub.chanIn <- msg
 		}
 	}
-
-	bus.subsLock.RUnlock()
 }
 
 func tryPublishAt[T any](bus *MessageBus, msg T) bool {
-	bus.subsLock.RLock()
+	bus.lock.Lock()
+	defer bus.lock.Unlock()
+
+	bus.lastMsg[reflect.TypeFor[T]()] = msg
 
 	all := false
 	for _, subAny := range bus.subs {
@@ -86,8 +99,6 @@ func tryPublishAt[T any](bus *MessageBus, msg T) bool {
 			}
 		}
 	}
-
-	bus.subsLock.RUnlock()
 	return all
 }
 
@@ -105,7 +116,7 @@ func (s *Subscriber[T]) Unsubscribe() {
 	s.unsubscribed.Store(true)
 	close(s.chanIn)
 
-	s.bus.subsLock.Lock()
+	s.bus.lock.Lock()
 	delete(s.bus.subs, s.id)
-	s.bus.subsLock.Unlock()
+	s.bus.lock.Unlock()
 }

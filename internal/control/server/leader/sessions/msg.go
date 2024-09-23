@@ -1,8 +1,10 @@
 package sessions
 
+import "github.com/bcrusu/graph/internal/control"
+
 type startSession struct {
 	stream        sessionStream
-	serverID      serverID
+	serverID      uint64
 	serverAddress string
 	waitCh        chan error
 }
@@ -20,10 +22,9 @@ type sessionReceived struct {
 	id sessionID
 }
 
-type sessionPartStatus struct {
-	id       sessionID
-	leader   map[partitionID]uint64 // map[partition_id]raft_leader_term
-	follower map[partitionID]bool
+type dataServerStatus struct {
+	id     sessionID
+	status *control.DataServerStatus
 }
 
 func (m sessionLoopDone) ID() sessionID {
@@ -34,6 +35,6 @@ func (m sessionReceived) ID() sessionID {
 	return m.id
 }
 
-func (m sessionPartStatus) ID() sessionID {
+func (m dataServerStatus) ID() sessionID {
 	return m.id
 }

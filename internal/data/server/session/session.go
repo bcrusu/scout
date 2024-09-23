@@ -8,8 +8,9 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/client"
+	"github.com/bcrusu/graph/internal/data/server/events"
 	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/events"
+	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
@@ -19,6 +20,7 @@ import (
 var (
 	_                          utils.Lifecycle = (*Session)(nil)
 	heartbeatInterval                          = utils.AddJitter(5*time.Second, 0.15)
+	statusInterval                             = utils.AddJitter(30*time.Second, 0.15)
 	sendChSize                                 = 32
 	refreshDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
 	newSessionThrottle                         = utils.AddJitter(5*time.Second, 0.15)
@@ -31,19 +33,19 @@ var (
 )
 
 type Session struct {
-	client     client.ControlClient
 	id         identity.Identity
 	address    string
+	client     client.ControlClient
 	cancelFunc context.CancelFunc
 }
 
 type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
 
-func New(client client.ControlClient, id identity.Identity, address string) *Session {
+func New(id identity.Identity, address string, client client.ControlClient) *Session {
 	return &Session{
-		client:  client,
 		id:      id,
 		address: address,
+		client:  client,
 	}
 }
 
@@ -72,12 +74,14 @@ func (m *Session) mainLoop(ctx context.Context) {
 }
 
 func (m *Session) runSessionStream(ctx context.Context) {
-	dataServerStatusSub := events.Subscribe[*control.DataServerStatus]()
-	refreshDataServersSub := events.SubscribeThrottled[events.RefreshDataServers](ctx, refreshDataServersThrottle)
+	replicaStatusSub := eventbus.Subscribe[events.ReplicaStatus]()
+	refreshDataServersSub := eventbus.SubscribeThrottled[eventbus.RefreshDataServers](ctx, refreshDataServersThrottle)
 	heartbeatTicker := time.NewTicker(heartbeatInterval)
-	defer dataServerStatusSub.Unsubscribe()
+	statusTicker := time.NewTicker(statusInterval)
+	defer replicaStatusSub.Unsubscribe()
 	defer refreshDataServersSub.Unsubscribe()
 	defer heartbeatTicker.Stop()
+	defer statusTicker.Stop()
 
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	stream, err := m.newSessionWithRetry(streamCtx)
@@ -96,6 +100,7 @@ func (m *Session) runSessionStream(ctx context.Context) {
 	gotHello := false
 	var config *control.DataServerConfig
 	var dataServers *control.DataServers
+	status := &control.DataServerStatus{}
 
 	drainLoop := func() {
 		for range recvCh {
@@ -121,15 +126,21 @@ func (m *Session) runSessionStream(ctx context.Context) {
 		case <-heartbeatTicker.C:
 			if gotHello {
 				sendCh <- m.newSessionIn(&control.Heartbeat{
-					ConfigVersion: config.Version,
+					ConfigETag: config.ETag,
 				})
+			}
+		case <-statusTicker.C:
+			if gotHello && len(status.Replicas) != 0 {
+				sendCh <- m.newSessionIn(status)
 			}
 		case <-refreshDataServersSub.Items():
 			if gotHello {
 				sendCh <- m.newSessionIn(&control.GetDataServers{
-					IfNoMatch: dataServers.Version,
+					IfNoMatch: dataServers.ETag,
 				})
 			}
+		case x := <-replicaStatusSub.Items():
+			status.Replicas = x
 		case msg := <-recvCh:
 			switch x := msg.(type) {
 			case *control.HelloDataServer:
@@ -137,19 +148,17 @@ func (m *Session) runSessionStream(ctx context.Context) {
 				dataServers = x.DataServers
 				gotHello = true
 
-				events.TryPublish(dataServers)
-				events.TryPublish(config)
+				eventbus.TryPublish(dataServers)
+				eventbus.TryPublish(config)
 			case *control.DataServerConfig:
 				config = x
-				events.TryPublish(config)
+				eventbus.TryPublish(config)
 			case *control.DataServers:
 				dataServers = x
-				events.TryPublish(dataServers)
+				eventbus.TryPublish(dataServers)
 			default:
 				log.Warnf("Unhandled receive message type %T.", msg)
 			}
-		case <-dataServerStatusSub.Items():
-		// TODO: send DataServerStatus
 		case <-ctx.Done():
 			go drainLoop()
 			streamCancel()

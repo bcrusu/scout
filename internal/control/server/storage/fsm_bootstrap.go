@@ -18,41 +18,54 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 
 	f.clusterName = cmd.ClusterName
 	f.clusterCreatedTime = appendedAt
+	f.partitionCount = cmd.PartitionCount
+
 	f.servers = &Servers{
-		Version: 1,
-		Items:   map[uint64]*Server{},
+		ItemsVersion:  1,
+		Items:         map[uint64]*Server{},
+		StatusVersion: 1,
+		Status:        map[uint64]*ServerStatus{},
 	}
 
 	for _, server := range cmd.Servers {
-		if server.Id > f.servers.LastServerId {
-			f.servers.LastServerId = server.Id
+		if server.Id > f.servers.LastUniqueId {
+			f.servers.LastUniqueId = server.Id
 		}
 
 		f.servers.Items[server.Id] = &Server{
+			Version:      1,
+			Id:           server.Id,
+			Name:         server.Name,
+			Type:         ServerType_Control,
+			RegisteredAt: timestamppb.New(appendedAt),
+		}
+		f.servers.Status[server.Id] = &ServerStatus{
 			Version:     1,
-			Id:          server.Id,
-			Name:        server.Name,
-			Type:        ServerType_Control,
-			FirstSeen:   timestamppb.New(appendedAt),
 			LastSeen:    timestamppb.New(appendedAt),
 			LastAddress: server.Address,
 		}
 	}
 
-	f.partitionCount = cmd.PartitionCount
 	f.partitions = &Partitions{
-		Version: 1,
-		Items:   map[uint32]*Partition{},
+		ItemsVersion:  1,
+		Items:         map[uint32]*Partition{},
+		StatusVersion: 1,
+		Status:        map[uint32]*PartitionStatus{},
+		LastUniqueId:  0,
 	}
 
 	for id := range cmd.PartitionCount {
 		f.partitions.Items[id] = &Partition{
-			Version:      1,
-			Id:           id,
-			Name:         fmt.Sprintf("%s%d", partitionNamePrefix, id),
-			Members:      []*Partition_Member{}, // will be updated live by the partition assignment component
-			LastMemberId: 0,
+			Version:  1,
+			Id:       id,
+			Name:     fmt.Sprintf("%s%d", partitionNamePrefix, id),
+			Replicas: map[string]*Partition_Replica{}, // will be updated live by the partition assignment component
 		}
+		f.partitions.Status[id] = &PartitionStatus{
+			Version:  1,
+			Replicas: map[string]*PartitionStatus_Replica{},
+		}
+
 	}
 
 	return &BootstrapResult{

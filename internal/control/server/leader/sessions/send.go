@@ -64,6 +64,20 @@ func (s sessionsByServer) trySendAll(out *control.SessionOut) {
 	}
 }
 
+func (s sessions) trySendAll(out *control.SessionOut) {
+	for _, sess := range s {
+		sess.trySend(out)
+	}
+}
+
+func (s sessions) trySendServerType(out *control.SessionOut, serverType control.ServerType) {
+	for _, sess := range s {
+		if sess.serverType == serverType {
+			sess.trySend(out)
+		}
+	}
+}
+
 func newSessionOut(payload any) *control.SessionOut {
 	switch p := payload.(type) {
 	case *control.HelloDataServer:

@@ -1,4 +1,4 @@
-package events
+package eventbus
 
 // This file contains reusable message types relevant for all services.
 

@@ -31,11 +31,8 @@ func NewMultiRaft(baseConfig Config) *MultiRaft {
 }
 
 func (r *MultiRaft) New(groupID string, fsm FSM, localID raft.ServerID) (*Raft, error) {
-	leaderChan := make(chan bool, 1)
-
 	config := r.baseConfig.getRaftConfig()
 	config.LocalID = localID
-	config.NotifyCh = leaderChan
 
 	fsmAdapter := &fsmAdapter{fsm}
 	group, err := r.multi.New(groupID, fsmAdapter, config)
@@ -48,7 +45,6 @@ func (r *MultiRaft) New(groupID string, fsm FSM, localID raft.ServerID) (*Raft, 
 		bindAddress:    raft.ServerAddress(r.baseConfig.BindAddress),
 		requestTimeout: r.baseConfig.RequestTimeout,
 		raft:           group,
-		leaderChan:     leaderChan,
 	}, nil
 }
 

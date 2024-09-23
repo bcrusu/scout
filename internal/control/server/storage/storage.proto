@@ -5,6 +5,7 @@ package control.storage;
 option go_package = "internal/control/server/storage";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 
 message Command {
     // [optional] The FSM checks its current version with the one
@@ -23,7 +24,8 @@ message Command {
     oneof payload {
         Bootstrap bootstrap = 2;
         Register register = 3;
-        UpdateServers update_servers = 4;
+        UpdateServerStatus update_server_status = 4;
+        UpdatePartitionStatus update_partition_status = 5;
     }
 }
 
@@ -43,6 +45,9 @@ message Bootstrap {
     // achievable in the cluster.
     // Each partition maps one-to-one to a multiraft replication group.
     uint32 partition_count = 3;
+
+    // The number of replicas for each partition.
+    uint32 replication_factor = 4;
 }
 
 message Register {
@@ -55,21 +60,21 @@ message Register {
     string address = 3;
 }
 
-message UpdateServers {
-    message Server {
-        uint64 id = 1;
-        google.protobuf.Timestamp last_seen = 2;
-        string last_address = 3;
-    }
+message UpdateServerStatus {
+    uint64 if_match = 1;
+    map<uint64, ServerStatus> items = 2;
+}
 
-    repeated Server servers = 1;
+message UpdatePartitionStatus {
+    uint64 if_match = 1;
+    map<uint32, PartitionStatus> items = 2;
 }
 
 message Snapshot {
-    uint64 version = 1;
-    string cluster_name = 2;
-    google.protobuf.Timestamp cluster_created_time = 3;
-    map<string, uint64> tokens = 4;
+    uint64 index = 1;
+    uint64 version = 2;
+    string cluster_name = 3;
+    google.protobuf.Timestamp cluster_created_time = 4;
     Servers servers = 5;
     Partitions partitions = 6;
     uint32 partition_count = 7;
@@ -87,35 +92,69 @@ message Server {
     uint64 id = 2;
     string name = 3;
     ServerType type = 4;
-    google.protobuf.Timestamp first_seen = 5;
-    google.protobuf.Timestamp last_seen = 6;
-    string last_address = 7;
+    google.protobuf.Timestamp registered_at = 5;
+}
+
+message ServerStatus {
+    uint64 version = 1;
+    google.protobuf.Timestamp last_seen = 2;
+    string last_address = 3;
 }
 
 message Servers {
-    uint64 version = 1;
+    uint64 items_version = 1;
     map<uint64, Server> items = 2;
-    uint64 last_server_id = 3;
+    uint64 status_version = 3;
+    map<uint64, ServerStatus> status = 4;
+    uint64 last_unique_id = 5;
+    map<string, uint64> tokens = 6;
 }
 
 // Partition represents a data storage partition which has a one-to-one
-// mapping to a Raft replication group. Each partition contains its assigned
-// group members and thir placement to servers.
+// mapping to a Raft replication group. Each partition contains a set of
+// replicas and thir placement to servers. Each replica corresponds to
+// one Raft group member.
 message Partition {
-    message Member {
+    enum ReplicaState {
+        Joining = 0;
+        Voter = 1;
+        NonVoter = 2;
+        Leaving = 3;
+    }
+
+    message Replica {
         string name = 1;
         uint64 server_id = 2;
-        bool voter = 3;
+        ReplicaState state = 3;
+        google.protobuf.Timestamp created_time = 4;
     }
 
     uint64 version = 1;
     uint32 id = 2;
     string name = 3;
-    repeated Member members = 4;
-    uint64 last_member_id = 5;
+    map<string, Replica> replicas = 4;
+}
+
+message PartitionStatus {
+    message Replica {
+        google.protobuf.Timestamp last_update = 1;
+        google.protobuf.Duration leader_last_contact = 2;
+        uint64 applied_index = 3;
+        bool done_joining = 4;
+        bool done_leaving = 5;
+    }
+
+    uint64 version = 1;
+    map<string, Replica> replicas = 2;
+    string leader = 3;
+    uint64 leader_term = 4;
+    uint64 commited_index = 5;
 }
 
 message Partitions {
-    uint64 version = 1;
+    uint64 items_version = 1;
     map<uint32, Partition> items = 2;
+    uint64 status_version = 3;
+    map<uint32, PartitionStatus> status = 4;
+    uint64 last_unique_id = 5;
 }

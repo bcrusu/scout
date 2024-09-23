@@ -26,14 +26,13 @@ var (
 )
 
 func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResult, error) {
-	// Trying to register using the same token. Will return previous member
-	// info only if token is still valid.
-	if id, ok := f.tokens[cmd.Token]; ok {
+	// Trying to register using the same token: return previous server info only if token is still valid.
+	if id, ok := f.servers.Tokens[cmd.Token]; ok {
 		server := f.servers.Items[id]
 
-		firstSeen := server.FirstSeen.AsTime()
+		registeredAt := server.RegisteredAt.AsTime()
 		validFrom := appendedAt.Add(-tokenValidityWindow)
-		if firstSeen.Before(validFrom) {
+		if registeredAt.Before(validFrom) {
 			return nil, errors.ValidationError{Message: "Token expired."}
 		}
 
@@ -43,23 +42,26 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 		}, nil
 	}
 
-	f.servers.Version++
-	f.servers.LastServerId++
+	f.servers.ItemsVersion++
+	f.servers.LastUniqueId++
 
-	id := f.servers.LastServerId
+	id := f.servers.LastUniqueId
 	name := fmt.Sprintf("%s%d", serverNamePrefix[cmd.Type], id)
 
-	f.tokens[cmd.Token] = id
-
 	f.servers.Items[id] = &Server{
+		Version:      1,
+		Id:           id,
+		Name:         name,
+		Type:         cmd.Type,
+		RegisteredAt: timestamppb.New(appendedAt),
+	}
+	f.servers.Status[id] = &ServerStatus{
 		Version:     1,
-		Id:          id,
-		Name:        name,
-		Type:        cmd.Type,
-		FirstSeen:   timestamppb.New(appendedAt),
 		LastSeen:    timestamppb.New(appendedAt),
 		LastAddress: cmd.Address,
 	}
+
+	f.servers.Tokens[cmd.Token] = id
 
 	return &RegisterResult{
 		ServerID:   id,

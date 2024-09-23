@@ -2,6 +2,8 @@ package sessions
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -12,7 +14,7 @@ import (
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/events"
+	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
 	"github.com/bcrusu/graph/internal/utils"
@@ -21,8 +23,8 @@ import (
 )
 
 const (
-	sessionSendBufferChSize = 32
-	writeServersInterval    = 5 * time.Second
+	sessionSendBufferChSize   = 32
+	writeLatestStatusInterval = 5 * time.Second
 )
 
 var (
@@ -44,14 +46,12 @@ type Tracker struct {
 	dataServiceConfigJson string
 	apiServiceConfigJson  string
 	dataServers           atomic.Pointer[control.DataServers]
-	dataServersVersion    atomic.Uint64
 	apiServers            atomic.Pointer[control.ApiServers]
-	apiServersVersion     atomic.Uint64
 }
 
 type session struct {
 	id            sessionID
-	serverID      serverID
+	serverID      uint64
 	serverType    control.ServerType
 	serverAddress string
 	createdAt     time.Time
@@ -66,22 +66,10 @@ type session struct {
 	recvOffenses  int                       // dedicated for recv loop
 }
 
-type partitionState struct {
-	id         partitionID
-	hasLeader  bool
-	leaderID   serverID // current leader server id
-	leaderTerm uint64   // current leader raft term
-}
-
-// having ID types defined enforces proper discipline in handling diff ID types
-type sessionID uint64
-type serverID uint64
-type partitionID uint32
-
 type sessionStream = grpc.BidiStreamingServer[control.SessionIn, control.SessionOut]
+type sessionID uint64
 type sessions map[sessionID]*session
-type sessionsByServer map[serverID]*session
-type partitionStates map[partitionID]*partitionState
+type sessionsByServer map[uint64]*session
 
 func NewTracker(config config.Service, store storage.Store) *Tracker {
 	return &Tracker{
@@ -127,7 +115,7 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 
 	cmd := startSession{
 		stream:        stream,
-		serverID:      serverID(payload.Hello.ServerId),
+		serverID:      payload.Hello.ServerId,
 		serverAddress: payload.Hello.Address,
 		waitCh:        make(chan error, 1),
 	}
@@ -141,12 +129,12 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 }
 
 func (t *Tracker) mainLoop(ctx context.Context) {
-	serversSub := events.Subscribe[*storage.Servers]()
-	partitionsSub := events.Subscribe[*storage.Partitions]()
-	writeServersTicker := time.NewTicker(writeServersInterval)
+	serversSub := eventbus.Subscribe[*storage.Servers]()
+	partitionsSub := eventbus.Subscribe[*storage.Partitions]()
+	writeLatestStatusTicker := time.NewTicker(writeLatestStatusInterval)
 	defer serversSub.Unsubscribe()
 	defer partitionsSub.Unsubscribe()
-	defer writeServersTicker.Stop()
+	defer writeLatestStatusTicker.Stop()
 
 	dsUpdateCh, dsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
 	asUpdateCh, asUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
@@ -155,17 +143,17 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 
 	servers := t.store.Servers()
 	partitions := t.store.Partitions()
-	dsConfigs := makeDataServerConfigs(servers, partitions, dsConfigs{})
-	asConfigs := makeApiServerConfigs(servers, asConfigs{})
+	status := newStatusTracker(servers, partitions)
+	dsConfigs := makeDataServerConfigs(servers, partitions)
+	asConfigs := makeApiServerConfigs(servers)
 
 	sessionCounter := sessionID(0)
 	sessionsById := sessions{}
 	sessionsByServer := sessionsByServer{}
-	partitionStates := t.initPartitionStates()
 	runningLoops := 0
 
-	t.updateDataServerList(servers, partitions, sessionsByServer, partitionStates)
-	t.updateApiServerList(servers, sessionsByServer)
+	t.updateDataServerList(servers, partitions, status)
+	t.updateApiServerList(servers, status)
 
 	closeSession := func(id sessionID, err error) {
 		if sess, ok := sessionsById[id]; ok {
@@ -179,7 +167,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case x := <-t.startSessionCh:
-			server := servers.ByID(uint64(x.serverID))
+			server := servers.ByID(x.serverID)
 			if server == nil {
 				logS.Warnf(ctx, "Session hello for unknwon server %d at %s.", x.serverID, x.serverAddress)
 				x.waitCh <- errors.NotRegistered
@@ -201,7 +189,6 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				serverType:    convert.FromServerType(server.Type),
 				serverAddress: x.serverAddress,
 				createdAt:     now,
-				lastSeen:      now,
 				sendBufferCh:  make(chan *control.SessionOut, sessionSendBufferChSize),
 				ctx:           x.stream.Context(),
 				waitCh:        x.waitCh,
@@ -220,6 +207,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 
 			sessionsById[new.id] = new
 			sessionsByServer[new.serverID] = new
+			status.recordNewSession(new)
 
 			go t.sessionSendLoop(new, x.stream)
 			go t.sessionRecvLoop(new, x.stream)
@@ -227,15 +215,13 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 
 			new.log.Info(ctx, "Started new session.")
 
-			if !needsUpdate {
-				continue
-			}
-
-			switch new.serverType {
-			case control.ServerType_Data:
-				dsUpdateCh <- true
-			case control.ServerType_Api:
-				asUpdateCh <- true
+			if needsUpdate {
+				switch new.serverType {
+				case control.ServerType_Data:
+					dsUpdateCh <- true
+				case control.ServerType_Api:
+					asUpdateCh <- true
+				}
 			}
 		case msg := <-t.sessionCh:
 			if x, ok := msg.(sessionLoopDone); ok {
@@ -251,45 +237,55 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 
 			switch x := msg.(type) {
 			case sessionReceived:
-				sess.lastSeen = time.Now().UTC()
-			case sessionPartStatus:
-				for id, term := range x.leader {
-					part := partitionStates[id]
-					part.hasLeader = true
-					if term > part.leaderTerm {
-						part.leaderID = sess.serverID
-						part.leaderTerm = term
-					}
+				status.recordSessionReceived(sess)
+			case dataServerStatus:
+				if status.recordReplicaStatus(x.status.Replicas) {
+					dsUpdateCh <- true
 				}
-				dsUpdateCh <- true
 			default:
 				logS.Errorf(ctx, "Unknown session message type %T", msg)
 			}
-		case servers = <-serversSub.Items():
+		case newServers := <-serversSub.Items():
+			if newServers.ItemsVersion == servers.ItemsVersion {
+				continue
+			}
+
 			// close sessions for removed servers
 			for serverID, sess := range sessionsByServer {
-				if x := servers.ByID(uint64(serverID)); x == nil {
+				if newServers.ByID(serverID) == nil {
 					closeSession(sess.id, errors.NotRegistered)
 				}
 			}
 
+			servers = newServers
 			dsUpdateCh <- true
 			asUpdateCh <- true
 			dsConfigsUpdateCh <- true
 			asConfigsUpdateCh <- true
-		case partitions = <-partitionsSub.Items():
+		case newPartitions := <-partitionsSub.Items():
+			if newPartitions.ItemsVersion == partitions.ItemsVersion {
+				continue
+			}
+
+			partitions = newPartitions
 			dsUpdateCh <- true
 			dsConfigsUpdateCh <- true
-		case <-writeServersTicker.C:
-			t.writeUpdateServers(ctx, servers, sessionsByServer)
+		case <-writeLatestStatusTicker.C:
+			t.writeLatestStatus(ctx, status)
 		case <-dsUpdateChDb:
-			t.updateDataServerList(servers, partitions, sessionsByServer, partitionStates)
+			if t.updateDataServerList(servers, partitions, status) {
+				out := newSessionOut(t.dataServers.Load())
+				sessionsById.trySendAll(out)
+			}
 		case <-asUpdateChDb:
-			t.updateApiServerList(servers, sessionsByServer)
+			if t.updateApiServerList(servers, status) {
+				out := newSessionOut(t.apiServers.Load())
+				sessionsById.trySendServerType(out, control.ServerType_Api)
+			}
 		case <-dsConfigsUpdateChDb:
-			dsConfigs = t.updateDataServerConfigs(servers, partitions, sessionsByServer, dsConfigs)
+			dsConfigs = t.updateDataServerConfigs(servers, partitions, sessionsByServer)
 		case <-asConfigsUpdateChDb:
-			asConfigs = t.updateApiServerConfigs(servers, sessionsByServer, asConfigs)
+			asConfigs = t.updateApiServerConfigs(servers, sessionsByServer)
 		case <-ctx.Done():
 			goto SHUTDOWN
 		}
@@ -299,6 +295,8 @@ SHUTDOWN:
 	for id := range sessionsById {
 		closeSession(id, nil)
 	}
+
+	t.writeLatestStatus(ctx, status)
 
 	// drain
 	for {
@@ -319,118 +317,121 @@ SHUTDOWN:
 	}
 }
 
-func (t *Tracker) initPartitionStates() partitionStates {
-	result := partitionStates{}
-	for i := range t.store.PartitionCount() {
-		id := partitionID(i)
-		result[id] = &partitionState{
-			id:        id,
-			hasLeader: false,
-		}
-	}
-	return result
-}
-
-func (t *Tracker) updateDataServerList(servers *storage.Servers, partitions *storage.Partitions, sessions sessionsByServer, partitionStates partitionStates) {
-	ds := &control.DataServers{
-		Version:           t.dataServersVersion.Add(1),
+func (t *Tracker) updateDataServerList(servers *storage.Servers, partitions *storage.Partitions, status *statusTracker) bool {
+	new := &control.DataServers{
 		Servers:           map[uint64]*control.DataServers_Server{},
 		Partitions:        map[uint32]*control.DataServers_Partition{},
 		PartitionCount:    t.store.PartitionCount(),
 		ServiceConfigJson: t.dataServiceConfigJson,
 	}
 
-	for id, server := range servers.ByType(storage.ServerType_Data) {
-		ds.Servers[id] = &control.DataServers_Server{
+	for id := range servers.ByType(storage.ServerType_Data) {
+		new.Servers[id] = &control.DataServers_Server{
 			Id:      id,
-			Address: server.LastAddress,
-		}
-
-		if sess := sessions[serverID(id)]; sess != nil {
-			ds.Servers[id].Address = sess.serverAddress
+			Address: status.getServerLastAddress(id),
 		}
 	}
 
 	for id, part := range partitions.Items {
-		readServerIDs := make([]uint64, len(part.Members))
-		for i, member := range part.Members {
-			readServerIDs[i] = member.ServerId
+		writeServerId := uint64(0)
+		readServerIDs := make([]uint64, 0, len(part.Replicas))
+
+		for _, replica := range part.Replicas {
+			if replica.State != storage.Partition_Voter && replica.State != storage.Partition_NonVoter {
+				continue
+			}
+
+			readServerIDs = append(readServerIDs, replica.ServerId)
+		}
+		slices.Sort(readServerIDs)
+
+		if leader := partitions.Status[id].Leader; leader != "" {
+			writeServerId = part.Replicas[leader].ServerId
 		}
 
-		ds.Partitions[id] = &control.DataServers_Partition{
+		new.Partitions[id] = &control.DataServers_Partition{
 			Id:            id,
+			WriteServerId: writeServerId,
 			ReadServerIds: readServerIDs,
-		}
-
-		if state := partitionStates[partitionID(id)]; state.hasLeader {
-			ds.Partitions[id].WriteServerId = uint64(state.leaderID)
 		}
 	}
 
-	t.dataServers.Store(ds)
-	sessions.trySendAll(newSessionOut(ds))
+	etags := make([]string, 0, len(new.Partitions)+len(new.Servers))
+	for id, server := range new.Servers {
+		etags = append(etags, fmt.Sprintf("srv %d:%s", id, server.Address))
+	}
+	for id, part := range new.Partitions {
+		etags = append(etags, fmt.Sprintf("part %d:%d:%v", id, part.WriteServerId, part.ReadServerIds))
+	}
+
+	new.ETag = makeETag(etags...)
+	if old := t.dataServers.Load(); old != nil && new.ETag == old.ETag {
+		return false
+	}
+
+	t.dataServers.Store(new)
+	return true
 }
 
-func (t *Tracker) updateApiServerList(servers *storage.Servers, sessions sessionsByServer) {
-	as := &control.ApiServers{
-		Version:           t.apiServersVersion.Add(1),
+func (t *Tracker) updateApiServerList(servers *storage.Servers, status *statusTracker) bool {
+	new := &control.ApiServers{
 		Servers:           map[uint64]*control.ApiServers_Server{},
 		ServiceConfigJson: t.apiServiceConfigJson,
 	}
 
-	for id, server := range servers.ByType(storage.ServerType_Api) {
-		as.Servers[id] = &control.ApiServers_Server{
+	for id := range servers.ByType(storage.ServerType_Api) {
+		new.Servers[id] = &control.ApiServers_Server{
 			Id:      id,
-			Address: server.LastAddress,
-		}
-
-		if sess := sessions[serverID(id)]; sess != nil {
-			as.Servers[id].Address = sess.serverAddress
+			Address: status.getServerLastAddress(id),
 		}
 	}
 
-	t.apiServers.Store(as)
-
-	out := newSessionOut(as)
-	for _, sess := range sessions {
-		if sess.serverType == control.ServerType_Api {
-			sess.trySend(out)
-		}
+	etags := make([]string, 0, len(new.Servers))
+	for id, server := range new.Servers {
+		etags = append(etags, fmt.Sprintf("srv %d:%s", id, server.Address))
 	}
+
+	new.ETag = makeETag(etags...)
+	if old := t.dataServers.Load(); old != nil && new.ETag == old.ETag {
+		return false
+	}
+
+	t.apiServers.Store(new)
+	return true
 }
 
-func (t *Tracker) updateDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions, sessions sessionsByServer, oldConfigs dsConfigs) dsConfigs {
-	newConfigs := makeDataServerConfigs(servers, partitions, oldConfigs)
+func (t *Tracker) updateDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions, sessions sessionsByServer) dsConfigs {
+	new := makeDataServerConfigs(servers, partitions)
 
 	for _, sess := range sessions {
 		if sess.serverType != control.ServerType_Data {
 			continue
 		}
 
-		config := newConfigs[sess.serverID]
-		if config.Version != sess.dsConfig.Version {
+		config := new[sess.serverID]
+		if config.ETag != sess.dsConfig.ETag {
 			sess.dsConfig = config
 			sess.trySend(newSessionOut(config))
 		}
 	}
 
-	return newConfigs
+	return new
 }
 
-func (t *Tracker) updateApiServerConfigs(servers *storage.Servers, sessions sessionsByServer, oldConfigs asConfigs) asConfigs {
-	newConfigs := makeApiServerConfigs(servers, oldConfigs)
+func (t *Tracker) updateApiServerConfigs(servers *storage.Servers, sessions sessionsByServer) asConfigs {
+	new := makeApiServerConfigs(servers)
 
 	for _, sess := range sessions {
 		if sess.serverType != control.ServerType_Api {
 			continue
 		}
 
-		config := newConfigs[sess.serverID]
-		if config.Version != sess.asConfig.Version {
+		config := new[sess.serverID]
+		if config.ETag != sess.asConfig.ETag {
 			sess.asConfig = config
 			sess.trySend(newSessionOut(config))
 		}
 	}
 
-	return newConfigs
+	return new
 }

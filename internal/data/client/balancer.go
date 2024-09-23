@@ -23,7 +23,7 @@ type balancerBuilder struct{}
 
 type balancerImpl struct {
 	clientConn balancer.ClientConn
-	version    uint64
+	etag       string
 	subConns   map[uint64]*subConn   // map[server_id]subConn
 	partitions map[uint32]*partition // map[part_id]part
 	picker     *picker
@@ -73,7 +73,7 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 		return balancer.ErrBadResolverState
 	}
 
-	if b.version == ds.Version {
+	if b.etag == ds.ETag {
 		return nil
 	}
 
@@ -115,7 +115,7 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 		log.Debug("Connection created")
 	}
 
-	b.version = ds.Version
+	b.etag = ds.ETag
 	b.picker = b.makePicker(ds)
 	return nil
 }
