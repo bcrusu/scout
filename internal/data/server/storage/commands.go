@@ -10,34 +10,28 @@ type payload interface {
 }
 
 // NewCommand returns a new commmand with the specified payload.
-func newCommand(partitionID uint32, payload payload) (*Command, error) {
+func newCommand(payload payload) (*Command, error) {
 	var p isCommand_Payload
 
 	switch x := payload.(type) {
-	case *Set:
-		p = &Command_Set{Set: x}
-	case *Delete:
-		p = &Command_Delete{Delete: x}
+	case *TxnBatch:
+		p = &Command_TxnBatch{TxnBatch: x}
 	default:
 		return nil, errors.Errorf("newCommand: unhandled payload type %T", payload)
 	}
 
 	return &Command{
-		PartitionId: partitionID,
-		Payload:     p,
+		Payload: p,
 	}, nil
 }
 
 func getPayload(cmd *Command) (payload, error) {
 	switch x := cmd.Payload.(type) {
-	case *Command_Set:
-		return x.Set, nil
-	case *Command_Delete:
-		return x.Delete, nil
+	case *Command_TxnBatch:
+		return x.TxnBatch, nil
 	default:
 		return nil, errors.Errorf("getPayload: unhandled payload type %T", cmd.Payload)
 	}
 }
 
-func (*Set) isPayload()    {}
-func (*Delete) isPayload() {}
+func (*TxnBatch) isPayload() {}

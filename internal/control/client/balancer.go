@@ -131,7 +131,7 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 }
 
 func (p *picker) rpcDone(d balancer.DoneInfo) {
-	if d.Err == errors.Unavailable || d.Err == errors.NotLeader {
+	if errors.IsAny(d.Err, errors.Unavailable, errors.NotLeader) {
 		// the resolver will throttle the ResolveNow calls
 		p.balancer.clientConn.ResolveNow(resolver.ResolveNowOptions{})
 	}

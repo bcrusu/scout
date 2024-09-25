@@ -46,15 +46,7 @@ func (n *Leader) Set(ctx context.Context, req *data.SetRequest) (*data.SetRespon
 		return nil, errors.InvalidRequest
 	}
 
-	payload := &storage.Set{
-		Keyspace: req.Keyspace,
-		Key:      req.Key,
-		Value:    req.Value,
-	}
-
-	if err := n.store.Set(payload); err != nil {
-		return nil, err
-	}
+	//TODO
 
 	return &data.SetResponse{}, nil
 }
@@ -79,14 +71,7 @@ func (n *Leader) Delete(ctx context.Context, req *data.DeleteRequest) (*data.Del
 		return nil, errors.InvalidRequest
 	}
 
-	payload := &storage.Delete{
-		Keyspace: req.Keyspace,
-		Key:      req.Key,
-	}
-
-	if err := n.store.Delete(payload); err != nil {
-		return nil, err
-	}
+	//TODO
 
 	return &data.DeleteResponse{}, nil
 }

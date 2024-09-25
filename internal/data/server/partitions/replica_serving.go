@@ -79,7 +79,7 @@ func (p *replicaServing) mainLoop(ctx context.Context, etag string, servers []ra
 
 			if err := drainer.Start(ctx); err != nil {
 				p.log.WithError(err).Errorf(ctx, "Failed to start. Shutting down...", "is_leader", isLeader)
-				utils.LifecycleShutdown(ctx)
+				utils.GracefulShutdown("Failed to start partition.")
 				return
 			}
 
@@ -144,7 +144,7 @@ func (p *replicaServing) updateRaftServers(newServers []raft.Server) bool {
 		}
 
 		if err := p.raft.AddOrUpdateServer(new); err != nil {
-			if err == errors.NotLeader {
+			if errors.Is(err, errors.NotLeader) {
 				log.Debug("Raft.AddOrUpdateServer failed. Lost leader status.")
 				return false
 			} else {
@@ -170,7 +170,7 @@ func (p *replicaServing) updateRaftServers(newServers []raft.Server) bool {
 		log := p.log.With("id", old.ID, "address", old.Address, "suffrage", old.Suffrage).NoContext()
 
 		if err := p.raft.RemoveServer(old.ID); err != nil {
-			if err == errors.NotLeader {
+			if errors.Is(err, errors.NotLeader) {
 				log.Debug("Raft.RemoveServer failed. Lost leader status.")
 				return false
 			} else {

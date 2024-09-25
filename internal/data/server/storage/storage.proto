@@ -4,35 +4,40 @@ package data.storage;
 
 option go_package = "internal/data/server/storage";
 
+import "google/protobuf/timestamp.proto";
+
 message Command {
-    // [optional] The FSM checks its current version with the one
-    // provided here and rejects the write if they do not match.
-    uint64 if_match = 1;
-
-    uint32 partition_id = 2;
-
     oneof payload {
-        Set set = 3;
-        Delete delete = 4;
+        TxnBatch txn_batch = 1;
     }
 }
 
-message Keyspace {
-    message KV {
-        bytes key = 1;
-        bytes value = 2;
-    }
-
-    repeated KV items = 1;
+message TxnBatch {
+    repeated Txn autocommit = 1;
+    repeated Txn two_phase_prepare = 2;
+    repeated uint64 two_phase_commit = 3;
+    repeated uint64 two_phase_abort = 4;
 }
 
 message Snapshot {
     uint64 index = 1;
-    uint64 version = 2;
-    map<uint64, Keyspace> keyspaces = 3;
+    map<uint64, TxnStatus> txn_status = 2;
+    map<uint64, TxnPrepared> txn_prepared = 3;
 }
 
-message Set {
+message Insert {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
+}
+
+message Update {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
+}
+
+message Upsert {
     uint64 keyspace = 1;
     bytes key = 2;
     bytes value = 3;
@@ -41,4 +46,83 @@ message Set {
 message Delete {
     uint64 keyspace = 1;
     bytes key = 2;
+}
+
+message LockKey {
+    enum Check {
+        None = 0;
+        MustExist = 1;
+        MustNotExist = 2;
+    }
+
+    KeyLock lock = 1;
+    Check check = 2;
+}
+
+message LockRange {
+    enum Check {
+        None = 0;
+        MustBeEmpty = 1;
+        MustNotBeEmpty = 2;
+    }
+
+    RangeLock lock = 1;
+    Check check = 2;
+}
+
+message Action {
+    oneof payload {
+        Insert insert = 1;
+        Update update = 2;
+        Upsert upsert = 3;
+        Delete delete = 4;
+        LockKey lock_key = 5;
+        LockRange lock_range = 6;
+    }
+}
+
+message Txn {
+    uint64 id = 1;
+    repeated Action actions = 2;
+}
+
+enum TxnState {
+    Pending = 0;
+    Prepared = 1;
+    Committed = 2;
+    Aborted = 3;
+    Failed = 4;
+    Timedout = 5;
+}
+
+message TxnStatus {
+    uint64 id = 1;
+    TxnState state = 2;
+    google.protobuf.Timestamp start_time = 3;
+    google.protobuf.Timestamp end_time = 4;
+}
+
+message TxnPrepared {
+	Txn txn = 1;
+    repeated Lock locks = 2;
+}
+
+message KeyLock {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bool exclusive = 3;
+}
+
+message RangeLock {
+    uint64 keyspace = 1;
+    bytes start_key = 2; // inclusive
+    bytes end_key = 3;   // exclusive
+    bool exclusive = 4;
+}
+
+message Lock {
+    oneof payload {
+        KeyLock key = 1;
+        RangeLock range = 2;
+    }
 }

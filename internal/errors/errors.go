@@ -30,7 +30,17 @@ func Join(errs ...error) error {
 	return errors.Join(errs...)
 }
 
-// Is returns true if err is a what.
-func Is(err, what error) bool {
-	return errors.Is(err, what)
+// Is returns true if err matches the other err.
+func Is(err, other error) bool {
+	return errors.Is(err, other)
+}
+
+// Is returns true if err matches any other error.
+func IsAny(err error, others ...error) bool {
+	for _, other := range others {
+		if Is(err, other) {
+			return true
+		}
+	}
+	return false
 }

@@ -14,6 +14,9 @@ var (
 	// NotFound signals that the item was not found.
 	NotFound = Error("not found")
 
+	// AlreadyExists signals that the item already exists.
+	AlreadyExists = Error("already exists")
+
 	// NotLeader signals that the invoked instance is not the group leader.
 	NotLeader = Error("not leader")
 

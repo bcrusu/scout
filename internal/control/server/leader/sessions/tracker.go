@@ -152,8 +152,8 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	sessionsByServer := sessionsByServer{}
 	runningLoops := 0
 
-	t.updateDataServerList(servers, partitions, status)
-	t.updateApiServerList(servers, status)
+	t.updateDataServerList(sessionsById, servers, partitions, status)
+	t.updateApiServerList(sessionsById, servers, status)
 
 	closeSession := func(id sessionID, err error) {
 		if sess, ok := sessionsById[id]; ok {
@@ -254,6 +254,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			for serverID, sess := range sessionsByServer {
 				if newServers.ByID(serverID) == nil {
 					closeSession(sess.id, errors.NotRegistered)
+					status.removeServer(serverID)
 				}
 			}
 
@@ -273,19 +274,13 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 		case <-writeLatestStatusTicker.C:
 			t.writeLatestStatus(ctx, status)
 		case <-dsUpdateChDb:
-			if t.updateDataServerList(servers, partitions, status) {
-				out := newSessionOut(t.dataServers.Load())
-				sessionsById.trySendAll(out)
-			}
+			t.updateDataServerList(sessionsById, servers, partitions, status)
 		case <-asUpdateChDb:
-			if t.updateApiServerList(servers, status) {
-				out := newSessionOut(t.apiServers.Load())
-				sessionsById.trySendServerType(out, control.ServerType_Api)
-			}
+			t.updateApiServerList(sessionsById, servers, status)
 		case <-dsConfigsUpdateChDb:
-			dsConfigs = t.updateDataServerConfigs(servers, partitions, sessionsByServer)
+			dsConfigs = t.updateDataServerConfigs(sessionsById, servers, partitions)
 		case <-asConfigsUpdateChDb:
-			asConfigs = t.updateApiServerConfigs(servers, sessionsByServer)
+			asConfigs = t.updateApiServerConfigs(sessionsById, servers)
 		case <-ctx.Done():
 			goto SHUTDOWN
 		}
@@ -317,7 +312,7 @@ SHUTDOWN:
 	}
 }
 
-func (t *Tracker) updateDataServerList(servers *storage.Servers, partitions *storage.Partitions, status *statusTracker) bool {
+func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Servers, partitions *storage.Partitions, status *statusTracker) {
 	new := &control.DataServers{
 		Servers:           map[uint64]*control.DataServers_Server{},
 		Partitions:        map[uint32]*control.DataServers_Partition{},
@@ -366,14 +361,16 @@ func (t *Tracker) updateDataServerList(servers *storage.Servers, partitions *sto
 
 	new.ETag = makeETag(etags...)
 	if old := t.dataServers.Load(); old != nil && new.ETag == old.ETag {
-		return false
+		return
 	}
 
 	t.dataServers.Store(new)
-	return true
+
+	out := newSessionOut(new)
+	sessions.trySendAll(out)
 }
 
-func (t *Tracker) updateApiServerList(servers *storage.Servers, status *statusTracker) bool {
+func (t *Tracker) updateApiServerList(sessions sessions, servers *storage.Servers, status *statusTracker) {
 	new := &control.ApiServers{
 		Servers:           map[uint64]*control.ApiServers_Server{},
 		ServiceConfigJson: t.apiServiceConfigJson,
@@ -393,14 +390,16 @@ func (t *Tracker) updateApiServerList(servers *storage.Servers, status *statusTr
 
 	new.ETag = makeETag(etags...)
 	if old := t.dataServers.Load(); old != nil && new.ETag == old.ETag {
-		return false
+		return
 	}
 
 	t.apiServers.Store(new)
-	return true
+
+	out := newSessionOut(t.apiServers.Load())
+	sessions.trySendServerType(out, control.ServerType_Api)
 }
 
-func (t *Tracker) updateDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions, sessions sessionsByServer) dsConfigs {
+func (t *Tracker) updateDataServerConfigs(sessions sessions, servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
 	new := makeDataServerConfigs(servers, partitions)
 
 	for _, sess := range sessions {
@@ -418,7 +417,7 @@ func (t *Tracker) updateDataServerConfigs(servers *storage.Servers, partitions *
 	return new
 }
 
-func (t *Tracker) updateApiServerConfigs(servers *storage.Servers, sessions sessionsByServer) asConfigs {
+func (t *Tracker) updateApiServerConfigs(sessions sessions, servers *storage.Servers) asConfigs {
 	new := makeApiServerConfigs(servers)
 
 	for _, sess := range sessions {

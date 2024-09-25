@@ -67,7 +67,7 @@ func (r *Registerer) registerWithRetry(ctx context.Context) error {
 		Type:        r.params.ServerType,
 	}
 
-	res, err := utils.RetryR(ctx, registerBackoff, func() (*control.RegisterResponse, error) {
+	res, err := utils.RetryForeverR(ctx, registerBackoff, func() (*control.RegisterResponse, error) {
 		resp, err := r.client.Register(ctx, req)
 		if err != nil {
 			log.WithError(err).Error(ctx, "Register failed. Retrying...")

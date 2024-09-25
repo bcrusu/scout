@@ -260,7 +260,7 @@ func (m *Session) newSessionIn(payload any) *control.SessionIn {
 }
 
 func (m *Session) newSessionWithRetry(ctx context.Context) (stream, error) {
-	return utils.RetryR(ctx, retryBackoff, func() (stream, error) {
+	return utils.RetryForeverR(ctx, retryBackoff, func() (stream, error) {
 		stream, err := m.client.NewSession(ctx)
 		if err != nil {
 			log.WithError(err).Error("NewSession call failed. Retrying...")

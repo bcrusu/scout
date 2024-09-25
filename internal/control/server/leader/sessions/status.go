@@ -144,3 +144,8 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 func (t *statusTracker) getServerLastAddress(serverID uint64) string {
 	return t.servers[serverID].LastAddress
 }
+
+func (t *statusTracker) removeServer(serverID uint64) {
+	delete(t.servers, serverID)
+	delete(t.serversDirty, serverID)
+}

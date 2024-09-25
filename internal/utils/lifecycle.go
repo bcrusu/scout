@@ -4,12 +4,21 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 )
 
-type ctxKeyShutdown struct{}
+var (
+	global atomic.Pointer[runInfo]
+)
+
+type runInfo struct {
+	triggerShutdown func()
+}
 
 // Lifecycle defines methods for instance control.
 type Lifecycle interface {
@@ -51,11 +60,14 @@ func LifecycleStop[T Lifecycle](log logging.LoggerNoContext, instances ...T) {
 // LifecycleRun starts the instance and runs until the context is done.
 func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, instance T) error {
 	shutdownCh := make(chan any)
-	ctx = context.WithValue(ctx, ctxKeyShutdown{}, shutdownCh)
-
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
 
+	global.Store(&runInfo{
+		triggerShutdown: sync.OnceFunc(func() { close(shutdownCh) }),
+	})
+
+	// TODO: should be able to cancel start ctx to abort startup
 	if err := LifecycleStart(ctx, log, instance); err != nil {
 		return err
 	}
@@ -77,12 +89,25 @@ func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, instance
 	return nil
 }
 
-// LifecycleShutdown allows shutting down the process in a graceful and controlled fashion.
-func LifecycleShutdown(ctx context.Context) {
-	v := ctx.Value(ctxKeyShutdown{})
-	if v == nil {
-		logging.Warn(ctx, "Context does not allow shutdown.")
-	} else {
-		close(v.(chan any))
+// GracefulShutdown allows shutting down the process in a graceful and controlled fashion.
+func GracefulShutdown(message string) {
+	info := global.Load()
+	if info == nil {
+		panic("GracefulShutdown: global run info not found")
 	}
+
+	logging.NoContext().Error("GracefulShutdown: %s", message)
+	info.triggerShutdown()
+}
+
+// ShutdownNow triggers process shutdown and never returns.
+func ShutdownNow(message string) {
+	info := global.Load()
+	if info != nil {
+		info.triggerShutdown()
+		time.Sleep(5 * time.Second)
+	}
+
+	logging.NoContext().Error("ShutdownNow: %s", message)
+	panic(message)
 }

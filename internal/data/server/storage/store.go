@@ -1,9 +1,6 @@
 package storage
 
 import (
-	"bytes"
-	"slices"
-
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -21,21 +18,18 @@ type Store interface {
 	AppliedIndex() uint64
 	Get(keyspace uint64, key []byte) ([]byte, bool)
 
-	Set(*Set) error
-	Delete(delete *Delete) error
+	WriteTxnBatch(*TxnBatch) error
 }
 
 type store struct {
-	raft        *multiraft.Raft
-	fsm         *FSM
-	partitionID uint32
+	raft *multiraft.Raft
+	fsm  *FSM
 }
 
-func NewStore(raft *multiraft.Raft, fsm *FSM, partitionID uint32) Store {
+func NewStore(raft *multiraft.Raft, fsm *FSM) Store {
 	return &store{
-		raft:        raft,
-		fsm:         fsm,
-		partitionID: partitionID,
+		raft: raft,
+		fsm:  fsm,
 	}
 }
 
@@ -54,32 +48,16 @@ func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
 	s.fsm.lock.RLock()
 	defer s.fsm.lock.RUnlock()
 
-	ks, ok := s.fsm.keyspaces[keyspace]
-	if !ok {
-		return nil, false
-	}
-
-	i, found := slices.BinarySearchFunc(ks.Items, key, func(kv *Keyspace_KV, key []byte) int {
-		return bytes.Compare(kv.Key, key)
-	})
-	if !found {
-		return nil, false
-	}
-
-	return ks.Items[i].Value, true
+	return nil, true
 }
 
-func (s *store) Set(cmd *Set) error {
-	return apply(s.raft, s.partitionID, cmd)
+func (s *store) WriteTxnBatch(cmd *TxnBatch) error {
+	return apply(s.raft, cmd)
 }
 
-func (s *store) Delete(cmd *Delete) error {
-	return apply(s.raft, s.partitionID, cmd)
-}
-
-func applyR[R any](raft *multiraft.Raft, partitionID uint32, payload payload) (R, error) {
+func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {
 	var zero R
-	cmd, err := newCommand(partitionID, payload)
+	cmd, err := newCommand(payload)
 	if err != nil {
 		return zero, err
 	}
@@ -101,8 +79,8 @@ func applyR[R any](raft *multiraft.Raft, partitionID uint32, payload payload) (R
 	}
 }
 
-func apply(raft *multiraft.Raft, partitionID uint32, payload payload) error {
-	result, err := applyR[any](raft, partitionID, payload)
+func apply(raft *multiraft.Raft, payload payload) error {
+	result, err := applyR[any](raft, payload)
 	if err != nil {
 		return err
 	} else if result != nil {

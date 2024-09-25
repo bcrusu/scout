@@ -185,7 +185,7 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 		PartitionCount: p.PartitionCount,
 	}
 
-	return utils.RetryE(ctx, retryBackoff, func() error {
+	return utils.RetryForeverE(ctx, retryBackoff, func() error {
 		if clusterName := b.store.ClusterName(); clusterName == p.ClusterName {
 			log.Info(ctx, "Initial write was completed successfully by another server.")
 			return nil
@@ -220,7 +220,7 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 }
 
 func (b *Bootstrapper) storeIdentityWithRetry(ctx context.Context, p Params) error {
-	return utils.RetryE(ctx, retryBackoff, func() error {
+	return utils.RetryForeverE(ctx, retryBackoff, func() error {
 		if err := b.idStore.Set(p.identity); err != nil {
 			log.WithError(err).Error(ctx, "Storing identity failed. Retrying...")
 			return err

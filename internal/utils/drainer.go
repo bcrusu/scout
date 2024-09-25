@@ -31,7 +31,7 @@ func (d *Drainer) Stop() {
 		MaxDelay: 100 * time.Millisecond,
 	}
 
-	err := RetryE(d.ctx, backoff, func() error {
+	err := RetryForeverE(d.ctx, backoff, func() error {
 		pending := d.inFlight.Load()
 		if pending == 0 {
 			return nil

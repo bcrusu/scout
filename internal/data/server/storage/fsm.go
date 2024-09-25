@@ -16,15 +16,16 @@ var (
 )
 
 type FSM struct {
-	lock      sync.RWMutex // guards all below
-	index     uint64       // last applied raft index
-	version   uint64       // used for optimistic concurrency control
-	keyspaces map[uint64]*Keyspace
+	partitionID  uint32
+	txnProcessor *txnProcessor
+	lock         sync.RWMutex // guards all below
+	index        uint64       // last applied raft index
 }
 
-func NewFSM() *FSM {
+func NewFSM(partitionID uint32, db DB) *FSM {
 	return &FSM{
-		keyspaces: map[uint64]*Keyspace{},
+		txnProcessor: newTxnProcessor(partitionID, db),
+		partitionID:  partitionID,
 	}
 }
 
@@ -40,19 +41,14 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 		log.WithError(err).Debug("UnmarshalProto failed")
 		result = err
 	} else {
-		result = f.applyCommand(cmd, log)
+		result = f.applyCommand(appendedAt, cmd, log)
 	}
 
 	f.index = index
 	return result
 }
 
-func (f *FSM) applyCommand(cmd *Command, log logging.LoggerNoContext) any {
-	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
-		log.Debug("Command version check failed", "fsm_version", f.version, "cmd_version", cmd.IfMatch)
-		return errors.FailedPrecondition
-	}
-
+func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.LoggerNoContext) any {
 	payload, err := getPayload(cmd)
 	if err != nil {
 		log.WithError(err).Debug("getPayload failed")
@@ -64,10 +60,8 @@ func (f *FSM) applyCommand(cmd *Command, log logging.LoggerNoContext) any {
 	log.Debugf("Applying command %T...", payload)
 
 	switch x := payload.(type) {
-	case *Set:
-		result, err = f.applySet(x)
-	case *Delete:
-		result, err = f.applyDelete(x)
+	case *TxnBatch:
+		result, err = f.txnProcessor.applyBatch(appendedAt, x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
@@ -77,9 +71,7 @@ func (f *FSM) applyCommand(cmd *Command, log logging.LoggerNoContext) any {
 		return err
 	}
 
-	f.version++
 	logF.Debugf("Applying command %T success", payload)
-
 	return result
 }
 
@@ -88,9 +80,9 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	defer f.lock.RUnlock()
 
 	snap := &Snapshot{
-		Index:     f.index,
-		Version:   f.version,
-		Keyspaces: f.keyspaces,
+		Index:       f.index,
+		TxnStatus:   f.txnProcessor.status,
+		TxnPrepared: f.txnProcessor.prepared,
 	}
 
 	data, err := utils.MarshalProto(snap)
@@ -107,7 +99,9 @@ func (f *FSM) Restore(data []byte) error {
 	defer f.lock.Unlock()
 
 	f.index = snap.Index
-	f.version = snap.Version
-	f.keyspaces = snap.Keyspaces
+	f.txnProcessor.status = snap.TxnStatus
+	f.txnProcessor.prepared = snap.TxnPrepared
+	f.txnProcessor.restoreLocks()
+
 	return nil
 }

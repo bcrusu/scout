@@ -188,7 +188,7 @@ func (p *replica) mainLoop(ctx context.Context, config *control.DataServerConfig
 
 func (p *replica) tryCreateRaft(config *control.DataServerConfig_Partition, dataServers *control.DataServers) (*multiraft.Raft, storage.Store) {
 	replica := config.Replicas[p.name]
-	fsm := storage.NewFSM()
+	fsm := storage.NewFSM(config.Id, nil) // TODO: real KV DB impl.
 
 	groupID := config.Name
 	hasState, err := p.multiraft.HasExistingState(groupID)
@@ -203,7 +203,7 @@ func (p *replica) tryCreateRaft(config *control.DataServerConfig_Partition, data
 		return nil, nil
 	}
 
-	store := storage.NewStore(raft, fsm, config.Id)
+	store := storage.NewStore(raft, fsm)
 
 	if hasState {
 		return raft, store
