@@ -44,16 +44,18 @@ type Retry struct {
 }
 
 // GetServiceConfigJson returns the ServiceConfig json for the provided service specification.
-func (c Config) GetServiceConfigJson(lbName string, desc grpc.ServiceDesc) string {
-	methodNames := make([]*MethodConfig_Name, len(desc.Methods))
-	streamNames := make([]*MethodConfig_Name, len(desc.Streams))
+func (c Config) GetServiceConfigJson(lbName string, descs ...grpc.ServiceDesc) string {
+	var methodNames []*MethodConfig_Name
+	var streamNames []*MethodConfig_Name
 
-	for i, m := range desc.Methods {
-		methodNames[i] = &MethodConfig_Name{Service: desc.ServiceName, Method: m.MethodName}
-	}
+	for _, desc := range descs {
+		for _, m := range desc.Methods {
+			methodNames = append(methodNames, &MethodConfig_Name{Service: desc.ServiceName, Method: m.MethodName})
+		}
 
-	for i, s := range desc.Streams {
-		streamNames[i] = &MethodConfig_Name{Service: desc.ServiceName, Method: s.StreamName}
+		for _, s := range desc.Streams {
+			streamNames = append(streamNames, &MethodConfig_Name{Service: desc.ServiceName, Method: s.StreamName})
+		}
 	}
 
 	sc := &ServiceConfig{

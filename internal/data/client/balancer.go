@@ -117,7 +117,15 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 
 	b.etag = ds.ETag
 	b.picker = b.makePicker(ds)
+	b.updateState()
 	return nil
+}
+
+func (b *balancerImpl) updateState() {
+	b.clientConn.UpdateState(balancer.State{
+		ConnectivityState: b.getLBConnectivityState(),
+		Picker:            b.picker,
+	})
 }
 
 func (b *balancerImpl) makeStateListener(serverID uint64, address string, log logging.LoggerNoContext) func(balancer.SubConnState) {
@@ -143,7 +151,7 @@ func (b *balancerImpl) makeStateListener(serverID uint64, address string, log lo
 		}
 
 		b.subConns[serverID].state = state.ConnectivityState
-		lbState := b.getLBConnectivityState(log)
+		lbState := b.getLBConnectivityState()
 
 		b.clientConn.UpdateState(balancer.State{
 			ConnectivityState: lbState,
@@ -183,7 +191,7 @@ func (b *balancerImpl) makePicker(ds *control.DataServers) *picker {
 	}
 }
 
-func (b *balancerImpl) getLBConnectivityState(log logging.LoggerNoContext) connectivity.State {
+func (b *balancerImpl) getLBConnectivityState() connectivity.State {
 	if len(b.subConns) == 0 {
 		return connectivity.Idle
 	}
@@ -216,7 +224,7 @@ LOOP_PART:
 
 	// 80% available partitions?
 	if float64(available)/float64(total) >= .8 {
-		log.Debugf("LB Ready: %d/%d partitions available.", available, total)
+		logLB.Debugf("LB Ready: %d/%d partitions available.", available, total)
 		return connectivity.Ready
 	}
 
@@ -229,11 +237,11 @@ LOOP_PART:
 
 	// 20% failing connections?
 	if float64(failure)/float64(len(b.subConns)) >= .2 {
-		log.Debugf("LB TransientFailure: %d/%d partitions available, %d/%d failing connections.", available, total, failure, len(b.subConns))
+		logLB.Debugf("LB TransientFailure: %d/%d partitions available, %d/%d failing connections.", available, total, failure, len(b.subConns))
 		return connectivity.TransientFailure
 	}
 
-	log.Debugf("LB Connecting: %d/%d partitions available, %d/%d failing connections.", available, total, failure, len(b.subConns))
+	logLB.Debugf("LB Connecting: %d/%d partitions available, %d/%d failing connections.", available, total, failure, len(b.subConns))
 	return connectivity.Connecting
 }
 

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "internal/api";
+
+// Admin represents the common/admin service operations.
+service Admin {
+    // Discover is used by clients to discover the service endpoints.
+    rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+}
+
+message DiscoverRequest {
+    string cluster_name = 1;
+}
+
+message DiscoverResponse {
+    string e_tag = 1;
+    repeated string servers = 2;
+    string service_config_json = 3;
+}

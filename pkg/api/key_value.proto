@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "pkg/api";
+
+import "pkg/api/common.proto";
+
+// KeyValue represents the key-value operations.
+service KeyValue {
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Set(SetRequest) returns (Status);
+    rpc Delete(DeleteRequest) returns (Status);
+}
+
+message GetRequest {
+    uint64 timestamp = 1;
+    bytes key = 2;
+}
+
+message GetResponse {
+    uint64 timestamp = 1;
+    bytes value = 2;
+}
+
+message SetRequest {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+message DeleteRequest {
+    bytes key = 1;
+}

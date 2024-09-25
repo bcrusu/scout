@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/graph/internal/api"
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/convert"
@@ -18,6 +17,7 @@ import (
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
 	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/graph/pkg/api"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 )
@@ -78,7 +78,7 @@ func NewTracker(config config.Service, store storage.Store) *Tracker {
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
 		dataServiceConfigJson: config.DataClient.GetServiceConfigJson(serviceconfig.LBNameGraphData, data.Service_ServiceDesc),
-		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameGraphApi, api.Service_ServiceDesc),
+		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameGraphApi, api.KeyValue_ServiceDesc, api.Graph_ServiceDesc),
 	}
 }
 
