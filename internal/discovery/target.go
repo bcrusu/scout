@@ -14,7 +14,6 @@ const (
 )
 
 var (
-	_ validation.CanValidate = (*Target)(nil)
 	_ validation.CanValidate = (*Discovery)(nil)
 )
 
@@ -23,23 +22,10 @@ type Discovery struct {
 	DNS     string   `yaml:"dns"`
 }
 
-type Target struct {
-	ClusterName string
-	discovery   string
-}
-
-func NewTarget(clusterName string, discovery Discovery) Target {
-	return Target{
-		ClusterName: clusterName,
-		discovery:   discovery.String(),
-	}
-}
-
 // String returns the corresponding gRPC target string.
-func (t Target) String() string {
+func (d Discovery) String() string {
 	q := url.Values{}
-	q.Add("cluster", t.ClusterName)
-	q.Add("discovery", t.discovery)
+	q.Add("discovery", d.getTarget())
 
 	u := url.URL{
 		Scheme:   Scheme,
@@ -50,21 +36,7 @@ func (t Target) String() string {
 	return u.String()
 }
 
-func (t Target) DiscoveryTarget() string {
-	return t.discovery
-}
-
-func (t Target) Validate() error {
-	if t.ClusterName == "" {
-		return errors.Error("cluster name is missing")
-	}
-	if t.discovery == "" {
-		return errors.Error("discovery is missing")
-	}
-	return nil
-}
-
-func (d Discovery) String() string {
+func (d Discovery) getTarget() string {
 	if len(d.Servers) > 0 {
 		return routing.FormatTargetStatic(d.Servers)
 	}
@@ -86,27 +58,23 @@ func (d Discovery) Validate() error {
 	return nil
 }
 
-// ParseTarget parses the URL to extract discovery target.
-func ParseTarget(u url.URL) (Target, error) {
+// GetDiscoveryTarget parses the URL to extract discovery target.
+func GetDiscoveryTarget(u url.URL) (string, error) {
 	if u.Scheme != Scheme {
-		return Target{}, errors.Errorf("unknown target scheme %s", u.Scheme)
+		return "", errors.Errorf("unknown discovery scheme %s", u.Scheme)
 	}
 
 	values, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		return Target{}, errors.Wrap(err, "failed to parse query")
+		return "", errors.Wrap(err, "failed to parse query")
 	}
 
-	clusterName, err1 := getQueryValue(values, "cluster")
-	discovery, err2 := getQueryValue(values, "discovery")
-	if err := errors.Join(err1, err2); err != nil {
-		return Target{}, err
+	discovery, err := getQueryValue(values, "discovery")
+	if err != nil {
+		return "", err
 	}
 
-	return Target{
-		ClusterName: clusterName,
-		discovery:   discovery,
-	}, nil
+	return discovery, nil
 }
 
 func getQueryValue(values url.Values, name string) (string, error) {

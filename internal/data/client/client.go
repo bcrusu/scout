@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -46,10 +47,12 @@ func New(opts ...Option) DataClient {
 func (c *dataClient) Start(ctx context.Context) error {
 	if c.conn != nil {
 		return nil
+	} else if c.opts.clusterName == "" {
+		return errors.Error("missing cluster name")
 	}
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
-	c.conn = rpc.NewConn(dummyTarget, dialOpts...)
+	c.conn = rpc.NewConn(dummyTarget, c.opts.clusterName, dialOpts...)
 	c.client = data.NewServiceClient(c.conn)
 
 	return utils.LifecycleStart(ctx, logC, c.conn)

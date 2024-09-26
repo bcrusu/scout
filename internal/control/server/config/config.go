@@ -13,12 +13,11 @@ var (
 )
 
 type Config struct {
-	Server      rpc.ServerConfig `yaml:"server"`
-	Service     Service          `yaml:"service"`
-	ClusterName string           `yaml:"clusterName" validate:"required,maxLen:100"`
-	DataDir     string           `yaml:"dataDir" validate:"required"`
-	Register    *Register        `yaml:"register"`
-	Bootstrap   *Bootstrap       `yaml:"bootstrap"`
+	Server    rpc.ServerConfig `yaml:"server"`
+	Service   Service          `yaml:"service"`
+	DataDir   string           `yaml:"dataDir" validate:"required"`
+	Register  *Register        `yaml:"register"`
+	Bootstrap *Bootstrap       `yaml:"bootstrap"`
 }
 
 type Register struct {

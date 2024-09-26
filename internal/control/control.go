@@ -7,7 +7,7 @@ func (x *Hello) Validate() error {
 		return errors.Error("Hello is nil")
 	}
 
-	if x.ServerId == 0 || x.Address == "" || x.ClusterName == "" {
+	if x.ServerId == 0 || x.Address == "" {
 		return errors.Error("Hello has missing fields")
 	}
 

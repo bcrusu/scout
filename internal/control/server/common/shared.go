@@ -36,10 +36,6 @@ func New(config config.Service, raft *multiraft.Raft, store storage.Store) *Shar
 // Discover is used early by control plane clients to discover the cluster servers.
 // Can be invoked on leader and followers.
 func (n *Shared) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
-	if req.ClusterName != n.store.ClusterName() {
-		return nil, errors.PermissionDenied
-	}
-
 	leaderID, _, ok := n.raft.GetLeader()
 	if !ok {
 		log.Debug(ctx, "Discover failed. Leader not available.")

@@ -249,9 +249,8 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 
 func (m *Session) newHello() *control.SessionIn {
 	return m.newSessionIn(&control.Hello{
-		ClusterName: m.id.ClusterName,
-		ServerId:    m.id.ServerID,
-		Address:     m.address,
+		ServerId: m.id.ServerID,
+		Address:  m.address,
 	})
 }
 

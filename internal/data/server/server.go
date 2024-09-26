@@ -31,10 +31,9 @@ var (
 type Action string
 
 type Config struct {
-	Server      rpc.ServerConfig    `yaml:"server"`
-	ClusterName string              `yaml:"clusterName" validate:"required,maxLen:100"`
-	DataDir     string              `yaml:"dataDir" validate:"required"`
-	Discovery   discovery.Discovery `yaml:"discovery"`
+	Server    rpc.ServerConfig    `yaml:"server"`
+	DataDir   string              `yaml:"dataDir" validate:"required"`
+	Discovery discovery.Discovery `yaml:"discovery"`
 }
 
 type Server struct {
@@ -57,7 +56,8 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	controlClient := client.New(
-		client.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
+		client.WithClusterName(n.config.Server.ClusterName),
+		client.WithDiscovery(n.config.Discovery),
 	)
 
 	var id *identity.Identity
@@ -74,13 +74,14 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	default:
 		id = idStore.Get()
+		if id == nil {
+			return errors.Error("server identity not found; must join a cluster first.")
+		} else if id.ClusterName != n.config.Server.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
+		}
 	}
 
-	if id == nil {
-		return errors.Error("server identity not found; must join a cluster first.")
-	}
-
-	transportService, mraft := n.buildMultiRaft()
+	transportService, mraft := n.buildMultiRaft(*id)
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
 	partitionController := partitions.NewController(*id, mraft)
 	dataService := NewDataService(partitionController)
@@ -104,7 +105,7 @@ func (n *Server) Stop() {
 func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient client.ControlClient) (*identity.Identity, error) {
 	params := register.Params{
 		ServerType:  control.ServerType_Data,
-		ClusterName: n.config.ClusterName,
+		ClusterName: n.config.Server.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
 	}
 
@@ -112,8 +113,8 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, c
 	return registerer.Register(ctx, params)
 }
 
-func (n *Server) buildMultiRaft() (*multiraft.TransportService, *multiraft.MultiRaft) {
-	dialOpts := rpc.DefaultDialOptions()
+func (n *Server) buildMultiRaft(id identity.Identity) (*multiraft.TransportService, *multiraft.MultiRaft) {
+	dialOpts := rpc.DefaultDialOptions(id.ClusterName)
 	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
 
 	// TODO: make configurable

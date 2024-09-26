@@ -8,14 +8,22 @@ import (
 type Option func(*options)
 
 type options struct {
-	target      discovery.Target
+	clusterName string
+	discovery   discovery.Discovery
 	dialOptions []grpc.DialOption
 }
 
-// WithTarget sets the connecton target.
-func WithTarget(target discovery.Target) Option {
+// WithClusterName sets the cluster name.
+func WithClusterName(clusterName string) Option {
 	return func(o *options) {
-		o.target = target
+		o.clusterName = clusterName
+	}
+}
+
+// WithDiscovery sets the connecton target.
+func WithDiscovery(discovery discovery.Discovery) Option {
+	return func(o *options) {
+		o.discovery = discovery
 	}
 }
 

@@ -76,8 +76,6 @@ func (s *AdminService) mainLoop(ctx context.Context) {
 func (s *AdminService) Discover(ctx context.Context, req *api.DiscoverRequest) (*api.DiscoverResponse, error) {
 	if disc := s.discover.Load(); disc == nil {
 		return nil, errors.Unavailable
-	} else if req.ClusterName != s.id.ClusterName {
-		return nil, errors.PermissionDenied
 	} else {
 		return disc, nil
 	}

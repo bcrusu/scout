@@ -28,10 +28,12 @@ var (
 	logR            = logging.WithComponent("api_resolver")
 )
 
-type resolverBuilder struct{}
+type resolverBuilder struct {
+	clusterName string
+}
 
-func (*resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
-	target, err := discovery.ParseTarget(t.URL)
+func (b *resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
+	discoveryTarget, err := discovery.GetDiscoveryTarget(t.URL)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +43,8 @@ func (*resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn,
 	r := &resolverImpl{
 		clientConn:      clientConn,
 		opts:            opts,
-		clusterName:     target.ClusterName,
-		discoveryTarget: target.DiscoveryTarget(),
+		clusterName:     b.clusterName,
+		discoveryTarget: discoveryTarget,
 		resolveNowCh:    resolveNowCh,
 		resolveNowChTh:  resolveNowChTh,
 	}
@@ -52,7 +54,7 @@ func (*resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn,
 	return r, nil
 }
 
-func (*resolverBuilder) Scheme() string {
+func (b *resolverBuilder) Scheme() string {
 	return discovery.Scheme
 }
 
@@ -123,11 +125,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) {
 	}
 	defer conn.Stop()
 
-	req := &api.DiscoverRequest{
-		ClusterName: r.clusterName,
-	}
-
-	resp, err := client.Discover(ctx, req)
+	resp, err := client.Discover(ctx, &api.DiscoverRequest{})
 	if err != nil {
 		logR.WithError(err).Warnf(ctx, "Discover call failed")
 		r.clientConn.ReportError(err)
@@ -150,7 +148,7 @@ func (r *resolverImpl) createClient() (*rpc.Conn, api.AdminClient) {
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 	}
 
-	conn := rpc.NewConn(r.discoveryTarget, dialOpts...)
+	conn := rpc.NewConn(r.discoveryTarget, r.clusterName, dialOpts...)
 	client := api.NewAdminClient(conn)
 
 	return conn, client

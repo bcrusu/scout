@@ -28,8 +28,8 @@ type Conn struct {
 }
 
 // NewConn creates a new connection for the provied target and dial options.
-func NewConn(target string, opts ...grpc.DialOption) *Conn {
-	all := DefaultDialOptions()
+func NewConn(target, clusterName string, opts ...grpc.DialOption) *Conn {
+	all := DefaultDialOptions(clusterName)
 	all = append(all, opts...)
 
 	return &Conn{
@@ -39,14 +39,16 @@ func NewConn(target string, opts ...grpc.DialOption) *Conn {
 }
 
 // DefaultDialOptions returns the default Conn dial options.
-func DefaultDialOptions() []grpc.DialOption {
+func DefaultDialOptions(clusterName string) []grpc.DialOption {
 	return []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // TODO
 		grpc.WithChainUnaryInterceptor(
+			interceptors.UnaryAuthClientInterceptor(clusterName),
 			interceptors.UnaryMetadataClientInterceptor(),
 			interceptors.UnaryLoggerClientInterceptor(),
 			interceptors.UnaryErrorsClientInterceptor()),
 		grpc.WithChainStreamInterceptor(
+			interceptors.StreamAuthClientInterceptor(clusterName),
 			interceptors.StreamMetadataClientInterceptor(),
 			interceptors.StreamLoggerClientInterceptor(),
 			interceptors.StreamErrorsClientInterceptor()),

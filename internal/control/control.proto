@@ -31,9 +31,7 @@ service Service {
     rpc NewSession(stream SessionIn) returns (stream SessionOut);
 }
 
-message DiscoverRequest {
-    string cluster_name = 1;
-}
+message DiscoverRequest {}
 
 message DiscoverResponse {
     message Server {
@@ -53,18 +51,16 @@ enum ServerType {
 }
 
 message RegisterRequest {
-    string cluster_name = 1;
-
     // Unique token to mitigate failure scenarios where
     // the same server registers itself multiple times,
     // like in crash-restart loop cases. Could act as
     // auth token in the future.
-    string token = 2;
+    string token = 1;
     
     // The addres where the server will be contacted.
-    string address = 3;
+    string address = 2;
 
-    ServerType type = 4;
+    ServerType type = 3;
 }
 
 message RegisterResponse {
@@ -103,9 +99,8 @@ message SessionOut {
 }
 
 message Hello {
-    string cluster_name = 1;
-    uint64 server_id = 2;
-    string address = 3;
+    uint64 server_id = 1;
+    string address = 2;
 }
 
 message HelloDataServer {

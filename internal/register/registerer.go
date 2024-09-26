@@ -46,10 +46,9 @@ func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Ide
 	}
 
 	req := &control.RegisterRequest{
-		ClusterName: params.ClusterName,
-		Token:       r.idStore.Token(),
-		Address:     params.BindAddress,
-		Type:        params.ServerType,
+		Token:   r.idStore.Token(),
+		Address: params.BindAddress,
+		Type:    params.ServerType,
 	}
 
 	res, err := utils.RetryForeverR(ctx, registerBackoff, func() (*control.RegisterResponse, error) {

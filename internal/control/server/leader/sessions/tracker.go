@@ -109,8 +109,6 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 		return errors.ValidationError{Message: "Please don't be rude."}
 	} else if err := payload.Hello.Validate(); err != nil {
 		return errors.InvalidRequest
-	} else if payload.Hello.ClusterName != t.store.ClusterName() {
-		return errors.PermissionDenied
 	}
 
 	cmd := startSession{

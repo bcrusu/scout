@@ -7,7 +7,15 @@ import (
 type Option func(*options)
 
 type options struct {
+	clusterName string
 	dialOptions []grpc.DialOption
+}
+
+// WithClusterName sets the cluster name.
+func WithClusterName(clusterName string) Option {
+	return func(o *options) {
+		o.clusterName = clusterName
+	}
 }
 
 // WithDialOptions configures the gRPC connection dial options.

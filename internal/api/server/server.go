@@ -29,10 +29,9 @@ var (
 type Action string
 
 type Config struct {
-	Server      rpc.ServerConfig    `yaml:"server"`
-	ClusterName string              `yaml:"clusterName" validate:"required,maxLen:100"`
-	DataDir     string              `yaml:"dataDir" validate:"required"`
-	Discovery   discovery.Discovery `yaml:"discovery"`
+	Server    rpc.ServerConfig    `yaml:"server"`
+	DataDir   string              `yaml:"dataDir" validate:"required"`
+	Discovery discovery.Discovery `yaml:"discovery"`
 }
 
 type Server struct {
@@ -55,7 +54,8 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	controlClient := cclient.New(
-		cclient.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
+		cclient.WithClusterName(n.config.Server.ClusterName),
+		cclient.WithDiscovery(n.config.Discovery),
 	)
 
 	var id *identity.Identity
@@ -72,14 +72,15 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	default:
 		id = idStore.Get()
-	}
-
-	if id == nil {
-		return errors.Error("server identity not found; must join a cluster first.")
+		if id == nil {
+			return errors.Error("server identity not found; must join a cluster first.")
+		} else if id.ClusterName != n.config.Server.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
+		}
 	}
 
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
-	dataClient := dclient.New()
+	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	adminService := NewAdminService(*id)
 	keyValueService := NewKeyValueService()
 	graphService := NewGraphService()
@@ -103,7 +104,7 @@ func (n *Server) Stop() {
 func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient cclient.ControlClient) (*identity.Identity, error) {
 	params := register.Params{
 		ServerType:  control.ServerType_Api,
-		ClusterName: n.config.ClusterName,
+		ClusterName: n.config.Server.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
 	}
 

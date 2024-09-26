@@ -10,9 +10,7 @@ service Admin {
     rpc Discover(DiscoverRequest) returns (DiscoverResponse);
 }
 
-message DiscoverRequest {
-    string cluster_name = 1;
-}
+message DiscoverRequest {}
 
 message DiscoverResponse {
     string e_tag = 1;

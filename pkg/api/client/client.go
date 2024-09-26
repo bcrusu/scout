@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -47,12 +48,14 @@ func New(opts ...Option) Client {
 func (c *client) Start(ctx context.Context) error {
 	if c.conn != nil {
 		return nil
-	} else if err := c.opts.target.Validate(); err != nil {
+	} else if c.opts.clusterName == "" {
+		return errors.Error("missing cluster name")
+	} else if err := c.opts.discovery.Validate(); err != nil {
 		return err
 	}
 
-	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
-	c.conn = rpc.NewConn(c.opts.target.String(), dialOpts...)
+	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts.clusterName}))
+	c.conn = rpc.NewConn(c.opts.discovery.String(), c.opts.clusterName, dialOpts...)
 	c.KeyValueClient = &keyValueClient{api.NewKeyValueClient(c.conn)}
 	c.GraphClient = &graphClient{api.NewGraphClient(c.conn)}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/bcrusu/graph/internal/control/server/bootstrap"
 	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/storage"
-	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
@@ -59,7 +58,7 @@ func (n *Server) Start(ctx context.Context) error {
 	switch n.action {
 	case DoBootstrap:
 		bparams = &bootstrap.Params{
-			ClusterName:    n.config.ClusterName,
+			ClusterName:    n.config.Server.ClusterName,
 			LocalAddress:   n.config.Server.BindAddress,
 			InitialServers: n.config.Bootstrap.InitialServers,
 			PartitionCount: n.config.Bootstrap.PartitionCount,
@@ -77,13 +76,14 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	default:
 		id = idStore.Get()
+		if id == nil {
+			return errors.Error("server identity not found; must join a cluster first.")
+		} else if id.ClusterName != n.config.Server.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
+		}
 	}
 
-	if id == nil {
-		return errors.Error("server identity not found; must bootstrap or join a cluster first.")
-	}
-
-	store, transportService, raft, err := n.buildRaft(id.ServerName)
+	store, transportService, raft, err := n.buildRaft(*id)
 	if err != nil {
 		return err
 	}
@@ -117,8 +117,10 @@ func (n *Server) Stop() {
 
 func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (*identity.Identity, error) {
 	client := client.New(
-		client.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Register.Discovery)),
+		client.WithClusterName(n.config.Server.ClusterName),
+		client.WithDiscovery(n.config.Register.Discovery),
 	)
+
 	if err := client.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -126,7 +128,7 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (
 
 	params := register.Params{
 		ServerType:  control.ServerType_Control,
-		ClusterName: n.config.ClusterName,
+		ClusterName: n.config.Server.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
 	}
 
@@ -134,9 +136,9 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (
 	return registerer.Register(ctx, params)
 }
 
-func (n *Server) buildRaft(serverName string) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {
+func (n *Server) buildRaft(id identity.Identity) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {
 	fsm := storage.NewFSM()
-	dialOpts := rpc.DefaultDialOptions()
+	dialOpts := rpc.DefaultDialOptions(id.ClusterName)
 	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
 
 	// TODO: make configurable
@@ -148,7 +150,7 @@ func (n *Server) buildRaft(serverName string) (storage.Store, *multiraft.Transpo
 
 	mraft := multiraft.NewMultiRaft(config)
 
-	raft, err := mraft.New(raftGroupName, fsm, raft.ServerID(serverName))
+	raft, err := mraft.New(raftGroupName, fsm, raft.ServerID(id.ServerName))
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "failed to create raft group")
 	}

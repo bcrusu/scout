@@ -53,11 +53,8 @@ func (n *Leader) Stop() {
 }
 
 func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {
-	if req == nil || !storage.IsValidClusterName(req.ClusterName) || !storage.IsValidAddress(req.Address) ||
-		!storage.IsValidToken(req.Token) {
+	if req == nil || !storage.IsValidAddress(req.Address) || !storage.IsValidToken(req.Token) {
 		return nil, errors.InvalidRequest
-	} else if req.ClusterName != n.store.ClusterName() {
-		return nil, errors.PermissionDenied
 	}
 
 	cmd := &storage.Register{
