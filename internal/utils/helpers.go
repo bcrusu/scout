@@ -33,3 +33,8 @@ func GetOptionalParameter[T any](defaultValue T, values []T) T {
 	}
 	return defaultValue
 }
+
+// PointerOf is a helper that returns the pointer of input value.
+func PointerOf[T any](val T) *T {
+	return &val
+}

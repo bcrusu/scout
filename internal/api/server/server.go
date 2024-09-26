@@ -2,17 +2,15 @@ package server
 
 import (
 	"context"
-	"time"
 
+	"github.com/bcrusu/graph/internal/api/server/session"
 	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/client"
-	"github.com/bcrusu/graph/internal/data/server/partitions"
-	"github.com/bcrusu/graph/internal/data/server/session"
+	cclient "github.com/bcrusu/graph/internal/control/client"
+	dclient "github.com/bcrusu/graph/internal/data/client"
 	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/register"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
@@ -25,7 +23,7 @@ const (
 
 var (
 	_   utils.Lifecycle = (*Server)(nil)
-	log                 = logging.WithComponent("data_server")
+	log                 = logging.WithComponent("api_server")
 )
 
 type Action string
@@ -56,8 +54,8 @@ func (n *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	controlClient := client.New(
-		client.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
+	controlClient := cclient.New(
+		cclient.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Discovery)),
 	)
 
 	var id *identity.Identity
@@ -80,17 +78,18 @@ func (n *Server) Start(ctx context.Context) error {
 		return errors.Error("server identity not found; must join a cluster first.")
 	}
 
-	transportService, mraft := n.buildMultiRaft()
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
-	partitionController := partitions.NewController(*id, mraft)
-	dataService := NewDataService(partitionController)
-	server := rpc.NewServer(n.config.Server, dataService, transportService)
+	dataClient := dclient.New()
+	adminService := NewAdminService(*id)
+	keyValueService := NewKeyValueService()
+	graphService := NewGraphService()
+	server := rpc.NewServer(n.config.Server, adminService, keyValueService, graphService)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
-		transportService,
 		session,
-		partitionController,
+		dataClient,
+		adminService,
 		server,
 	}
 
@@ -101,29 +100,13 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient client.ControlClient) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient cclient.ControlClient) (*identity.Identity, error) {
 	params := register.Params{
-		ServerType:  control.ServerType_Data,
+		ServerType:  control.ServerType_Api,
 		ClusterName: n.config.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
 	}
 
 	registerer := register.NewRegisterer(idStore, controlClient)
 	return registerer.Register(ctx, params)
-}
-
-func (n *Server) buildMultiRaft() (*multiraft.TransportService, *multiraft.MultiRaft) {
-	dialOpts := rpc.DefaultDialOptions()
-	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
-
-	// TODO: make configurable
-	config := multiraft.Config{
-		BindAddress:    n.config.Server.BindAddress,
-		RequestTimeout: 2 * time.Second,
-		Transport:      transportService,
-	}
-
-	mraft := multiraft.NewMultiRaft(config)
-
-	return transportService, mraft
 }

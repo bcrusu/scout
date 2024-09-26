@@ -156,6 +156,7 @@ func (p *txnProcessor) validate(txn *Txn) error {
 				Key:         x.Insert.Key,
 			}
 
+			// TODO: validation code is not idempotent!
 			if p.db.Exists(loc) {
 				return errors.AlreadyExists
 			}

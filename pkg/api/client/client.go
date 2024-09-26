@@ -45,14 +45,16 @@ func New(opts ...Option) Client {
 }
 
 func (c *client) Start(ctx context.Context) error {
-	if err := c.opts.target.Validate(); err != nil {
+	if c.conn != nil {
+		return nil
+	} else if err := c.opts.target.Validate(); err != nil {
 		return err
 	}
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
 	c.conn = rpc.NewConn(c.opts.target.String(), dialOpts...)
-	c.KeyValueClient = api.NewKeyValueClient(c.conn)
-	c.GraphClient = api.NewGraphClient(c.conn)
+	c.KeyValueClient = &keyValueClient{api.NewKeyValueClient(c.conn)}
+	c.GraphClient = &graphClient{api.NewGraphClient(c.conn)}
 
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }

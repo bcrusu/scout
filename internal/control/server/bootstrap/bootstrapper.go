@@ -24,8 +24,7 @@ var (
 		MinDelay: 5 * time.Second,
 		MaxDelay: 20 * time.Second,
 	}
-	_   utils.Lifecycle = (*Bootstrapper)(nil)
-	log                 = logging.WithComponent("control_bootstrap")
+	log = logging.WithComponent("control_bootstrap")
 )
 
 type Params struct {
@@ -43,20 +42,17 @@ type Params struct {
 
 // Bootstrapper is used only once, in the beginning of time, when a new baby cluster is born.
 type Bootstrapper struct {
-	raft       *multiraft.Raft
-	store      storage.Store
-	idStore    identity.IdentityStore
-	params     Params
-	cancelFunc context.CancelFunc
+	raft    *multiraft.Raft
+	store   storage.Store
+	idStore identity.IdentityStore
 }
 
 // NewBootstrapper returns a new Bootstrapper.
-func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.IdentityStore, params Params) *Bootstrapper {
+func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.IdentityStore) *Bootstrapper {
 	return &Bootstrapper{
 		raft:    raft,
 		store:   store,
 		idStore: idStore,
-		params:  params,
 	}
 }
 
@@ -97,18 +93,17 @@ func ValidateParams(p *Params) error {
 	return nil
 }
 
-// Start performs the initial Raft cluster configuration and then executes the very first
+// Bootstrap performs the initial Raft cluster configuration and then executes the very first
 // write operation setting the initial state in the replicated log, thus ensuring that we have
 // a good configuration. It will retry until quorum is reached or until context is canceled.
 // In case of error, Bootstrap can be called again using exactly the same parameters from the
 // original attempt.
-func (b *Bootstrapper) Start(ctx context.Context) error {
-	p := b.params
+func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 	if !p.valid {
 		return errors.Error("params were not validated")
 	}
 
-	if id, ok := b.idStore.Get(); ok {
+	if id := b.idStore.Get(); id != nil {
 		return errors.Errorf("cannot bootstrap, already part of cluster %s", id.ClusterName)
 	}
 
@@ -121,6 +116,8 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 	} else {
 		log.WithError(err).Debug(ctx, "Bootstrap raft cluster success.")
 	}
+
+	doneCh := make(chan any)
 
 	initalWrite, cancelFunc := utils.WithCancelAndWait(func(ctx context.Context) {
 		log.Debug(ctx, "Performing initial write...")
@@ -140,15 +137,18 @@ func (b *Bootstrapper) Start(ctx context.Context) error {
 		}
 
 		log.Debug(ctx, "Bootstrap success.")
+		close(doneCh)
 	})
 
-	b.cancelFunc = cancelFunc
 	go initalWrite(ctx)
-	return nil
-}
 
-func (b *Bootstrapper) Stop() {
-	b.cancelFunc()
+	select {
+	case <-ctx.Done():
+		cancelFunc()
+		return ctx.Err()
+	case <-doneCh:
+		return nil
+	}
 }
 
 func (b *Bootstrapper) bootstrapRaft(p Params) error {

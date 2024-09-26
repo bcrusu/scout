@@ -37,7 +37,7 @@ type IdentityStore interface {
 	Set(Identity) error
 
 	// Returns the stored state.
-	Get() (Identity, bool)
+	Get() *Identity
 }
 
 type identityStore struct {
@@ -76,9 +76,9 @@ func (s *identityStore) Set(i Identity) error {
 }
 
 // Returns the stored state.
-func (s *identityStore) Get() (Identity, bool) {
+func (s *identityStore) Get() *Identity {
 	if identity == nil {
-		return Identity{}, false
+		return nil
 	}
-	return *identity, true
+	return identity
 }

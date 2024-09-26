@@ -53,29 +53,33 @@ func (n *Server) Start(ctx context.Context) error {
 		return err
 	}
 
+	var bparams *bootstrap.Params
+	var id *identity.Identity
+
 	switch n.action {
 	case DoBootstrap:
-		err = n.addComponentsForBootstrap(idStore)
+		bparams = &bootstrap.Params{
+			ClusterName:    n.config.ClusterName,
+			LocalAddress:   n.config.Server.BindAddress,
+			InitialServers: n.config.Bootstrap.InitialServers,
+			PartitionCount: n.config.Bootstrap.PartitionCount,
+		}
+
+		if err := bootstrap.ValidateParams(bparams); err != nil {
+			return err
+		}
+
+		id = utils.PointerOf(bparams.Identity())
 	case DoRegister:
-		err = n.addComponentsForRegistration(idStore)
+		id, err = n.register(ctx, idStore)
+		if err != nil {
+			return err
+		}
 	default:
-		err = n.addComponents(idStore)
+		id = idStore.Get()
 	}
 
-	if err != nil {
-		return err
-	}
-
-	return utils.LifecycleStart(ctx, log, n.components...)
-}
-
-func (n *Server) Stop() {
-	utils.LifecycleStop(log.NoContext(), n.components...)
-}
-
-func (n *Server) addComponents(idStore identity.IdentityStore) error {
-	id, ok := idStore.Get()
-	if !ok {
+	if id == nil {
 		return errors.Error("server identity not found; must bootstrap or join a cluster first.")
 	}
 
@@ -87,14 +91,38 @@ func (n *Server) addComponents(idStore identity.IdentityStore) error {
 	controlService := NewControlService(n.config.Service, raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
 
-	n.components = append(n.components, store, transportService, raft, controlService, server)
+	n.components = []utils.Lifecycle{
+		store,
+		transportService,
+		raft,
+		controlService,
+		server,
+	}
+
+	if err := utils.LifecycleStart(ctx, log, n.components...); err != nil {
+		return err
+	}
+
+	if bparams != nil {
+		bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore)
+		return bootstrapper.Bootstrap(ctx, *bparams)
+	}
+
 	return nil
 }
 
-func (n *Server) addComponentsForRegistration(idStore identity.IdentityStore) error {
+func (n *Server) Stop() {
+	utils.LifecycleStop(log.NoContext(), n.components...)
+}
+
+func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (*identity.Identity, error) {
 	client := client.New(
 		client.WithTarget(discovery.NewTarget(n.config.ClusterName, n.config.Register.Discovery)),
 	)
+	if err := client.Start(ctx); err != nil {
+		return nil, err
+	}
+	defer client.Stop()
 
 	params := register.Params{
 		ServerType:  control.ServerType_Control,
@@ -102,33 +130,8 @@ func (n *Server) addComponentsForRegistration(idStore identity.IdentityStore) er
 		BindAddress: n.config.Server.BindAddress,
 	}
 
-	n.components = append(n.components, client, register.NewRegisterer(idStore, client, params))
-	return n.addComponents(idStore)
-}
-
-func (n *Server) addComponentsForBootstrap(idStore identity.IdentityStore) error {
-	params := &bootstrap.Params{
-		ClusterName:    n.config.ClusterName,
-		LocalAddress:   n.config.Server.BindAddress,
-		InitialServers: n.config.Bootstrap.InitialServers,
-		PartitionCount: n.config.Bootstrap.PartitionCount,
-	}
-
-	if err := bootstrap.ValidateParams(params); err != nil {
-		return err
-	}
-
-	store, transportService, raft, err := n.buildRaft(params.Identity().ServerName)
-	if err != nil {
-		return err
-	}
-
-	controlService := NewControlService(n.config.Service, raft, store)
-	server := rpc.NewServer(n.config.Server, controlService, transportService)
-	bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore, *params)
-
-	n.components = append(n.components, store, transportService, raft, controlService, server, bootstrapper)
-	return nil
+	registerer := register.NewRegisterer(idStore, client)
+	return registerer.Register(ctx, params)
 }
 
 func (n *Server) buildRaft(serverName string) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {

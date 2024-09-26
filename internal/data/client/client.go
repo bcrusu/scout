@@ -44,6 +44,10 @@ func New(opts ...Option) DataClient {
 }
 
 func (c *dataClient) Start(ctx context.Context) error {
+	if c.conn != nil {
+		return nil
+	}
+
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
 	c.conn = rpc.NewConn(dummyTarget, dialOpts...)
 	c.client = data.NewServiceClient(c.conn)

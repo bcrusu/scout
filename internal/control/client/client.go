@@ -44,7 +44,9 @@ func New(opts ...Option) ControlClient {
 }
 
 func (c *controlClient) Start(ctx context.Context) error {
-	if err := c.opts.target.Validate(); err != nil {
+	if c.conn != nil {
+		return nil
+	} else if err := c.opts.target.Validate(); err != nil {
 		return err
 	}
 

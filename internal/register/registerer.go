@@ -17,8 +17,7 @@ var (
 		MinDelay: 2 * time.Second,
 		MaxDelay: 30 * time.Second,
 	}
-	_   utils.Lifecycle = (*Registerer)(nil)
-	log                 = logging.WithComponent("register")
+	log = logging.WithComponent("register")
 )
 
 type Params struct {
@@ -29,42 +28,28 @@ type Params struct {
 
 // Registerer is used to register a server in the cluster.
 type Registerer struct {
-	idStore    identity.IdentityStore
-	client     client.ControlClient
-	params     Params
-	cancelFunc context.CancelFunc
+	idStore identity.IdentityStore
+	client  client.ControlClient
 }
 
 // NewRegisterer returns a new Registerer.
-func NewRegisterer(idStore identity.IdentityStore, client client.ControlClient, params Params) *Registerer {
+func NewRegisterer(idStore identity.IdentityStore, client client.ControlClient) *Registerer {
 	return &Registerer{
 		idStore: idStore,
 		client:  client,
-		params:  params,
 	}
 }
 
-// Register provides reusable functionality for registering a node in the cluster.
-func (r *Registerer) Start(ctx context.Context) error {
-	if id, ok := r.idStore.Get(); ok {
-		return errors.Errorf("cannot register, already part of cluster %s", id.ClusterName)
+func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Identity, error) {
+	if id := r.idStore.Get(); id != nil {
+		return nil, errors.Errorf("cannot register, already part of cluster %s", id.ClusterName)
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-	r.cancelFunc = cancelFunc
-	return r.registerWithRetry(cancelCtx)
-}
-
-func (r *Registerer) Stop() {
-	r.cancelFunc()
-}
-
-func (r *Registerer) registerWithRetry(ctx context.Context) error {
 	req := &control.RegisterRequest{
-		ClusterName: r.params.ClusterName,
+		ClusterName: params.ClusterName,
 		Token:       r.idStore.Token(),
-		Address:     r.params.BindAddress,
-		Type:        r.params.ServerType,
+		Address:     params.BindAddress,
+		Type:        params.ServerType,
 	}
 
 	res, err := utils.RetryForeverR(ctx, registerBackoff, func() (*control.RegisterResponse, error) {
@@ -78,14 +63,18 @@ func (r *Registerer) registerWithRetry(ctx context.Context) error {
 	})
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	id := identity.Identity{
-		ClusterName: r.params.ClusterName,
+		ClusterName: params.ClusterName,
 		ServerID:    res.ServerId,
 		ServerName:  res.ServerName,
 	}
 
-	return r.idStore.Set(id)
+	if err := r.idStore.Set(id); err != nil {
+		return nil, err
+	}
+
+	return &id, nil
 }
