@@ -1,155 +1,139 @@
 package storage
 
 import (
-	"time"
-
-	"github.com/bcrusu/graph/internal/errors"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/bcrusu/graph/internal/data"
 )
 
-// TODO: txn timeout expiration
 // TODO: prune status for old txn
 type txnProcessor struct {
 	partitionID uint32
 	db          *crticalDB
-	status      map[uint64]*TxnStatus
-	prepared    map[uint64]*TxnPrepared
+	status      map[TxnId]*data.TxnStatus
+	prepared    map[TxnId]*TxnPrepared
 }
 
 func newTxnProcessor(partitionID uint32, db DB) *txnProcessor {
 	return &txnProcessor{
 		partitionID: partitionID,
 		db:          &crticalDB{db},
-		status:      map[uint64]*TxnStatus{},
-		prepared:    map[uint64]*TxnPrepared{},
+		status:      map[TxnId]*data.TxnStatus{},
+		prepared:    map[TxnId]*TxnPrepared{},
 	}
 }
 
 // TODO: parallel execution
-func (p *txnProcessor) applyBatch(appendedAt time.Time, batch *TxnBatch) (*TxnBatchResult, error) {
-	errs := map[uint64]error{}
+func (p *txnProcessor) applyBatch(batch *ExecuteTxnBatch) (*TxnBatchResult, error) {
+	status := make([]*data.TxnStatus, 0, batch.totalLen())
 
 	for _, txn := range batch.Autocommit {
-		if err := p.autocommit(appendedAt, txn); err != nil {
-			errs[txn.Id] = err
-		}
+		id := newTxnId(txn.Id)
+		status = append(status, p.autocommit(id, batch.Timestamp, txn))
 	}
 
 	for _, txn := range batch.TwoPhasePrepare {
-		if prepared, err := p.prepare(appendedAt, txn); err != nil {
-			errs[txn.Id] = err
-		} else {
-			p.prepared[txn.Id] = prepared
+		id := newTxnId(txn.Id)
+		status = append(status, p.prepare(id, batch.Timestamp, txn))
+	}
+
+	for _, tid := range batch.TwoPhaseCommit {
+		id := newTxnId(tid)
+		status = append(status, p.commit(id, batch.Timestamp))
+	}
+
+	for _, tid := range batch.TwoPhaseAbort {
+		id := newTxnId(tid)
+		status = append(status, p.abort(id, batch.Timestamp))
+	}
+
+	return &TxnBatchResult{status}, nil
+}
+
+func (p *txnProcessor) autocommit(id TxnId, timestamp uint64, txn *data.Txn) *data.TxnStatus {
+	if status, ok := p.status[id]; ok {
+		return status
+	}
+
+	locks := buildLocks(txn)
+	status := p.checkLocks(id, timestamp, locks)
+
+	if status == nil {
+		status = p.validate(id, timestamp, txn)
+
+		if status == nil {
+			p.write(timestamp, txn)
 		}
 	}
 
-	for _, id := range batch.TwoPhaseCommit {
-		if prepared, ok := p.prepared[id]; !ok {
-			errs[id] = errors.NotFound
-		} else {
-			p.commit(appendedAt, prepared)
-			delete(p.prepared, id)
+	if status == nil {
+		status = newTxnStatus(id, timestamp, data.TxnState_Committed)
+	}
+
+	p.status[id] = status
+	return status
+}
+
+func (p *txnProcessor) prepare(id TxnId, timestamp uint64, txn *data.Txn) *data.TxnStatus {
+	if status, ok := p.status[id]; ok {
+		return status
+	}
+
+	locks := buildLocks(txn)
+	status := p.checkLocks(id, timestamp, locks)
+
+	if status == nil {
+		status = p.validate(id, timestamp, txn)
+	}
+
+	if status == nil {
+		p.prepared[id] = &TxnPrepared{
+			Txn:   txn,
+			Locks: locks,
 		}
+		status = newTxnStatus(id, timestamp, data.TxnState_Prepared)
 	}
 
-	for _, id := range batch.TwoPhaseAbort {
-		if prepared, ok := p.prepared[id]; !ok {
-			errs[id] = errors.NotFound
-		} else {
-			p.abort(appendedAt, prepared)
-			delete(p.prepared, id)
-		}
-	}
-
-	return &TxnBatchResult{
-		Errors: errs,
-	}, nil
+	p.status[id] = status
+	return status
 }
 
-func (p *txnProcessor) autocommit(appendedAt time.Time, txn *Txn) error {
-	if _, ok := p.status[txn.Id]; ok {
-		return errors.AlreadyExists
+func (p *txnProcessor) commit(id TxnId, timestamp uint64) *data.TxnStatus {
+	if status, ok := p.status[id]; ok && status.State == data.TxnState_Committed {
+		return status
 	}
 
-	locks := txn.buildLocks()
-	err := p.acquireLocks(locks)
-
-	if err == nil {
-		err = p.validate(txn)
-
-		if err == nil {
-			p.write(txn)
-		}
-
-		p.releaseLocks(locks)
+	prepared, ok := p.prepared[id]
+	if !ok {
+		return newTxnStatus(id, timestamp, data.TxnState_NotFound)
 	}
 
-	p.status[txn.Id] = &TxnStatus{
-		Id:        txn.Id,
-		StartTime: timestamppb.New(appendedAt),
-		EndTime:   timestamppb.New(appendedAt),
-	}
+	p.write(timestamp, prepared.Txn)
+	status := newTxnStatus(id, timestamp, data.TxnState_Committed)
 
-	if err != nil {
-		p.status[txn.Id].State = TxnState_Failed
-	} else {
-		p.status[txn.Id].State = TxnState_Committed
-	}
-
-	return err
+	delete(p.prepared, id)
+	p.status[id] = status
+	return status
 }
 
-func (p *txnProcessor) prepare(appendedAt time.Time, txn *Txn) (*TxnPrepared, error) {
-	if _, ok := p.status[txn.Id]; ok {
-		return nil, errors.AlreadyExists
+func (p *txnProcessor) abort(id TxnId, timestamp uint64) *data.TxnStatus {
+	if status, ok := p.status[id]; ok && status.State == data.TxnState_Aborted {
+		return status
 	}
 
-	locks := txn.buildLocks()
-	err := p.acquireLocks(locks)
-
-	if err == nil {
-		err = p.validate(txn)
-
-		if err != nil {
-			p.releaseLocks(locks)
-		}
+	if _, ok := p.prepared[id]; !ok {
+		return newTxnStatus(id, timestamp, data.TxnState_NotFound)
 	}
 
-	p.status[txn.Id] = &TxnStatus{
-		Id:        txn.Id,
-		StartTime: timestamppb.New(appendedAt),
-	}
+	status := newTxnStatus(id, timestamp, data.TxnState_Aborted)
 
-	if err != nil {
-		p.status[txn.Id].State = TxnState_Failed
-		p.status[txn.Id].EndTime = timestamppb.New(appendedAt)
-		return nil, err
-	}
-
-	p.status[txn.Id].State = TxnState_Prepared
-	return &TxnPrepared{
-		Txn:   txn,
-		Locks: locks,
-	}, nil
+	delete(p.prepared, id)
+	p.status[id] = status
+	return status
 }
 
-func (p *txnProcessor) commit(appendedAt time.Time, txnp *TxnPrepared) {
-	p.write(txnp.Txn)
-	p.releaseLocks(txnp.Locks)
-	p.status[txnp.Txn.Id].State = TxnState_Committed
-	p.status[txnp.Txn.Id].EndTime = timestamppb.New(appendedAt)
-}
-
-func (p *txnProcessor) abort(appendedAt time.Time, txnp *TxnPrepared) {
-	p.releaseLocks(txnp.Locks)
-	p.status[txnp.Txn.Id].State = TxnState_Aborted
-	p.status[txnp.Txn.Id].EndTime = timestamppb.New(appendedAt)
-}
-
-func (p *txnProcessor) validate(txn *Txn) error {
-	for _, action := range txn.Actions {
+func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data.TxnStatus {
+	for i, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *Action_Insert:
+		case *data.Action_Insert:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Insert.Keyspace,
@@ -158,9 +142,9 @@ func (p *txnProcessor) validate(txn *Txn) error {
 
 			// TODO: validation code is not idempotent!
 			if p.db.Exists(loc) {
-				return errors.AlreadyExists
+				return newActionFailedStatus(id, timestamp, i, data.ErrorCode_KeyAlreadyExists)
 			}
-		case *Action_Update:
+		case *data.Action_Update:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Update.Keyspace,
@@ -168,11 +152,11 @@ func (p *txnProcessor) validate(txn *Txn) error {
 			}
 
 			if !p.db.Exists(loc) {
-				return errors.NotFound
+				return newActionFailedStatus(id, timestamp, i, data.ErrorCode_KeyNotFound)
 			}
-		case *Action_Upsert:
+		case *data.Action_Upsert:
 			// pass
-		case *Action_Delete:
+		case *data.Action_Delete:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Delete.Keyspace,
@@ -180,10 +164,10 @@ func (p *txnProcessor) validate(txn *Txn) error {
 			}
 
 			if !p.db.Exists(loc) {
-				return errors.NotFound
+				return newActionFailedStatus(id, timestamp, i, data.ErrorCode_KeyNotFound)
 			}
-		case *Action_LockKey:
-			if x.LockKey.Check == LockKey_None {
+		case *data.Action_LockKey:
+			if x.LockKey.Check == data.LockKey_None {
 				continue
 			}
 
@@ -193,13 +177,14 @@ func (p *txnProcessor) validate(txn *Txn) error {
 				Key:         x.LockKey.Lock.Key,
 			}
 
-			if ok := p.db.Exists(loc); ok && x.LockKey.Check == LockKey_MustNotExist {
-				return errors.FailedPrecondition
-			} else if !ok && x.LockKey.Check == LockKey_MustExist {
-				return errors.FailedPrecondition
+			actual := p.db.Exists(loc)
+			expected := x.LockKey.Check == data.LockKey_MustExist
+
+			if actual != expected {
+				return newActionFailedStatus(id, timestamp, i, data.ErrorCode_LockCheckFailed)
 			}
-		case *Action_LockRange:
-			if x.LockRange.Check == LockRange_None {
+		case *data.Action_LockRange:
+			if x.LockRange.Check == data.LockRange_None {
 				continue
 			}
 
@@ -210,10 +195,11 @@ func (p *txnProcessor) validate(txn *Txn) error {
 				EndKey:      x.LockRange.Lock.EndKey,
 			}
 
-			if ok := p.db.ExistsInRange(rang); ok && x.LockRange.Check == LockRange_MustBeEmpty {
-				return errors.FailedPrecondition
-			} else if !ok && x.LockRange.Check == LockRange_MustNotBeEmpty {
-				return errors.FailedPrecondition
+			actual := p.db.ExistsInRange(rang)
+			expected := x.LockRange.Check == data.LockRange_MustNotBeEmpty
+
+			if actual != expected {
+				return newActionFailedStatus(id, timestamp, i, data.ErrorCode_LockCheckFailed)
 			}
 		}
 	}
@@ -221,44 +207,63 @@ func (p *txnProcessor) validate(txn *Txn) error {
 	return nil
 }
 
-func (p *txnProcessor) write(txn *Txn) {
+func (p *txnProcessor) write(timestamp uint64, txn *data.Txn) {
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *Action_Insert:
+		case *data.Action_Insert:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Insert.Keyspace,
 				Key:         x.Insert.Key,
-				Version:     txn.Id,
+				Timestamp:   timestamp,
 			}
 
 			p.db.Set(loc, x.Insert.Value)
-		case *Action_Update:
+		case *data.Action_Update:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Update.Keyspace,
 				Key:         x.Update.Key,
-				Version:     txn.Id,
+				Timestamp:   timestamp,
 			}
 
 			p.db.Set(loc, x.Update.Value)
-		case *Action_Upsert:
+		case *data.Action_Upsert:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Upsert.Keyspace,
 				Key:         x.Upsert.Key,
-				Version:     txn.Id,
+				Timestamp:   timestamp,
 			}
 
 			p.db.Set(loc, x.Upsert.Value)
-		case *Action_Delete:
+		case *data.Action_Delete:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Delete.Keyspace,
 				Key:         x.Delete.Key,
+				Timestamp:   timestamp,
 			}
 
 			p.db.Delete(loc)
 		}
+	}
+}
+
+func newTxnStatus(id TxnId, timestamp uint64, state data.TxnState) *data.TxnStatus {
+	return &data.TxnStatus{
+		Id:        id.Proto(),
+		Timestamp: timestamp,
+		State:     state,
+	}
+}
+
+func newActionFailedStatus(id TxnId, timestamp uint64, index int, code data.ErrorCode) *data.TxnStatus {
+	return &data.TxnStatus{
+		Id:          id.Proto(),
+		Timestamp:   timestamp,
+		State:       data.TxnState_ActionFailed,
+		ActionIndex: uint32(index),
+		ActionError: code,
 	}
 }

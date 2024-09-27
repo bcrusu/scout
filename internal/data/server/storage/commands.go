@@ -14,8 +14,8 @@ func newCommand(payload payload) (*Command, error) {
 	var p isCommand_Payload
 
 	switch x := payload.(type) {
-	case *TxnBatch:
-		p = &Command_TxnBatch{TxnBatch: x}
+	case *ExecuteTxnBatch:
+		p = &Command_ExecuteTxnBatch{ExecuteTxnBatch: x}
 	default:
 		return nil, errors.Errorf("newCommand: unhandled payload type %T", payload)
 	}
@@ -27,11 +27,11 @@ func newCommand(payload payload) (*Command, error) {
 
 func getPayload(cmd *Command) (payload, error) {
 	switch x := cmd.Payload.(type) {
-	case *Command_TxnBatch:
-		return x.TxnBatch, nil
+	case *Command_ExecuteTxnBatch:
+		return x.ExecuteTxnBatch, nil
 	default:
 		return nil, errors.Errorf("getPayload: unhandled payload type %T", cmd.Payload)
 	}
 }
 
-func (*TxnBatch) isPayload() {}
+func (*ExecuteTxnBatch) isPayload() {}

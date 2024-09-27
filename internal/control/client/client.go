@@ -28,9 +28,9 @@ type ControlClient interface {
 }
 
 type controlClient struct {
-	opts   *options
-	conn   *rpc.Conn
-	client control.ServiceClient
+	control.ServiceClient
+	opts *options
+	conn *rpc.Conn
 }
 
 func New(opts ...Option) ControlClient {
@@ -55,23 +55,11 @@ func (c *controlClient) Start(ctx context.Context) error {
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts.clusterName}))
 	c.conn = rpc.NewConn(c.opts.discovery.String(), c.opts.clusterName, dialOpts...)
-	c.client = control.NewServiceClient(c.conn)
+	c.ServiceClient = control.NewServiceClient(c.conn)
 
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }
 
 func (c *controlClient) Stop() {
 	utils.LifecycleStop(logC.NoContext(), c.conn)
-}
-
-func (c *controlClient) Discover(ctx context.Context, req *control.DiscoverRequest, opts ...grpc.CallOption) (*control.DiscoverResponse, error) {
-	return c.client.Discover(ctx, req, opts...)
-}
-
-func (c *controlClient) Register(ctx context.Context, req *control.RegisterRequest, opts ...grpc.CallOption) (*control.RegisterResponse, error) {
-	return c.client.Register(ctx, req, opts...)
-}
-
-func (c *controlClient) NewSession(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[control.SessionIn, control.SessionOut], error) {
-	return c.client.NewSession(ctx, opts...)
 }

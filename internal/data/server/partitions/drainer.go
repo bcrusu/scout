@@ -32,20 +32,8 @@ func (d *partitionDrainer) Stop() {
 	d.drainer.Stop()
 }
 
-func (d *partitionDrainer) Set(ctx context.Context, req *data.SetRequest) (*data.SetResponse, error) {
+func (d *partitionDrainer) ExecuteTxnBatch(ctx context.Context, batch *data.TxnBatch) (*data.TxnBatchStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
-	return d.inner.Set(cctx, req)
-}
-
-func (d *partitionDrainer) Get(ctx context.Context, req *data.GetRequest) (*data.GetResponse, error) {
-	cctx, cancel := d.drainer.WithDrain(ctx)
-	defer cancel()
-	return d.inner.Get(cctx, req)
-}
-
-func (d *partitionDrainer) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
-	cctx, cancel := d.drainer.WithDrain(ctx)
-	defer cancel()
-	return d.inner.Delete(cctx, req)
+	return d.inner.ExecuteTxnBatch(cctx, batch)
 }

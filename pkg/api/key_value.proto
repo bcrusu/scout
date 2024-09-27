@@ -2,9 +2,10 @@ syntax = "proto3";
 
 package api;
 
-option go_package = "pkg/api";
+option go_package = "github.com/bcrusu/graph/pkg/api";
 
 import "pkg/api/common.proto";
+import "google/protobuf/timestamp.proto";
 
 // KeyValue represents the key-value operations.
 service KeyValue {
@@ -14,18 +15,18 @@ service KeyValue {
 }
 
 message GetRequest {
-    uint64 timestamp = 1;
-    bytes key = 2;
+    bytes key = 1;
+    google.protobuf.Timestamp at_time = 2;
 }
 
 message GetResponse {
-    uint64 timestamp = 1;
-    bytes value = 2;
+    Value value = 1;
+    google.protobuf.Timestamp time = 2;
 }
 
 message SetRequest {
     bytes key = 1;
-    bytes value = 2;
+    Value value = 2;
 }
 
 message DeleteRequest {

@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
@@ -48,7 +49,7 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	return result
 }
 
-func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.LoggerNoContext) any {
+func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContext) any {
 	payload, err := getPayload(cmd)
 	if err != nil {
 		log.WithError(err).Debug("getPayload failed")
@@ -60,8 +61,8 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	log.Debugf("Applying command %T...", payload)
 
 	switch x := payload.(type) {
-	case *TxnBatch:
-		result, err = f.txnProcessor.applyBatch(appendedAt, x)
+	case *ExecuteTxnBatch:
+		result, err = f.txnProcessor.applyBatch(x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
@@ -79,18 +80,28 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
+	status := make([]*data.TxnStatus, 0, len(f.txnProcessor.status))
+	for _, s := range f.txnProcessor.status {
+		status = append(status, s)
+	}
+
+	prepared := make([]*TxnPrepared, 0, len(f.txnProcessor.status))
+	for _, p := range f.txnProcessor.prepared {
+		prepared = append(prepared, p)
+	}
+
 	snap := &Snapshot{
 		Index:       f.index,
-		TxnStatus:   f.txnProcessor.status,
-		TxnPrepared: f.txnProcessor.prepared,
+		TxnStatus:   status,
+		TxnPrepared: prepared,
 	}
 
 	data, err := utils.MarshalProto(snap)
 	return data, err
 }
 
-func (f *FSM) Restore(data []byte) error {
-	snap, err := utils.UnmarshalProto[Snapshot](data)
+func (f *FSM) Restore(snapshot []byte) error {
+	snap, err := utils.UnmarshalProto[Snapshot](snapshot)
 	if err != nil {
 		return err
 	}
@@ -98,10 +109,19 @@ func (f *FSM) Restore(data []byte) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
+	status := make(map[TxnId]*data.TxnStatus, len(snap.TxnStatus))
+	for _, s := range snap.TxnStatus {
+		status[newTxnId(s.Id)] = s
+	}
+
+	prepared := make(map[TxnId]*TxnPrepared, len(snap.TxnPrepared))
+	for _, p := range snap.TxnPrepared {
+		prepared[newTxnId(p.Txn.Id)] = p
+	}
+
 	f.index = snap.Index
-	f.txnProcessor.status = snap.TxnStatus
-	f.txnProcessor.prepared = snap.TxnPrepared
-	f.txnProcessor.restoreLocks()
+	f.txnProcessor.status = status
+	f.txnProcessor.prepared = prepared
 
 	return nil
 }

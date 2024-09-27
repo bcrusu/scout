@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package data;
+
+option go_package = "github.com/bcrusu/graph/internal/data";
+
+message Insert {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
+}
+
+message Update {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
+}
+
+message Upsert {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bytes value = 3;
+}
+
+message Delete {
+    uint64 keyspace = 1;
+    bytes key = 2;
+}
+
+message LockKey {
+    enum Check {
+        None = 0;
+        MustExist = 1;
+        MustNotExist = 2;
+    }
+
+    KeyLock lock = 1;
+    Check check = 2;
+}
+
+message LockRange {
+    enum Check {
+        None = 0;
+        MustBeEmpty = 1;
+        MustNotBeEmpty = 2;
+    }
+
+    RangeLock lock = 1;
+    Check check = 2;
+}
+
+message KeyLock {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    bool exclusive = 3;
+}
+
+message RangeLock {
+    uint64 keyspace = 1;
+    bytes start_key = 2; // inclusive
+    bytes end_key = 3;   // exclusive
+    bool exclusive = 4;
+}
+
+message Action {
+    oneof payload {
+        Insert insert = 1;
+        Update update = 2;
+        Upsert upsert = 3;
+        Delete delete = 4;
+        LockKey lock_key = 5;
+        LockRange lock_range = 6;
+    }
+}
+
+message TxnId {
+    uint64 server_id = 1;
+    uint64 timestamp = 2;
+}
+
+message Txn {
+    TxnId id = 1;
+    repeated Action actions = 2;
+}
+
+enum TxnState {
+    Pending = 0;
+    Prepared = 1;
+    Committed = 2;
+    Aborted = 3;
+    NotFound = 4;
+    ActionFailed = 5;
+}
+
+message TxnStatus {
+    TxnId id = 1;
+    uint64 timestamp = 2;
+    TxnState state = 3;
+    uint32 action_index = 4;     // only for ActionFailed state; the failed action index
+    ErrorCode action_error = 5;  // only for ActionFailed state; the failed action error code
+}
+
+enum ErrorCode {
+    None = 0;
+    KeyNotFound = 1;
+    KeyAlreadyExists = 2;
+    LockCheckFailed = 3;
+    LockFailed = 4;
+}
+
+message TxnBatch {
+    uint32 partition_id = 1;
+    repeated Txn autocommit = 2;
+    repeated Txn two_phase_prepare = 3;
+    repeated TxnId two_phase_commit = 4;
+    repeated TxnId two_phase_abort = 5;
+}
+
+message TxnBatchStatus {
+    repeated TxnStatus status = 1;
+}

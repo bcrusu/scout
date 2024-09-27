@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 
+	"github.com/bcrusu/graph/internal/api/server/graph"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/pkg/api"
 	"google.golang.org/grpc"
@@ -15,38 +16,40 @@ var (
 // GraphService represents the graph service.
 type GraphService struct {
 	api.UnimplementedGraphServer
+	store *graph.Store
 }
 
 // NewGraphService returns a new GraphService instance
-func NewGraphService() *GraphService {
-	return &GraphService{}
+func NewGraphService(store *graph.Store) *GraphService {
+	return &GraphService{
+		store: store,
+	}
 }
 
 func (s *GraphService) RegisterToServer(server *grpc.Server) {
 	api.RegisterGraphServer(server, s)
 }
 
-// TODO
-func (s *GraphService) GetVertex(context.Context, *api.GetVertexRequest) (*api.Vertex, error) {
-	return nil, nil
+func (s *GraphService) GetVertex(ctx context.Context, req *api.GetVertexRequest) (*api.Vertex, error) {
+	return s.store.GetVertex(ctx, req)
 }
 
-func (s *GraphService) SetVertex(context.Context, *api.Vertex) (*api.Status, error) {
-	return nil, nil
+func (s *GraphService) UpdateVertex(ctx context.Context, vertex *api.Vertex) (*api.Status, error) {
+	return s.store.UpdateVertex(ctx, vertex)
 }
 
-func (s *GraphService) DeleteVertex(context.Context, *api.VertexId) (*api.Status, error) {
-	return nil, nil
+func (s *GraphService) DeleteVertex(ctx context.Context, id *api.VertexId) (*api.Status, error) {
+	return s.store.DeleteVertex(ctx, id)
 }
 
-func (s *GraphService) GetEdge(context.Context, *api.EdgeId) (*api.Edge, error) {
-	return nil, nil
+func (s *GraphService) GetEdge(ctx context.Context, req *api.GetEdgeRequest) (*api.Edge, error) {
+	return s.store.GetEdge(ctx, req)
 }
 
-func (s *GraphService) SetEdge(context.Context, *api.EdgeId) (*api.Status, error) {
-	return nil, nil
+func (s *GraphService) UpdateEdge(ctx context.Context, edge *api.Edge) (*api.Status, error) {
+	return s.store.UpdateEdge(ctx, edge)
 }
 
-func (s *GraphService) DeleteEdge(context.Context, *api.EdgeId) (*api.Status, error) {
-	return nil, nil
+func (s *GraphService) DeleteEdge(ctx context.Context, id *api.EdgeId) (*api.Status, error) {
+	return s.store.DeleteEdge(ctx, id)
 }

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package api;
 
-option go_package = "internal/api";
+option go_package = "github.com/bcrusu/graph/internal/api";
 
 // Admin represents the common/admin service operations.
 service Admin {

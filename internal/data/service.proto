@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package data;
+
+option go_package = "github.com/bcrusu/graph/internal/data";
+
+import "internal/data/common.proto";
+
+// Service represents the data storage service.
+service Service {
+    rpc ExecuteTxnBatch(TxnBatch) returns (TxnBatchStatus);
+}

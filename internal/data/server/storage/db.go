@@ -19,7 +19,7 @@ type Location struct {
 	PartitionID uint32
 	Keyspace    uint64
 	Key         []byte
-	Version     uint64 // optional; when not specified, it represents latest value
+	Timestamp   uint64 // optional; when not specified, it represents latest value
 }
 
 type Range struct {
@@ -27,7 +27,7 @@ type Range struct {
 	Keyspace    uint64
 	StartKey    []byte // inclusive
 	EndKey      []byte // exclusive
-	Version     uint64 // optional; when not specified, it represents latest value
+	Timestamp   uint64 // optional; when not specified, it represents latest value
 }
 
 type Iterator interface {

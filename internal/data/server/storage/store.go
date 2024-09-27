@@ -18,7 +18,7 @@ type Store interface {
 	AppliedIndex() uint64
 	Get(keyspace uint64, key []byte) ([]byte, bool)
 
-	WriteTxnBatch(*TxnBatch) error
+	ExecuteTxnBatch(*ExecuteTxnBatch) (*TxnBatchResult, error)
 }
 
 type store struct {
@@ -51,8 +51,8 @@ func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
 	return nil, true
 }
 
-func (s *store) WriteTxnBatch(cmd *TxnBatch) error {
-	return apply(s.raft, cmd)
+func (s *store) ExecuteTxnBatch(cmd *ExecuteTxnBatch) (*TxnBatchResult, error) {
+	return applyR[*TxnBatchResult](s.raft, cmd)
 }
 
 func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {

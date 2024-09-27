@@ -20,10 +20,10 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	Graph_GetVertex_FullMethodName    = "/api.Graph/GetVertex"
-	Graph_SetVertex_FullMethodName    = "/api.Graph/SetVertex"
+	Graph_UpdateVertex_FullMethodName = "/api.Graph/UpdateVertex"
 	Graph_DeleteVertex_FullMethodName = "/api.Graph/DeleteVertex"
 	Graph_GetEdge_FullMethodName      = "/api.Graph/GetEdge"
-	Graph_SetEdge_FullMethodName      = "/api.Graph/SetEdge"
+	Graph_UpdateEdge_FullMethodName   = "/api.Graph/UpdateEdge"
 	Graph_DeleteEdge_FullMethodName   = "/api.Graph/DeleteEdge"
 )
 
@@ -34,10 +34,10 @@ const (
 // Graph represents the graph store operations.
 type GraphClient interface {
 	GetVertex(ctx context.Context, in *GetVertexRequest, opts ...grpc.CallOption) (*Vertex, error)
-	SetVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error)
+	UpdateVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error)
 	DeleteVertex(ctx context.Context, in *VertexId, opts ...grpc.CallOption) (*Status, error)
-	GetEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Edge, error)
-	SetEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Status, error)
+	GetEdge(ctx context.Context, in *GetEdgeRequest, opts ...grpc.CallOption) (*Edge, error)
+	UpdateEdge(ctx context.Context, in *Edge, opts ...grpc.CallOption) (*Status, error)
 	DeleteEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Status, error)
 }
 
@@ -59,10 +59,10 @@ func (c *graphClient) GetVertex(ctx context.Context, in *GetVertexRequest, opts 
 	return out, nil
 }
 
-func (c *graphClient) SetVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error) {
+func (c *graphClient) UpdateVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Graph_SetVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Graph_UpdateVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (c *graphClient) DeleteVertex(ctx context.Context, in *VertexId, opts ...gr
 	return out, nil
 }
 
-func (c *graphClient) GetEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Edge, error) {
+func (c *graphClient) GetEdge(ctx context.Context, in *GetEdgeRequest, opts ...grpc.CallOption) (*Edge, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Edge)
 	err := c.cc.Invoke(ctx, Graph_GetEdge_FullMethodName, in, out, cOpts...)
@@ -89,10 +89,10 @@ func (c *graphClient) GetEdge(ctx context.Context, in *EdgeId, opts ...grpc.Call
 	return out, nil
 }
 
-func (c *graphClient) SetEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Status, error) {
+func (c *graphClient) UpdateEdge(ctx context.Context, in *Edge, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Graph_SetEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Graph_UpdateEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -116,10 +116,10 @@ func (c *graphClient) DeleteEdge(ctx context.Context, in *EdgeId, opts ...grpc.C
 // Graph represents the graph store operations.
 type GraphServer interface {
 	GetVertex(context.Context, *GetVertexRequest) (*Vertex, error)
-	SetVertex(context.Context, *Vertex) (*Status, error)
+	UpdateVertex(context.Context, *Vertex) (*Status, error)
 	DeleteVertex(context.Context, *VertexId) (*Status, error)
-	GetEdge(context.Context, *EdgeId) (*Edge, error)
-	SetEdge(context.Context, *EdgeId) (*Status, error)
+	GetEdge(context.Context, *GetEdgeRequest) (*Edge, error)
+	UpdateEdge(context.Context, *Edge) (*Status, error)
 	DeleteEdge(context.Context, *EdgeId) (*Status, error)
 	mustEmbedUnimplementedGraphServer()
 }
@@ -134,17 +134,17 @@ type UnimplementedGraphServer struct{}
 func (UnimplementedGraphServer) GetVertex(context.Context, *GetVertexRequest) (*Vertex, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVertex not implemented")
 }
-func (UnimplementedGraphServer) SetVertex(context.Context, *Vertex) (*Status, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetVertex not implemented")
+func (UnimplementedGraphServer) UpdateVertex(context.Context, *Vertex) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateVertex not implemented")
 }
 func (UnimplementedGraphServer) DeleteVertex(context.Context, *VertexId) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteVertex not implemented")
 }
-func (UnimplementedGraphServer) GetEdge(context.Context, *EdgeId) (*Edge, error) {
+func (UnimplementedGraphServer) GetEdge(context.Context, *GetEdgeRequest) (*Edge, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEdge not implemented")
 }
-func (UnimplementedGraphServer) SetEdge(context.Context, *EdgeId) (*Status, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetEdge not implemented")
+func (UnimplementedGraphServer) UpdateEdge(context.Context, *Edge) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateEdge not implemented")
 }
 func (UnimplementedGraphServer) DeleteEdge(context.Context, *EdgeId) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteEdge not implemented")
@@ -188,20 +188,20 @@ func _Graph_GetVertex_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_SetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Graph_UpdateVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Vertex)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).SetVertex(ctx, in)
+		return srv.(GraphServer).UpdateVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_SetVertex_FullMethodName,
+		FullMethod: Graph_UpdateVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).SetVertex(ctx, req.(*Vertex))
+		return srv.(GraphServer).UpdateVertex(ctx, req.(*Vertex))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -225,7 +225,7 @@ func _Graph_DeleteVertex_Handler(srv interface{}, ctx context.Context, dec func(
 }
 
 func _Graph_GetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EdgeId)
+	in := new(GetEdgeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -237,25 +237,25 @@ func _Graph_GetEdge_Handler(srv interface{}, ctx context.Context, dec func(inter
 		FullMethod: Graph_GetEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).GetEdge(ctx, req.(*EdgeId))
+		return srv.(GraphServer).GetEdge(ctx, req.(*GetEdgeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_SetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(EdgeId)
+func _Graph_UpdateEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Edge)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).SetEdge(ctx, in)
+		return srv.(GraphServer).UpdateEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_SetEdge_FullMethodName,
+		FullMethod: Graph_UpdateEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).SetEdge(ctx, req.(*EdgeId))
+		return srv.(GraphServer).UpdateEdge(ctx, req.(*Edge))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -290,8 +290,8 @@ var Graph_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Graph_GetVertex_Handler,
 		},
 		{
-			MethodName: "SetVertex",
-			Handler:    _Graph_SetVertex_Handler,
+			MethodName: "UpdateVertex",
+			Handler:    _Graph_UpdateVertex_Handler,
 		},
 		{
 			MethodName: "DeleteVertex",
@@ -302,8 +302,8 @@ var Graph_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Graph_GetEdge_Handler,
 		},
 		{
-			MethodName: "SetEdge",
-			Handler:    _Graph_SetEdge_Handler,
+			MethodName: "UpdateEdge",
+			Handler:    _Graph_UpdateEdge_Handler,
 		},
 		{
 			MethodName: "DeleteEdge",

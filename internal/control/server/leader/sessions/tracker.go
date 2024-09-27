@@ -142,8 +142,8 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	servers := t.store.Servers()
 	partitions := t.store.Partitions()
 	status := newStatusTracker(servers, partitions)
-	dsConfigs := makeDataServerConfigs(servers, partitions)
-	asConfigs := makeApiServerConfigs(servers)
+	dsConfigs := t.makeDataServerConfigs(servers, partitions)
+	asConfigs := t.makeApiServerConfigs(servers)
 
 	sessionCounter := sessionID(0)
 	sessionsById := sessions{}
@@ -326,26 +326,26 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 	}
 
 	for id, part := range partitions.Items {
-		writeServerId := uint64(0)
-		readServerIDs := make([]uint64, 0, len(part.Replicas))
+		leaderServerId := uint64(0)
+		replicaServerIDs := make([]uint64, 0, len(part.Replicas))
 
 		for _, replica := range part.Replicas {
 			if replica.State != storage.Partition_Voter && replica.State != storage.Partition_NonVoter {
 				continue
 			}
 
-			readServerIDs = append(readServerIDs, replica.ServerId)
+			replicaServerIDs = append(replicaServerIDs, replica.ServerId)
 		}
-		slices.Sort(readServerIDs)
+		slices.Sort(replicaServerIDs)
 
 		if leader := partitions.Status[id].Leader; leader != "" {
-			writeServerId = part.Replicas[leader].ServerId
+			leaderServerId = part.Replicas[leader].ServerId
 		}
 
 		new.Partitions[id] = &control.DataServers_Partition{
-			Id:            id,
-			WriteServerId: writeServerId,
-			ReadServerIds: readServerIDs,
+			Id:               id,
+			LeaderServerId:   leaderServerId,
+			ReplicaServerIds: replicaServerIDs,
 		}
 	}
 
@@ -354,7 +354,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 		etags = append(etags, fmt.Sprintf("srv %d:%s", id, server.Address))
 	}
 	for id, part := range new.Partitions {
-		etags = append(etags, fmt.Sprintf("part %d:%d:%v", id, part.WriteServerId, part.ReadServerIds))
+		etags = append(etags, fmt.Sprintf("part %d:%d:%v", id, part.LeaderServerId, part.ReplicaServerIds))
 	}
 
 	new.ETag = makeETag(etags...)
@@ -398,7 +398,7 @@ func (t *Tracker) updateApiServerList(sessions sessions, servers *storage.Server
 }
 
 func (t *Tracker) updateDataServerConfigs(sessions sessions, servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
-	new := makeDataServerConfigs(servers, partitions)
+	new := t.makeDataServerConfigs(servers, partitions)
 
 	for _, sess := range sessions {
 		if sess.serverType != control.ServerType_Data {
@@ -416,7 +416,7 @@ func (t *Tracker) updateDataServerConfigs(sessions sessions, servers *storage.Se
 }
 
 func (t *Tracker) updateApiServerConfigs(sessions sessions, servers *storage.Servers) asConfigs {
-	new := makeApiServerConfigs(servers)
+	new := t.makeApiServerConfigs(servers)
 
 	for _, sess := range sessions {
 		if sess.serverType != control.ServerType_Api {

@@ -6,7 +6,7 @@ type ctxKeyRoutingInfo struct{}
 
 type routing struct {
 	partitionID uint32
-	isWrite     bool
+	replicaRead bool
 }
 
 func withRouting(ctx context.Context, r routing) context.Context {

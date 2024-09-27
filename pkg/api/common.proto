@@ -2,27 +2,17 @@ syntax = "proto3";
 
 package api;
 
-option go_package = "pkg/api";
+option go_package = "github.com/bcrusu/graph/pkg/api";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
 message Status {
-    uint64 timestamp = 1;
+    google.protobuf.Timestamp time = 1;
 }
 
 message Value {
-    oneof value {
-        Scalar scalar = 1;
-        List list = 2;
-        Map map = 3;
-        google.protobuf.Timestamp timestamp = 4;
-        google.protobuf.Duration duration = 5;
-    }
-}
-
-message Scalar {
-    oneof value {
+    oneof payload {
         bool bool = 1;
         string str = 2;
         int32 int32 = 3;
@@ -32,6 +22,10 @@ message Scalar {
         float float32 = 7;
         double float64 = 8;
         bytes bytes = 9;
+        List list = 10;
+        Map map = 11;
+        google.protobuf.Timestamp timestamp = 12;
+        google.protobuf.Duration duration = 13;
     }
 }
 
@@ -41,8 +35,4 @@ message List {
 
 message Map {
     map <string, Value> items = 1;
-}
-
-message Response {
-    uint64 version = 1;
 }

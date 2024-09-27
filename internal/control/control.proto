@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package control;
 
-option go_package = "internal/control";
+option go_package = "github.com/bcrusu/graph/internal/control";
 
 import "google/protobuf/duration.proto";
 
@@ -145,6 +145,7 @@ message DataServerConfig {
 
 message ApiServerConfig {
     string e_tag = 1;
+    uint32 partition_count = 2;
 }
 
 message GetDataServers {
@@ -159,8 +160,8 @@ message DataServers {
 
     message Partition {
         uint32 id = 1;
-        repeated uint64 read_server_ids = 2;
-        uint64 write_server_id = 3;
+        uint64 leader_server_id = 3;
+        repeated uint64 replica_server_ids = 2;
     }
 
     string e_tag = 1;

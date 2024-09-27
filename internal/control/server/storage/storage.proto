@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package control.storage;
 
-option go_package = "internal/control/server/storage";
+option go_package = "github.com/bcrusu/graph/internal/control/server/storage";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";

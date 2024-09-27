@@ -43,10 +43,10 @@ type picker struct {
 }
 
 type partition struct {
-	id     uint32
-	write  *subConn
-	read   []*subConn
-	readRR atomic.Int32
+	id         uint32
+	leader     *subConn
+	replicas   []*subConn
+	replicasRR atomic.Int32
 }
 
 func (b *balancerBuilder) Build(clientConn balancer.ClientConn, opt balancer.BuildOptions) balancer.Balancer {
@@ -167,20 +167,20 @@ func (b *balancerImpl) makePicker(ds *control.DataServers) *picker {
 	for partID := range ds.PartitionCount {
 		part := ds.Partitions[partID]
 
-		var write *subConn
-		if part.WriteServerId != 0 {
-			write = b.subConns[part.WriteServerId]
+		var leader *subConn
+		if part.LeaderServerId != 0 {
+			leader = b.subConns[part.LeaderServerId]
 		}
 
-		read := make([]*subConn, len(part.ReadServerIds))
-		for i, serverID := range part.ReadServerIds {
-			read[i] = b.subConns[serverID]
+		replicas := make([]*subConn, len(part.ReplicaServerIds))
+		for i, serverID := range part.ReplicaServerIds {
+			replicas[i] = b.subConns[serverID]
 		}
 
 		partitions[partID] = &partition{
-			id:    partID,
-			write: write,
-			read:  utils.ShuffleSlice(read),
+			id:       partID,
+			leader:   leader,
+			replicas: utils.ShuffleSlice(replicas),
 		}
 	}
 
@@ -201,24 +201,16 @@ func (b *balancerImpl) getLBConnectivityState() connectivity.State {
 	// start routing requests as soon as possible to avoid unavailability.
 	// Some ideas, might review later:
 	//  - check the availability of each partititon: a partition is available
-	//    if at least one read server is ready along with the write server,
+	//    if the connection to the leader is ready,
 	//  - if at least 80% of partitions are available declare the LB ready,
 	//  - else, if above 20% connections are in transient failure return failure,
 	//  - else, return connecting state.
 	total := len(b.partitions)
 	available := 0
 
-LOOP_PART:
 	for _, part := range b.partitions {
-		if part.write.state != connectivity.Ready {
-			continue
-		}
-
-		for _, conn := range part.read {
-			if conn.state == connectivity.Ready {
-				available++
-				continue LOOP_PART
-			}
+		if part.leader.state == connectivity.Ready {
+			available++
 		}
 	}
 
@@ -263,34 +255,34 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 
 	part := p.partitions[routing.partitionID]
 
-	if routing.isWrite {
-		if part.write == nil {
-			logLB.Debug("Write server not available.", "partition_id", part.id)
+	if !routing.replicaRead {
+		if part.leader == nil {
+			logLB.Debug("Leader connection not available.", "partition_id", part.id)
 			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 		}
 
-		if part.write.state != connectivity.Ready {
-			logLB.Debug("Write connection not ready.", "partition_id", part.id)
+		if part.leader.state != connectivity.Ready {
+			logLB.Debug("Leader connection not ready.", "partition_id", part.id)
 			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 		}
 
 		return balancer.PickResult{
-			SubConn: part.write.SubConn,
+			SubConn: part.leader.SubConn,
 			Done:    p.rpcDone,
 		}, nil
 	}
 
-	if len(part.read) == 0 {
+	if len(part.replicas) == 0 {
 		return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 	}
 
-	curr := int(part.readRR.Add(1)) % len(part.read)
+	curr := int(part.replicasRR.Add(1)) % len(part.replicas)
 
-	for range len(part.read) {
-		conn := part.read[curr]
+	for range len(part.replicas) {
+		conn := part.replicas[curr]
 
 		if conn.state != connectivity.Ready {
-			curr = (curr + 1) % len(part.read)
+			curr = (curr + 1) % len(part.replicas)
 			continue
 		}
 

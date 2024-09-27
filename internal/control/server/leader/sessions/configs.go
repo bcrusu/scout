@@ -13,7 +13,7 @@ type dsConfigs map[uint64]*control.DataServerConfig
 type asConfigs map[uint64]*control.ApiServerConfig
 type dsPartMap map[uint32]*control.DataServerConfig_Partition
 
-func makeDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
+func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
 	byServer := map[uint64]dsPartMap{}
 
 	for _, p := range partitions.Items {
@@ -60,11 +60,12 @@ func makeDataServerConfigs(servers *storage.Servers, partitions *storage.Partiti
 	return result
 }
 
-func makeApiServerConfigs(servers *storage.Servers) asConfigs {
+func (t *Tracker) makeApiServerConfigs(servers *storage.Servers) asConfigs {
 	result := asConfigs{}
 	for id := range servers.ByType(storage.ServerType_Api) {
 		result[id] = &control.ApiServerConfig{
-			ETag: "",
+			ETag:           "",
+			PartitionCount: t.store.PartitionCount(),
 		}
 	}
 

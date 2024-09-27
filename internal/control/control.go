@@ -161,13 +161,13 @@ func (x *DataServers) Validate() error {
 			return errors.Error("DataServers.Partitions.Id is invalid")
 		}
 
-		if part.WriteServerId != 0 {
-			if _, ok := x.Servers[part.WriteServerId]; !ok {
+		if part.LeaderServerId != 0 {
+			if _, ok := x.Servers[part.LeaderServerId]; !ok {
 				return errors.Error("DataServers.Partitions.WriteServer not found in server list")
 			}
 		}
 
-		for _, serverID := range part.ReadServerIds {
+		for _, serverID := range part.ReplicaServerIds {
 			if _, ok := x.Servers[serverID]; !ok {
 				return errors.Error("DataServers.Partitions.ReadServer not found in server list")
 			}

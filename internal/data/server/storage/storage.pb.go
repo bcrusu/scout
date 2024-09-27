@@ -7,9 +7,9 @@
 package storage
 
 import (
+	data "github.com/bcrusu/graph/internal/data"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -21,162 +21,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type TxnState int32
-
-const (
-	TxnState_Pending   TxnState = 0
-	TxnState_Prepared  TxnState = 1
-	TxnState_Committed TxnState = 2
-	TxnState_Aborted   TxnState = 3
-	TxnState_Failed    TxnState = 4
-	TxnState_Timedout  TxnState = 5
-)
-
-// Enum value maps for TxnState.
-var (
-	TxnState_name = map[int32]string{
-		0: "Pending",
-		1: "Prepared",
-		2: "Committed",
-		3: "Aborted",
-		4: "Failed",
-		5: "Timedout",
-	}
-	TxnState_value = map[string]int32{
-		"Pending":   0,
-		"Prepared":  1,
-		"Committed": 2,
-		"Aborted":   3,
-		"Failed":    4,
-		"Timedout":  5,
-	}
-)
-
-func (x TxnState) Enum() *TxnState {
-	p := new(TxnState)
-	*p = x
-	return p
-}
-
-func (x TxnState) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (TxnState) Descriptor() protoreflect.EnumDescriptor {
-	return file_internal_data_server_storage_storage_proto_enumTypes[0].Descriptor()
-}
-
-func (TxnState) Type() protoreflect.EnumType {
-	return &file_internal_data_server_storage_storage_proto_enumTypes[0]
-}
-
-func (x TxnState) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use TxnState.Descriptor instead.
-func (TxnState) EnumDescriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{0}
-}
-
-type LockKey_Check int32
-
-const (
-	LockKey_None         LockKey_Check = 0
-	LockKey_MustExist    LockKey_Check = 1
-	LockKey_MustNotExist LockKey_Check = 2
-)
-
-// Enum value maps for LockKey_Check.
-var (
-	LockKey_Check_name = map[int32]string{
-		0: "None",
-		1: "MustExist",
-		2: "MustNotExist",
-	}
-	LockKey_Check_value = map[string]int32{
-		"None":         0,
-		"MustExist":    1,
-		"MustNotExist": 2,
-	}
-)
-
-func (x LockKey_Check) Enum() *LockKey_Check {
-	p := new(LockKey_Check)
-	*p = x
-	return p
-}
-
-func (x LockKey_Check) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (LockKey_Check) Descriptor() protoreflect.EnumDescriptor {
-	return file_internal_data_server_storage_storage_proto_enumTypes[1].Descriptor()
-}
-
-func (LockKey_Check) Type() protoreflect.EnumType {
-	return &file_internal_data_server_storage_storage_proto_enumTypes[1]
-}
-
-func (x LockKey_Check) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use LockKey_Check.Descriptor instead.
-func (LockKey_Check) EnumDescriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{7, 0}
-}
-
-type LockRange_Check int32
-
-const (
-	LockRange_None           LockRange_Check = 0
-	LockRange_MustBeEmpty    LockRange_Check = 1
-	LockRange_MustNotBeEmpty LockRange_Check = 2
-)
-
-// Enum value maps for LockRange_Check.
-var (
-	LockRange_Check_name = map[int32]string{
-		0: "None",
-		1: "MustBeEmpty",
-		2: "MustNotBeEmpty",
-	}
-	LockRange_Check_value = map[string]int32{
-		"None":           0,
-		"MustBeEmpty":    1,
-		"MustNotBeEmpty": 2,
-	}
-)
-
-func (x LockRange_Check) Enum() *LockRange_Check {
-	p := new(LockRange_Check)
-	*p = x
-	return p
-}
-
-func (x LockRange_Check) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (LockRange_Check) Descriptor() protoreflect.EnumDescriptor {
-	return file_internal_data_server_storage_storage_proto_enumTypes[2].Descriptor()
-}
-
-func (LockRange_Check) Type() protoreflect.EnumType {
-	return &file_internal_data_server_storage_storage_proto_enumTypes[2]
-}
-
-func (x LockRange_Check) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use LockRange_Check.Descriptor instead.
-func (LockRange_Check) EnumDescriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{8, 0}
-}
-
 type Command struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -184,7 +28,7 @@ type Command struct {
 
 	// Types that are assignable to Payload:
 	//
-	//	*Command_TxnBatch
+	//	*Command_ExecuteTxnBatch
 	Payload isCommand_Payload `protobuf_oneof:"payload"`
 }
 
@@ -227,9 +71,9 @@ func (m *Command) GetPayload() isCommand_Payload {
 	return nil
 }
 
-func (x *Command) GetTxnBatch() *TxnBatch {
-	if x, ok := x.GetPayload().(*Command_TxnBatch); ok {
-		return x.TxnBatch
+func (x *Command) GetExecuteTxnBatch() *ExecuteTxnBatch {
+	if x, ok := x.GetPayload().(*Command_ExecuteTxnBatch); ok {
+		return x.ExecuteTxnBatch
 	}
 	return nil
 }
@@ -238,25 +82,26 @@ type isCommand_Payload interface {
 	isCommand_Payload()
 }
 
-type Command_TxnBatch struct {
-	TxnBatch *TxnBatch `protobuf:"bytes,1,opt,name=txn_batch,json=txnBatch,proto3,oneof"`
+type Command_ExecuteTxnBatch struct {
+	ExecuteTxnBatch *ExecuteTxnBatch `protobuf:"bytes,1,opt,name=execute_txn_batch,json=executeTxnBatch,proto3,oneof"`
 }
 
-func (*Command_TxnBatch) isCommand_Payload() {}
+func (*Command_ExecuteTxnBatch) isCommand_Payload() {}
 
-type TxnBatch struct {
+type ExecuteTxnBatch struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Autocommit      []*Txn   `protobuf:"bytes,1,rep,name=autocommit,proto3" json:"autocommit,omitempty"`
-	TwoPhasePrepare []*Txn   `protobuf:"bytes,2,rep,name=two_phase_prepare,json=twoPhasePrepare,proto3" json:"two_phase_prepare,omitempty"`
-	TwoPhaseCommit  []uint64 `protobuf:"varint,3,rep,packed,name=two_phase_commit,json=twoPhaseCommit,proto3" json:"two_phase_commit,omitempty"`
-	TwoPhaseAbort   []uint64 `protobuf:"varint,4,rep,packed,name=two_phase_abort,json=twoPhaseAbort,proto3" json:"two_phase_abort,omitempty"`
+	Timestamp       uint64        `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Autocommit      []*data.Txn   `protobuf:"bytes,2,rep,name=autocommit,proto3" json:"autocommit,omitempty"`
+	TwoPhasePrepare []*data.Txn   `protobuf:"bytes,3,rep,name=two_phase_prepare,json=twoPhasePrepare,proto3" json:"two_phase_prepare,omitempty"`
+	TwoPhaseCommit  []*data.TxnId `protobuf:"bytes,4,rep,name=two_phase_commit,json=twoPhaseCommit,proto3" json:"two_phase_commit,omitempty"`
+	TwoPhaseAbort   []*data.TxnId `protobuf:"bytes,5,rep,name=two_phase_abort,json=twoPhaseAbort,proto3" json:"two_phase_abort,omitempty"`
 }
 
-func (x *TxnBatch) Reset() {
-	*x = TxnBatch{}
+func (x *ExecuteTxnBatch) Reset() {
+	*x = ExecuteTxnBatch{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_internal_data_server_storage_storage_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -264,13 +109,13 @@ func (x *TxnBatch) Reset() {
 	}
 }
 
-func (x *TxnBatch) String() string {
+func (x *ExecuteTxnBatch) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TxnBatch) ProtoMessage() {}
+func (*ExecuteTxnBatch) ProtoMessage() {}
 
-func (x *TxnBatch) ProtoReflect() protoreflect.Message {
+func (x *ExecuteTxnBatch) ProtoReflect() protoreflect.Message {
 	mi := &file_internal_data_server_storage_storage_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -282,33 +127,40 @@ func (x *TxnBatch) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TxnBatch.ProtoReflect.Descriptor instead.
-func (*TxnBatch) Descriptor() ([]byte, []int) {
+// Deprecated: Use ExecuteTxnBatch.ProtoReflect.Descriptor instead.
+func (*ExecuteTxnBatch) Descriptor() ([]byte, []int) {
 	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TxnBatch) GetAutocommit() []*Txn {
+func (x *ExecuteTxnBatch) GetTimestamp() uint64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *ExecuteTxnBatch) GetAutocommit() []*data.Txn {
 	if x != nil {
 		return x.Autocommit
 	}
 	return nil
 }
 
-func (x *TxnBatch) GetTwoPhasePrepare() []*Txn {
+func (x *ExecuteTxnBatch) GetTwoPhasePrepare() []*data.Txn {
 	if x != nil {
 		return x.TwoPhasePrepare
 	}
 	return nil
 }
 
-func (x *TxnBatch) GetTwoPhaseCommit() []uint64 {
+func (x *ExecuteTxnBatch) GetTwoPhaseCommit() []*data.TxnId {
 	if x != nil {
 		return x.TwoPhaseCommit
 	}
 	return nil
 }
 
-func (x *TxnBatch) GetTwoPhaseAbort() []uint64 {
+func (x *ExecuteTxnBatch) GetTwoPhaseAbort() []*data.TxnId {
 	if x != nil {
 		return x.TwoPhaseAbort
 	}
@@ -320,9 +172,9 @@ type Snapshot struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Index       uint64                  `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
-	TxnStatus   map[uint64]*TxnStatus   `protobuf:"bytes,2,rep,name=txn_status,json=txnStatus,proto3" json:"txn_status,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	TxnPrepared map[uint64]*TxnPrepared `protobuf:"bytes,3,rep,name=txn_prepared,json=txnPrepared,proto3" json:"txn_prepared,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Index       uint64            `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	TxnStatus   []*data.TxnStatus `protobuf:"bytes,2,rep,name=txn_status,json=txnStatus,proto3" json:"txn_status,omitempty"`
+	TxnPrepared []*TxnPrepared    `protobuf:"bytes,3,rep,name=txn_prepared,json=txnPrepared,proto3" json:"txn_prepared,omitempty"`
 }
 
 func (x *Snapshot) Reset() {
@@ -364,633 +216,16 @@ func (x *Snapshot) GetIndex() uint64 {
 	return 0
 }
 
-func (x *Snapshot) GetTxnStatus() map[uint64]*TxnStatus {
+func (x *Snapshot) GetTxnStatus() []*data.TxnStatus {
 	if x != nil {
 		return x.TxnStatus
 	}
 	return nil
 }
 
-func (x *Snapshot) GetTxnPrepared() map[uint64]*TxnPrepared {
+func (x *Snapshot) GetTxnPrepared() []*TxnPrepared {
 	if x != nil {
 		return x.TxnPrepared
-	}
-	return nil
-}
-
-type Insert struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Keyspace uint64 `protobuf:"varint,1,opt,name=keyspace,proto3" json:"keyspace,omitempty"`
-	Key      []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value    []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (x *Insert) Reset() {
-	*x = Insert{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Insert) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Insert) ProtoMessage() {}
-
-func (x *Insert) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Insert.ProtoReflect.Descriptor instead.
-func (*Insert) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *Insert) GetKeyspace() uint64 {
-	if x != nil {
-		return x.Keyspace
-	}
-	return 0
-}
-
-func (x *Insert) GetKey() []byte {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-func (x *Insert) GetValue() []byte {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type Update struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Keyspace uint64 `protobuf:"varint,1,opt,name=keyspace,proto3" json:"keyspace,omitempty"`
-	Key      []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value    []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (x *Update) Reset() {
-	*x = Update{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[4]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Update) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Update) ProtoMessage() {}
-
-func (x *Update) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[4]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Update.ProtoReflect.Descriptor instead.
-func (*Update) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *Update) GetKeyspace() uint64 {
-	if x != nil {
-		return x.Keyspace
-	}
-	return 0
-}
-
-func (x *Update) GetKey() []byte {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-func (x *Update) GetValue() []byte {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type Upsert struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Keyspace uint64 `protobuf:"varint,1,opt,name=keyspace,proto3" json:"keyspace,omitempty"`
-	Key      []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value    []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (x *Upsert) Reset() {
-	*x = Upsert{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[5]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Upsert) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Upsert) ProtoMessage() {}
-
-func (x *Upsert) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[5]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Upsert.ProtoReflect.Descriptor instead.
-func (*Upsert) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *Upsert) GetKeyspace() uint64 {
-	if x != nil {
-		return x.Keyspace
-	}
-	return 0
-}
-
-func (x *Upsert) GetKey() []byte {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-func (x *Upsert) GetValue() []byte {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
-type Delete struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Keyspace uint64 `protobuf:"varint,1,opt,name=keyspace,proto3" json:"keyspace,omitempty"`
-	Key      []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-}
-
-func (x *Delete) Reset() {
-	*x = Delete{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[6]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Delete) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Delete) ProtoMessage() {}
-
-func (x *Delete) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[6]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Delete.ProtoReflect.Descriptor instead.
-func (*Delete) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *Delete) GetKeyspace() uint64 {
-	if x != nil {
-		return x.Keyspace
-	}
-	return 0
-}
-
-func (x *Delete) GetKey() []byte {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-type LockKey struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Lock  *KeyLock      `protobuf:"bytes,1,opt,name=lock,proto3" json:"lock,omitempty"`
-	Check LockKey_Check `protobuf:"varint,2,opt,name=check,proto3,enum=data.storage.LockKey_Check" json:"check,omitempty"`
-}
-
-func (x *LockKey) Reset() {
-	*x = LockKey{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[7]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *LockKey) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LockKey) ProtoMessage() {}
-
-func (x *LockKey) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[7]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LockKey.ProtoReflect.Descriptor instead.
-func (*LockKey) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *LockKey) GetLock() *KeyLock {
-	if x != nil {
-		return x.Lock
-	}
-	return nil
-}
-
-func (x *LockKey) GetCheck() LockKey_Check {
-	if x != nil {
-		return x.Check
-	}
-	return LockKey_None
-}
-
-type LockRange struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Lock  *RangeLock      `protobuf:"bytes,1,opt,name=lock,proto3" json:"lock,omitempty"`
-	Check LockRange_Check `protobuf:"varint,2,opt,name=check,proto3,enum=data.storage.LockRange_Check" json:"check,omitempty"`
-}
-
-func (x *LockRange) Reset() {
-	*x = LockRange{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[8]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *LockRange) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LockRange) ProtoMessage() {}
-
-func (x *LockRange) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[8]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LockRange.ProtoReflect.Descriptor instead.
-func (*LockRange) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *LockRange) GetLock() *RangeLock {
-	if x != nil {
-		return x.Lock
-	}
-	return nil
-}
-
-func (x *LockRange) GetCheck() LockRange_Check {
-	if x != nil {
-		return x.Check
-	}
-	return LockRange_None
-}
-
-type Action struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// Types that are assignable to Payload:
-	//
-	//	*Action_Insert
-	//	*Action_Update
-	//	*Action_Upsert
-	//	*Action_Delete
-	//	*Action_LockKey
-	//	*Action_LockRange
-	Payload isAction_Payload `protobuf_oneof:"payload"`
-}
-
-func (x *Action) Reset() {
-	*x = Action{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Action) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Action) ProtoMessage() {}
-
-func (x *Action) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Action.ProtoReflect.Descriptor instead.
-func (*Action) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{9}
-}
-
-func (m *Action) GetPayload() isAction_Payload {
-	if m != nil {
-		return m.Payload
-	}
-	return nil
-}
-
-func (x *Action) GetInsert() *Insert {
-	if x, ok := x.GetPayload().(*Action_Insert); ok {
-		return x.Insert
-	}
-	return nil
-}
-
-func (x *Action) GetUpdate() *Update {
-	if x, ok := x.GetPayload().(*Action_Update); ok {
-		return x.Update
-	}
-	return nil
-}
-
-func (x *Action) GetUpsert() *Upsert {
-	if x, ok := x.GetPayload().(*Action_Upsert); ok {
-		return x.Upsert
-	}
-	return nil
-}
-
-func (x *Action) GetDelete() *Delete {
-	if x, ok := x.GetPayload().(*Action_Delete); ok {
-		return x.Delete
-	}
-	return nil
-}
-
-func (x *Action) GetLockKey() *LockKey {
-	if x, ok := x.GetPayload().(*Action_LockKey); ok {
-		return x.LockKey
-	}
-	return nil
-}
-
-func (x *Action) GetLockRange() *LockRange {
-	if x, ok := x.GetPayload().(*Action_LockRange); ok {
-		return x.LockRange
-	}
-	return nil
-}
-
-type isAction_Payload interface {
-	isAction_Payload()
-}
-
-type Action_Insert struct {
-	Insert *Insert `protobuf:"bytes,1,opt,name=insert,proto3,oneof"`
-}
-
-type Action_Update struct {
-	Update *Update `protobuf:"bytes,2,opt,name=update,proto3,oneof"`
-}
-
-type Action_Upsert struct {
-	Upsert *Upsert `protobuf:"bytes,3,opt,name=upsert,proto3,oneof"`
-}
-
-type Action_Delete struct {
-	Delete *Delete `protobuf:"bytes,4,opt,name=delete,proto3,oneof"`
-}
-
-type Action_LockKey struct {
-	LockKey *LockKey `protobuf:"bytes,5,opt,name=lock_key,json=lockKey,proto3,oneof"`
-}
-
-type Action_LockRange struct {
-	LockRange *LockRange `protobuf:"bytes,6,opt,name=lock_range,json=lockRange,proto3,oneof"`
-}
-
-func (*Action_Insert) isAction_Payload() {}
-
-func (*Action_Update) isAction_Payload() {}
-
-func (*Action_Upsert) isAction_Payload() {}
-
-func (*Action_Delete) isAction_Payload() {}
-
-func (*Action_LockKey) isAction_Payload() {}
-
-func (*Action_LockRange) isAction_Payload() {}
-
-type Txn struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Id      uint64    `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Actions []*Action `protobuf:"bytes,2,rep,name=actions,proto3" json:"actions,omitempty"`
-}
-
-func (x *Txn) Reset() {
-	*x = Txn{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[10]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Txn) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Txn) ProtoMessage() {}
-
-func (x *Txn) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[10]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Txn.ProtoReflect.Descriptor instead.
-func (*Txn) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *Txn) GetId() uint64 {
-	if x != nil {
-		return x.Id
-	}
-	return 0
-}
-
-func (x *Txn) GetActions() []*Action {
-	if x != nil {
-		return x.Actions
-	}
-	return nil
-}
-
-type TxnStatus struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Id        uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	State     TxnState               `protobuf:"varint,2,opt,name=state,proto3,enum=data.storage.TxnState" json:"state,omitempty"`
-	StartTime *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
-	EndTime   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
-}
-
-func (x *TxnStatus) Reset() {
-	*x = TxnStatus{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[11]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *TxnStatus) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TxnStatus) ProtoMessage() {}
-
-func (x *TxnStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[11]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TxnStatus.ProtoReflect.Descriptor instead.
-func (*TxnStatus) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{11}
-}
-
-func (x *TxnStatus) GetId() uint64 {
-	if x != nil {
-		return x.Id
-	}
-	return 0
-}
-
-func (x *TxnStatus) GetState() TxnState {
-	if x != nil {
-		return x.State
-	}
-	return TxnState_Pending
-}
-
-func (x *TxnStatus) GetStartTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.StartTime
-	}
-	return nil
-}
-
-func (x *TxnStatus) GetEndTime() *timestamppb.Timestamp {
-	if x != nil {
-		return x.EndTime
 	}
 	return nil
 }
@@ -1000,14 +235,14 @@ type TxnPrepared struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Txn   *Txn    `protobuf:"bytes,1,opt,name=txn,proto3" json:"txn,omitempty"`
-	Locks []*Lock `protobuf:"bytes,2,rep,name=locks,proto3" json:"locks,omitempty"`
+	Txn   *data.Txn `protobuf:"bytes,1,opt,name=txn,proto3" json:"txn,omitempty"`
+	Locks []*Lock   `protobuf:"bytes,2,rep,name=locks,proto3" json:"locks,omitempty"`
 }
 
 func (x *TxnPrepared) Reset() {
 	*x = TxnPrepared{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[12]
+		mi := &file_internal_data_server_storage_storage_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1020,7 +255,7 @@ func (x *TxnPrepared) String() string {
 func (*TxnPrepared) ProtoMessage() {}
 
 func (x *TxnPrepared) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[12]
+	mi := &file_internal_data_server_storage_storage_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1033,10 +268,10 @@ func (x *TxnPrepared) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TxnPrepared.ProtoReflect.Descriptor instead.
 func (*TxnPrepared) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{12}
+	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *TxnPrepared) GetTxn() *Txn {
+func (x *TxnPrepared) GetTxn() *data.Txn {
 	if x != nil {
 		return x.Txn
 	}
@@ -1050,156 +285,23 @@ func (x *TxnPrepared) GetLocks() []*Lock {
 	return nil
 }
 
-type KeyLock struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Keyspace  uint64 `protobuf:"varint,1,opt,name=keyspace,proto3" json:"keyspace,omitempty"`
-	Key       []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Exclusive bool   `protobuf:"varint,3,opt,name=exclusive,proto3" json:"exclusive,omitempty"`
-}
-
-func (x *KeyLock) Reset() {
-	*x = KeyLock{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[13]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *KeyLock) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*KeyLock) ProtoMessage() {}
-
-func (x *KeyLock) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[13]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use KeyLock.ProtoReflect.Descriptor instead.
-func (*KeyLock) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{13}
-}
-
-func (x *KeyLock) GetKeyspace() uint64 {
-	if x != nil {
-		return x.Keyspace
-	}
-	return 0
-}
-
-func (x *KeyLock) GetKey() []byte {
-	if x != nil {
-		return x.Key
-	}
-	return nil
-}
-
-func (x *KeyLock) GetExclusive() bool {
-	if x != nil {
-		return x.Exclusive
-	}
-	return false
-}
-
-type RangeLock struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Keyspace  uint64 `protobuf:"varint,1,opt,name=keyspace,proto3" json:"keyspace,omitempty"`
-	StartKey  []byte `protobuf:"bytes,2,opt,name=start_key,json=startKey,proto3" json:"start_key,omitempty"` // inclusive
-	EndKey    []byte `protobuf:"bytes,3,opt,name=end_key,json=endKey,proto3" json:"end_key,omitempty"`       // exclusive
-	Exclusive bool   `protobuf:"varint,4,opt,name=exclusive,proto3" json:"exclusive,omitempty"`
-}
-
-func (x *RangeLock) Reset() {
-	*x = RangeLock{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[14]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RangeLock) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RangeLock) ProtoMessage() {}
-
-func (x *RangeLock) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[14]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RangeLock.ProtoReflect.Descriptor instead.
-func (*RangeLock) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{14}
-}
-
-func (x *RangeLock) GetKeyspace() uint64 {
-	if x != nil {
-		return x.Keyspace
-	}
-	return 0
-}
-
-func (x *RangeLock) GetStartKey() []byte {
-	if x != nil {
-		return x.StartKey
-	}
-	return nil
-}
-
-func (x *RangeLock) GetEndKey() []byte {
-	if x != nil {
-		return x.EndKey
-	}
-	return nil
-}
-
-func (x *RangeLock) GetExclusive() bool {
-	if x != nil {
-		return x.Exclusive
-	}
-	return false
-}
-
 type Lock struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	ActionIndex uint32 `protobuf:"varint,1,opt,name=action_index,json=actionIndex,proto3" json:"action_index,omitempty"`
 	// Types that are assignable to Payload:
 	//
-	//	*Lock_Key
-	//	*Lock_Range
+	//	*Lock_KeyLock
+	//	*Lock_RangeLock
 	Payload isLock_Payload `protobuf_oneof:"payload"`
 }
 
 func (x *Lock) Reset() {
 	*x = Lock{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_internal_data_server_storage_storage_proto_msgTypes[15]
+		mi := &file_internal_data_server_storage_storage_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1212,7 +314,7 @@ func (x *Lock) String() string {
 func (*Lock) ProtoMessage() {}
 
 func (x *Lock) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_data_server_storage_storage_proto_msgTypes[15]
+	mi := &file_internal_data_server_storage_storage_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1225,7 +327,14 @@ func (x *Lock) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Lock.ProtoReflect.Descriptor instead.
 func (*Lock) Descriptor() ([]byte, []int) {
-	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{15}
+	return file_internal_data_server_storage_storage_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *Lock) GetActionIndex() uint32 {
+	if x != nil {
+		return x.ActionIndex
+	}
+	return 0
 }
 
 func (m *Lock) GetPayload() isLock_Payload {
@@ -1235,16 +344,16 @@ func (m *Lock) GetPayload() isLock_Payload {
 	return nil
 }
 
-func (x *Lock) GetKey() *KeyLock {
-	if x, ok := x.GetPayload().(*Lock_Key); ok {
-		return x.Key
+func (x *Lock) GetKeyLock() *data.KeyLock {
+	if x, ok := x.GetPayload().(*Lock_KeyLock); ok {
+		return x.KeyLock
 	}
 	return nil
 }
 
-func (x *Lock) GetRange() *RangeLock {
-	if x, ok := x.GetPayload().(*Lock_Range); ok {
-		return x.Range
+func (x *Lock) GetRangeLock() *data.RangeLock {
+	if x, ok := x.GetPayload().(*Lock_RangeLock); ok {
+		return x.RangeLock
 	}
 	return nil
 }
@@ -1253,17 +362,17 @@ type isLock_Payload interface {
 	isLock_Payload()
 }
 
-type Lock_Key struct {
-	Key *KeyLock `protobuf:"bytes,1,opt,name=key,proto3,oneof"`
+type Lock_KeyLock struct {
+	KeyLock *data.KeyLock `protobuf:"bytes,2,opt,name=key_lock,json=keyLock,proto3,oneof"`
 }
 
-type Lock_Range struct {
-	Range *RangeLock `protobuf:"bytes,2,opt,name=range,proto3,oneof"`
+type Lock_RangeLock struct {
+	RangeLock *data.RangeLock `protobuf:"bytes,3,opt,name=range_lock,json=rangeLock,proto3,oneof"`
 }
 
-func (*Lock_Key) isLock_Payload() {}
+func (*Lock_KeyLock) isLock_Payload() {}
 
-func (*Lock_Range) isLock_Payload() {}
+func (*Lock_RangeLock) isLock_Payload() {}
 
 var File_internal_data_server_storage_storage_proto protoreflect.FileDescriptor
 
@@ -1271,159 +380,59 @@ var file_internal_data_server_storage_storage_proto_rawDesc = []byte{
 	0x0a, 0x2a, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x2f,
 	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2f, 0x73,
 	0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x0c, 0x64, 0x61,
-	0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x1a, 0x1f, 0x67, 0x6f, 0x6f, 0x67,
-	0x6c, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x74, 0x69, 0x6d, 0x65,
-	0x73, 0x74, 0x61, 0x6d, 0x70, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x4b, 0x0a, 0x07, 0x43,
-	0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x35, 0x0a, 0x09, 0x74, 0x78, 0x6e, 0x5f, 0x62, 0x61,
-	0x74, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x16, 0x2e, 0x64, 0x61, 0x74, 0x61,
-	0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x54, 0x78, 0x6e, 0x42, 0x61, 0x74, 0x63,
-	0x68, 0x48, 0x00, 0x52, 0x08, 0x74, 0x78, 0x6e, 0x42, 0x61, 0x74, 0x63, 0x68, 0x42, 0x09, 0x0a,
-	0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0xce, 0x01, 0x0a, 0x08, 0x54, 0x78, 0x6e,
-	0x42, 0x61, 0x74, 0x63, 0x68, 0x12, 0x31, 0x0a, 0x0a, 0x61, 0x75, 0x74, 0x6f, 0x63, 0x6f, 0x6d,
-	0x6d, 0x69, 0x74, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x64, 0x61, 0x74, 0x61,
-	0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x54, 0x78, 0x6e, 0x52, 0x0a, 0x61, 0x75,
-	0x74, 0x6f, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x12, 0x3d, 0x0a, 0x11, 0x74, 0x77, 0x6f, 0x5f,
-	0x70, 0x68, 0x61, 0x73, 0x65, 0x5f, 0x70, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x18, 0x02, 0x20,
-	0x03, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
-	0x67, 0x65, 0x2e, 0x54, 0x78, 0x6e, 0x52, 0x0f, 0x74, 0x77, 0x6f, 0x50, 0x68, 0x61, 0x73, 0x65,
-	0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x12, 0x28, 0x0a, 0x10, 0x74, 0x77, 0x6f, 0x5f, 0x70,
-	0x68, 0x61, 0x73, 0x65, 0x5f, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x18, 0x03, 0x20, 0x03, 0x28,
-	0x04, 0x52, 0x0e, 0x74, 0x77, 0x6f, 0x50, 0x68, 0x61, 0x73, 0x65, 0x43, 0x6f, 0x6d, 0x6d, 0x69,
-	0x74, 0x12, 0x26, 0x0a, 0x0f, 0x74, 0x77, 0x6f, 0x5f, 0x70, 0x68, 0x61, 0x73, 0x65, 0x5f, 0x61,
-	0x62, 0x6f, 0x72, 0x74, 0x18, 0x04, 0x20, 0x03, 0x28, 0x04, 0x52, 0x0d, 0x74, 0x77, 0x6f, 0x50,
-	0x68, 0x61, 0x73, 0x65, 0x41, 0x62, 0x6f, 0x72, 0x74, 0x22, 0xe4, 0x02, 0x0a, 0x08, 0x53, 0x6e,
+	0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x1a, 0x1a, 0x69, 0x6e, 0x74, 0x65,
+	0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x61, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e,
+	0x64, 0x12, 0x4b, 0x0a, 0x11, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x5f, 0x74, 0x78, 0x6e,
+	0x5f, 0x62, 0x61, 0x74, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x64,
+	0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x45, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x65, 0x54, 0x78, 0x6e, 0x42, 0x61, 0x74, 0x63, 0x68, 0x48, 0x00, 0x52, 0x0f, 0x65,
+	0x78, 0x65, 0x63, 0x75, 0x74, 0x65, 0x54, 0x78, 0x6e, 0x42, 0x61, 0x74, 0x63, 0x68, 0x42, 0x09,
+	0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0xfd, 0x01, 0x0a, 0x0f, 0x45, 0x78,
+	0x65, 0x63, 0x75, 0x74, 0x65, 0x54, 0x78, 0x6e, 0x42, 0x61, 0x74, 0x63, 0x68, 0x12, 0x1c, 0x0a,
+	0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04,
+	0x52, 0x09, 0x74, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x12, 0x29, 0x0a, 0x0a, 0x61,
+	0x75, 0x74, 0x6f, 0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x09, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x54, 0x78, 0x6e, 0x52, 0x0a, 0x61, 0x75, 0x74, 0x6f,
+	0x63, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x12, 0x35, 0x0a, 0x11, 0x74, 0x77, 0x6f, 0x5f, 0x70, 0x68,
+	0x61, 0x73, 0x65, 0x5f, 0x70, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x18, 0x03, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x09, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x54, 0x78, 0x6e, 0x52, 0x0f, 0x74, 0x77,
+	0x6f, 0x50, 0x68, 0x61, 0x73, 0x65, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x12, 0x35, 0x0a,
+	0x10, 0x74, 0x77, 0x6f, 0x5f, 0x70, 0x68, 0x61, 0x73, 0x65, 0x5f, 0x63, 0x6f, 0x6d, 0x6d, 0x69,
+	0x74, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0b, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x54,
+	0x78, 0x6e, 0x49, 0x64, 0x52, 0x0e, 0x74, 0x77, 0x6f, 0x50, 0x68, 0x61, 0x73, 0x65, 0x43, 0x6f,
+	0x6d, 0x6d, 0x69, 0x74, 0x12, 0x33, 0x0a, 0x0f, 0x74, 0x77, 0x6f, 0x5f, 0x70, 0x68, 0x61, 0x73,
+	0x65, 0x5f, 0x61, 0x62, 0x6f, 0x72, 0x74, 0x18, 0x05, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0b, 0x2e,
+	0x64, 0x61, 0x74, 0x61, 0x2e, 0x54, 0x78, 0x6e, 0x49, 0x64, 0x52, 0x0d, 0x74, 0x77, 0x6f, 0x50,
+	0x68, 0x61, 0x73, 0x65, 0x41, 0x62, 0x6f, 0x72, 0x74, 0x22, 0x8e, 0x01, 0x0a, 0x08, 0x53, 0x6e,
 	0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x44, 0x0a, 0x0a,
+	0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x05, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x2e, 0x0a, 0x0a,
 	0x74, 0x78, 0x6e, 0x5f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b,
-	0x32, 0x25, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e,
-	0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74, 0x2e, 0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74,
-	0x75, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x09, 0x74, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74,
-	0x75, 0x73, 0x12, 0x4a, 0x0a, 0x0c, 0x74, 0x78, 0x6e, 0x5f, 0x70, 0x72, 0x65, 0x70, 0x61, 0x72,
-	0x65, 0x64, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x27, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e,
-	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x53, 0x6e, 0x61, 0x70, 0x73, 0x68, 0x6f, 0x74,
-	0x2e, 0x54, 0x78, 0x6e, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x45, 0x6e, 0x74, 0x72,
-	0x79, 0x52, 0x0b, 0x74, 0x78, 0x6e, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x1a, 0x55,
-	0x0a, 0x0e, 0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79,
-	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x03, 0x6b,
-	0x65, 0x79, 0x12, 0x2d, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x0b, 0x32, 0x17, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65,
-	0x2e, 0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x3a, 0x02, 0x38, 0x01, 0x1a, 0x59, 0x0a, 0x10, 0x54, 0x78, 0x6e, 0x50, 0x72, 0x65, 0x70,
-	0x61, 0x72, 0x65, 0x64, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2f, 0x0a, 0x05, 0x76,
-	0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x19, 0x2e, 0x64, 0x61, 0x74,
-	0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x54, 0x78, 0x6e, 0x50, 0x72, 0x65,
-	0x70, 0x61, 0x72, 0x65, 0x64, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01,
-	0x22, 0x4c, 0x0a, 0x06, 0x49, 0x6e, 0x73, 0x65, 0x72, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x6b, 0x65,
-	0x79, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6b, 0x65,
-	0x79, 0x73, 0x70, 0x61, 0x63, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75,
-	0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x4c,
-	0x0a, 0x06, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x6b, 0x65, 0x79, 0x73,
-	0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6b, 0x65, 0x79, 0x73,
-	0x70, 0x61, 0x63, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18,
-	0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x4c, 0x0a, 0x06,
-	0x55, 0x70, 0x73, 0x65, 0x72, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x70, 0x61,
-	0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x70, 0x61,
-	0x63, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52,
-	0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x36, 0x0a, 0x06, 0x44, 0x65,
-	0x6c, 0x65, 0x74, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x70, 0x61, 0x63, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x70, 0x61, 0x63, 0x65,
-	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b,
-	0x65, 0x79, 0x22, 0x9b, 0x01, 0x0a, 0x07, 0x4c, 0x6f, 0x63, 0x6b, 0x4b, 0x65, 0x79, 0x12, 0x29,
-	0x0a, 0x04, 0x6c, 0x6f, 0x63, 0x6b, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x64,
-	0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x4b, 0x65, 0x79, 0x4c,
-	0x6f, 0x63, 0x6b, 0x52, 0x04, 0x6c, 0x6f, 0x63, 0x6b, 0x12, 0x31, 0x0a, 0x05, 0x63, 0x68, 0x65,
-	0x63, 0x6b, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1b, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e,
-	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x4c, 0x6f, 0x63, 0x6b, 0x4b, 0x65, 0x79, 0x2e,
-	0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x05, 0x63, 0x68, 0x65, 0x63, 0x6b, 0x22, 0x32, 0x0a, 0x05,
-	0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x08, 0x0a, 0x04, 0x4e, 0x6f, 0x6e, 0x65, 0x10, 0x00, 0x12,
-	0x0d, 0x0a, 0x09, 0x4d, 0x75, 0x73, 0x74, 0x45, 0x78, 0x69, 0x73, 0x74, 0x10, 0x01, 0x12, 0x10,
-	0x0a, 0x0c, 0x4d, 0x75, 0x73, 0x74, 0x4e, 0x6f, 0x74, 0x45, 0x78, 0x69, 0x73, 0x74, 0x10, 0x02,
-	0x22, 0xa5, 0x01, 0x0a, 0x09, 0x4c, 0x6f, 0x63, 0x6b, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x2b,
-	0x0a, 0x04, 0x6c, 0x6f, 0x63, 0x6b, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x64,
-	0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x61, 0x6e, 0x67,
-	0x65, 0x4c, 0x6f, 0x63, 0x6b, 0x52, 0x04, 0x6c, 0x6f, 0x63, 0x6b, 0x12, 0x33, 0x0a, 0x05, 0x63,
-	0x68, 0x65, 0x63, 0x6b, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1d, 0x2e, 0x64, 0x61, 0x74,
-	0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x4c, 0x6f, 0x63, 0x6b, 0x52, 0x61,
-	0x6e, 0x67, 0x65, 0x2e, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x52, 0x05, 0x63, 0x68, 0x65, 0x63, 0x6b,
-	0x22, 0x36, 0x0a, 0x05, 0x43, 0x68, 0x65, 0x63, 0x6b, 0x12, 0x08, 0x0a, 0x04, 0x4e, 0x6f, 0x6e,
-	0x65, 0x10, 0x00, 0x12, 0x0f, 0x0a, 0x0b, 0x4d, 0x75, 0x73, 0x74, 0x42, 0x65, 0x45, 0x6d, 0x70,
-	0x74, 0x79, 0x10, 0x01, 0x12, 0x12, 0x0a, 0x0e, 0x4d, 0x75, 0x73, 0x74, 0x4e, 0x6f, 0x74, 0x42,
-	0x65, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x10, 0x02, 0x22, 0xc1, 0x02, 0x0a, 0x06, 0x41, 0x63, 0x74,
-	0x69, 0x6f, 0x6e, 0x12, 0x2e, 0x0a, 0x06, 0x69, 0x6e, 0x73, 0x65, 0x72, 0x74, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
-	0x67, 0x65, 0x2e, 0x49, 0x6e, 0x73, 0x65, 0x72, 0x74, 0x48, 0x00, 0x52, 0x06, 0x69, 0x6e, 0x73,
-	0x65, 0x72, 0x74, 0x12, 0x2e, 0x0a, 0x06, 0x75, 0x70, 0x64, 0x61, 0x74, 0x65, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
-	0x67, 0x65, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x48, 0x00, 0x52, 0x06, 0x75, 0x70, 0x64,
-	0x61, 0x74, 0x65, 0x12, 0x2e, 0x0a, 0x06, 0x75, 0x70, 0x73, 0x65, 0x72, 0x74, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
-	0x67, 0x65, 0x2e, 0x55, 0x70, 0x73, 0x65, 0x72, 0x74, 0x48, 0x00, 0x52, 0x06, 0x75, 0x70, 0x73,
-	0x65, 0x72, 0x74, 0x12, 0x2e, 0x0a, 0x06, 0x64, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x18, 0x04, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
-	0x67, 0x65, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x48, 0x00, 0x52, 0x06, 0x64, 0x65, 0x6c,
-	0x65, 0x74, 0x65, 0x12, 0x32, 0x0a, 0x08, 0x6c, 0x6f, 0x63, 0x6b, 0x5f, 0x6b, 0x65, 0x79, 0x18,
-	0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f,
-	0x72, 0x61, 0x67, 0x65, 0x2e, 0x4c, 0x6f, 0x63, 0x6b, 0x4b, 0x65, 0x79, 0x48, 0x00, 0x52, 0x07,
-	0x6c, 0x6f, 0x63, 0x6b, 0x4b, 0x65, 0x79, 0x12, 0x38, 0x0a, 0x0a, 0x6c, 0x6f, 0x63, 0x6b, 0x5f,
-	0x72, 0x61, 0x6e, 0x67, 0x65, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x64, 0x61,
-	0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x4c, 0x6f, 0x63, 0x6b, 0x52,
-	0x61, 0x6e, 0x67, 0x65, 0x48, 0x00, 0x52, 0x09, 0x6c, 0x6f, 0x63, 0x6b, 0x52, 0x61, 0x6e, 0x67,
-	0x65, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64, 0x22, 0x45, 0x0a, 0x03,
-	0x54, 0x78, 0x6e, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52,
-	0x02, 0x69, 0x64, 0x12, 0x2e, 0x0a, 0x07, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x02,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72,
-	0x61, 0x67, 0x65, 0x2e, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x07, 0x61, 0x63, 0x74, 0x69,
-	0x6f, 0x6e, 0x73, 0x22, 0xbb, 0x01, 0x0a, 0x09, 0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75,
-	0x73, 0x12, 0x0e, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x02, 0x69,
-	0x64, 0x12, 0x2c, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0e,
-	0x32, 0x16, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e,
-	0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x12,
-	0x39, 0x0a, 0x0a, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x03, 0x20,
-	0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54, 0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52,
-	0x09, 0x73, 0x74, 0x61, 0x72, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x12, 0x35, 0x0a, 0x08, 0x65, 0x6e,
-	0x64, 0x5f, 0x74, 0x69, 0x6d, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1a, 0x2e, 0x67,
-	0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x54,
-	0x69, 0x6d, 0x65, 0x73, 0x74, 0x61, 0x6d, 0x70, 0x52, 0x07, 0x65, 0x6e, 0x64, 0x54, 0x69, 0x6d,
-	0x65, 0x22, 0x5c, 0x0a, 0x0b, 0x54, 0x78, 0x6e, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64,
-	0x12, 0x23, 0x0a, 0x03, 0x74, 0x78, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e,
-	0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x54, 0x78, 0x6e,
-	0x52, 0x03, 0x74, 0x78, 0x6e, 0x12, 0x28, 0x0a, 0x05, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x18, 0x02,
-	0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72,
-	0x61, 0x67, 0x65, 0x2e, 0x4c, 0x6f, 0x63, 0x6b, 0x52, 0x05, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x22,
-	0x55, 0x0a, 0x07, 0x4b, 0x65, 0x79, 0x4c, 0x6f, 0x63, 0x6b, 0x12, 0x1a, 0x0a, 0x08, 0x6b, 0x65,
-	0x79, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6b, 0x65,
-	0x79, 0x73, 0x70, 0x61, 0x63, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x02, 0x20,
-	0x01, 0x28, 0x0c, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x1c, 0x0a, 0x09, 0x65, 0x78, 0x63, 0x6c,
-	0x75, 0x73, 0x69, 0x76, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x65, 0x78, 0x63,
-	0x6c, 0x75, 0x73, 0x69, 0x76, 0x65, 0x22, 0x7b, 0x0a, 0x09, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x4c,
-	0x6f, 0x63, 0x6b, 0x12, 0x1a, 0x0a, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x08, 0x6b, 0x65, 0x79, 0x73, 0x70, 0x61, 0x63, 0x65, 0x12,
-	0x1b, 0x0a, 0x09, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x6b, 0x65, 0x79, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x0c, 0x52, 0x08, 0x73, 0x74, 0x61, 0x72, 0x74, 0x4b, 0x65, 0x79, 0x12, 0x17, 0x0a, 0x07,
-	0x65, 0x6e, 0x64, 0x5f, 0x6b, 0x65, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x06, 0x65,
-	0x6e, 0x64, 0x4b, 0x65, 0x79, 0x12, 0x1c, 0x0a, 0x09, 0x65, 0x78, 0x63, 0x6c, 0x75, 0x73, 0x69,
-	0x76, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x65, 0x78, 0x63, 0x6c, 0x75, 0x73,
-	0x69, 0x76, 0x65, 0x22, 0x6d, 0x0a, 0x04, 0x4c, 0x6f, 0x63, 0x6b, 0x12, 0x29, 0x0a, 0x03, 0x6b,
-	0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e,
-	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x4b, 0x65, 0x79, 0x4c, 0x6f, 0x63, 0x6b, 0x48,
-	0x00, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x2f, 0x0a, 0x05, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x17, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f,
-	0x72, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x4c, 0x6f, 0x63, 0x6b, 0x48, 0x00,
-	0x52, 0x05, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f,
-	0x61, 0x64, 0x2a, 0x5b, 0x0a, 0x08, 0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0b,
-	0x0a, 0x07, 0x50, 0x65, 0x6e, 0x64, 0x69, 0x6e, 0x67, 0x10, 0x00, 0x12, 0x0c, 0x0a, 0x08, 0x50,
-	0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x10, 0x01, 0x12, 0x0d, 0x0a, 0x09, 0x43, 0x6f, 0x6d,
-	0x6d, 0x69, 0x74, 0x74, 0x65, 0x64, 0x10, 0x02, 0x12, 0x0b, 0x0a, 0x07, 0x41, 0x62, 0x6f, 0x72,
-	0x74, 0x65, 0x64, 0x10, 0x03, 0x12, 0x0a, 0x0a, 0x06, 0x46, 0x61, 0x69, 0x6c, 0x65, 0x64, 0x10,
-	0x04, 0x12, 0x0c, 0x0a, 0x08, 0x54, 0x69, 0x6d, 0x65, 0x64, 0x6f, 0x75, 0x74, 0x10, 0x05, 0x42,
-	0x1e, 0x5a, 0x1c, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x64, 0x61, 0x74, 0x61,
-	0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x32, 0x0f, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x54, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75,
+	0x73, 0x52, 0x09, 0x74, 0x78, 0x6e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x3c, 0x0a, 0x0c,
+	0x74, 0x78, 0x6e, 0x5f, 0x70, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x18, 0x03, 0x20, 0x03,
+	0x28, 0x0b, 0x32, 0x19, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67,
+	0x65, 0x2e, 0x54, 0x78, 0x6e, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x52, 0x0b, 0x74,
+	0x78, 0x6e, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x22, 0x54, 0x0a, 0x0b, 0x54, 0x78,
+	0x6e, 0x50, 0x72, 0x65, 0x70, 0x61, 0x72, 0x65, 0x64, 0x12, 0x1b, 0x0a, 0x03, 0x74, 0x78, 0x6e,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x09, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x54, 0x78,
+	0x6e, 0x52, 0x03, 0x74, 0x78, 0x6e, 0x12, 0x28, 0x0a, 0x05, 0x6c, 0x6f, 0x63, 0x6b, 0x73, 0x18,
+	0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x73, 0x74, 0x6f,
+	0x72, 0x61, 0x67, 0x65, 0x2e, 0x4c, 0x6f, 0x63, 0x6b, 0x52, 0x05, 0x6c, 0x6f, 0x63, 0x6b, 0x73,
+	0x22, 0x92, 0x01, 0x0a, 0x04, 0x4c, 0x6f, 0x63, 0x6b, 0x12, 0x21, 0x0a, 0x0c, 0x61, 0x63, 0x74,
+	0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x6e, 0x64, 0x65, 0x78, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52,
+	0x0b, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x6e, 0x64, 0x65, 0x78, 0x12, 0x2a, 0x0a, 0x08,
+	0x6b, 0x65, 0x79, 0x5f, 0x6c, 0x6f, 0x63, 0x6b, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0d,
+	0x2e, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x4b, 0x65, 0x79, 0x4c, 0x6f, 0x63, 0x6b, 0x48, 0x00, 0x52,
+	0x07, 0x6b, 0x65, 0x79, 0x4c, 0x6f, 0x63, 0x6b, 0x12, 0x30, 0x0a, 0x0a, 0x72, 0x61, 0x6e, 0x67,
+	0x65, 0x5f, 0x6c, 0x6f, 0x63, 0x6b, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0f, 0x2e, 0x64,
+	0x61, 0x74, 0x61, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x4c, 0x6f, 0x63, 0x6b, 0x48, 0x00, 0x52,
+	0x09, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x4c, 0x6f, 0x63, 0x6b, 0x42, 0x09, 0x0a, 0x07, 0x70, 0x61,
+	0x79, 0x6c, 0x6f, 0x61, 0x64, 0x42, 0x36, 0x5a, 0x34, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
+	0x63, 0x6f, 0x6d, 0x2f, 0x62, 0x63, 0x72, 0x75, 0x73, 0x75, 0x2f, 0x67, 0x72, 0x61, 0x70, 0x68,
+	0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x2f, 0x64, 0x61, 0x74, 0x61, 0x2f, 0x73,
+	0x65, 0x72, 0x76, 0x65, 0x72, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1438,63 +447,36 @@ func file_internal_data_server_storage_storage_proto_rawDescGZIP() []byte {
 	return file_internal_data_server_storage_storage_proto_rawDescData
 }
 
-var file_internal_data_server_storage_storage_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_internal_data_server_storage_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_internal_data_server_storage_storage_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_internal_data_server_storage_storage_proto_goTypes = []any{
-	(TxnState)(0),                 // 0: data.storage.TxnState
-	(LockKey_Check)(0),            // 1: data.storage.LockKey.Check
-	(LockRange_Check)(0),          // 2: data.storage.LockRange.Check
-	(*Command)(nil),               // 3: data.storage.Command
-	(*TxnBatch)(nil),              // 4: data.storage.TxnBatch
-	(*Snapshot)(nil),              // 5: data.storage.Snapshot
-	(*Insert)(nil),                // 6: data.storage.Insert
-	(*Update)(nil),                // 7: data.storage.Update
-	(*Upsert)(nil),                // 8: data.storage.Upsert
-	(*Delete)(nil),                // 9: data.storage.Delete
-	(*LockKey)(nil),               // 10: data.storage.LockKey
-	(*LockRange)(nil),             // 11: data.storage.LockRange
-	(*Action)(nil),                // 12: data.storage.Action
-	(*Txn)(nil),                   // 13: data.storage.Txn
-	(*TxnStatus)(nil),             // 14: data.storage.TxnStatus
-	(*TxnPrepared)(nil),           // 15: data.storage.TxnPrepared
-	(*KeyLock)(nil),               // 16: data.storage.KeyLock
-	(*RangeLock)(nil),             // 17: data.storage.RangeLock
-	(*Lock)(nil),                  // 18: data.storage.Lock
-	nil,                           // 19: data.storage.Snapshot.TxnStatusEntry
-	nil,                           // 20: data.storage.Snapshot.TxnPreparedEntry
-	(*timestamppb.Timestamp)(nil), // 21: google.protobuf.Timestamp
+	(*Command)(nil),         // 0: data.storage.Command
+	(*ExecuteTxnBatch)(nil), // 1: data.storage.ExecuteTxnBatch
+	(*Snapshot)(nil),        // 2: data.storage.Snapshot
+	(*TxnPrepared)(nil),     // 3: data.storage.TxnPrepared
+	(*Lock)(nil),            // 4: data.storage.Lock
+	(*data.Txn)(nil),        // 5: data.Txn
+	(*data.TxnId)(nil),      // 6: data.TxnId
+	(*data.TxnStatus)(nil),  // 7: data.TxnStatus
+	(*data.KeyLock)(nil),    // 8: data.KeyLock
+	(*data.RangeLock)(nil),  // 9: data.RangeLock
 }
 var file_internal_data_server_storage_storage_proto_depIdxs = []int32{
-	4,  // 0: data.storage.Command.txn_batch:type_name -> data.storage.TxnBatch
-	13, // 1: data.storage.TxnBatch.autocommit:type_name -> data.storage.Txn
-	13, // 2: data.storage.TxnBatch.two_phase_prepare:type_name -> data.storage.Txn
-	19, // 3: data.storage.Snapshot.txn_status:type_name -> data.storage.Snapshot.TxnStatusEntry
-	20, // 4: data.storage.Snapshot.txn_prepared:type_name -> data.storage.Snapshot.TxnPreparedEntry
-	16, // 5: data.storage.LockKey.lock:type_name -> data.storage.KeyLock
-	1,  // 6: data.storage.LockKey.check:type_name -> data.storage.LockKey.Check
-	17, // 7: data.storage.LockRange.lock:type_name -> data.storage.RangeLock
-	2,  // 8: data.storage.LockRange.check:type_name -> data.storage.LockRange.Check
-	6,  // 9: data.storage.Action.insert:type_name -> data.storage.Insert
-	7,  // 10: data.storage.Action.update:type_name -> data.storage.Update
-	8,  // 11: data.storage.Action.upsert:type_name -> data.storage.Upsert
-	9,  // 12: data.storage.Action.delete:type_name -> data.storage.Delete
-	10, // 13: data.storage.Action.lock_key:type_name -> data.storage.LockKey
-	11, // 14: data.storage.Action.lock_range:type_name -> data.storage.LockRange
-	12, // 15: data.storage.Txn.actions:type_name -> data.storage.Action
-	0,  // 16: data.storage.TxnStatus.state:type_name -> data.storage.TxnState
-	21, // 17: data.storage.TxnStatus.start_time:type_name -> google.protobuf.Timestamp
-	21, // 18: data.storage.TxnStatus.end_time:type_name -> google.protobuf.Timestamp
-	13, // 19: data.storage.TxnPrepared.txn:type_name -> data.storage.Txn
-	18, // 20: data.storage.TxnPrepared.locks:type_name -> data.storage.Lock
-	16, // 21: data.storage.Lock.key:type_name -> data.storage.KeyLock
-	17, // 22: data.storage.Lock.range:type_name -> data.storage.RangeLock
-	14, // 23: data.storage.Snapshot.TxnStatusEntry.value:type_name -> data.storage.TxnStatus
-	15, // 24: data.storage.Snapshot.TxnPreparedEntry.value:type_name -> data.storage.TxnPrepared
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	1,  // 0: data.storage.Command.execute_txn_batch:type_name -> data.storage.ExecuteTxnBatch
+	5,  // 1: data.storage.ExecuteTxnBatch.autocommit:type_name -> data.Txn
+	5,  // 2: data.storage.ExecuteTxnBatch.two_phase_prepare:type_name -> data.Txn
+	6,  // 3: data.storage.ExecuteTxnBatch.two_phase_commit:type_name -> data.TxnId
+	6,  // 4: data.storage.ExecuteTxnBatch.two_phase_abort:type_name -> data.TxnId
+	7,  // 5: data.storage.Snapshot.txn_status:type_name -> data.TxnStatus
+	3,  // 6: data.storage.Snapshot.txn_prepared:type_name -> data.storage.TxnPrepared
+	5,  // 7: data.storage.TxnPrepared.txn:type_name -> data.Txn
+	4,  // 8: data.storage.TxnPrepared.locks:type_name -> data.storage.Lock
+	8,  // 9: data.storage.Lock.key_lock:type_name -> data.KeyLock
+	9,  // 10: data.storage.Lock.range_lock:type_name -> data.RangeLock
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_internal_data_server_storage_storage_proto_init() }
@@ -1516,7 +498,7 @@ func file_internal_data_server_storage_storage_proto_init() {
 			}
 		}
 		file_internal_data_server_storage_storage_proto_msgTypes[1].Exporter = func(v any, i int) any {
-			switch v := v.(*TxnBatch); i {
+			switch v := v.(*ExecuteTxnBatch); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1540,114 +522,6 @@ func file_internal_data_server_storage_storage_proto_init() {
 			}
 		}
 		file_internal_data_server_storage_storage_proto_msgTypes[3].Exporter = func(v any, i int) any {
-			switch v := v.(*Insert); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[4].Exporter = func(v any, i int) any {
-			switch v := v.(*Update); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[5].Exporter = func(v any, i int) any {
-			switch v := v.(*Upsert); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[6].Exporter = func(v any, i int) any {
-			switch v := v.(*Delete); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[7].Exporter = func(v any, i int) any {
-			switch v := v.(*LockKey); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[8].Exporter = func(v any, i int) any {
-			switch v := v.(*LockRange); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[9].Exporter = func(v any, i int) any {
-			switch v := v.(*Action); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[10].Exporter = func(v any, i int) any {
-			switch v := v.(*Txn); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[11].Exporter = func(v any, i int) any {
-			switch v := v.(*TxnStatus); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[12].Exporter = func(v any, i int) any {
 			switch v := v.(*TxnPrepared); i {
 			case 0:
 				return &v.state
@@ -1659,31 +533,7 @@ func file_internal_data_server_storage_storage_proto_init() {
 				return nil
 			}
 		}
-		file_internal_data_server_storage_storage_proto_msgTypes[13].Exporter = func(v any, i int) any {
-			switch v := v.(*KeyLock); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[14].Exporter = func(v any, i int) any {
-			switch v := v.(*RangeLock); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_internal_data_server_storage_storage_proto_msgTypes[15].Exporter = func(v any, i int) any {
+		file_internal_data_server_storage_storage_proto_msgTypes[4].Exporter = func(v any, i int) any {
 			switch v := v.(*Lock); i {
 			case 0:
 				return &v.state
@@ -1697,33 +547,24 @@ func file_internal_data_server_storage_storage_proto_init() {
 		}
 	}
 	file_internal_data_server_storage_storage_proto_msgTypes[0].OneofWrappers = []any{
-		(*Command_TxnBatch)(nil),
+		(*Command_ExecuteTxnBatch)(nil),
 	}
-	file_internal_data_server_storage_storage_proto_msgTypes[9].OneofWrappers = []any{
-		(*Action_Insert)(nil),
-		(*Action_Update)(nil),
-		(*Action_Upsert)(nil),
-		(*Action_Delete)(nil),
-		(*Action_LockKey)(nil),
-		(*Action_LockRange)(nil),
-	}
-	file_internal_data_server_storage_storage_proto_msgTypes[15].OneofWrappers = []any{
-		(*Lock_Key)(nil),
-		(*Lock_Range)(nil),
+	file_internal_data_server_storage_storage_proto_msgTypes[4].OneofWrappers = []any{
+		(*Lock_KeyLock)(nil),
+		(*Lock_RangeLock)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_internal_data_server_storage_storage_proto_rawDesc,
-			NumEnums:      3,
-			NumMessages:   18,
+			NumEnums:      0,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_internal_data_server_storage_storage_proto_goTypes,
 		DependencyIndexes: file_internal_data_server_storage_storage_proto_depIdxs,
-		EnumInfos:         file_internal_data_server_storage_storage_proto_enumTypes,
 		MessageInfos:      file_internal_data_server_storage_storage_proto_msgTypes,
 	}.Build()
 	File_internal_data_server_storage_storage_proto = out.File

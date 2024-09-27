@@ -41,25 +41,6 @@ func (n *Follower) Stop() {
 	n.log.NoContext().Debug("Stopped")
 }
 
-func (n *Follower) Set(ctx context.Context, req *data.SetRequest) (*data.SetResponse, error) {
-	return nil, errors.NotLeader
-}
-
-func (n *Follower) Get(ctx context.Context, req *data.GetRequest) (*data.GetResponse, error) {
-	if req == nil || len(req.Key) == 0 {
-		return nil, errors.InvalidRequest
-	}
-
-	value, ok := n.store.Get(req.Keyspace, req.Key)
-	if !ok {
-		return nil, errors.NotFound
-	}
-
-	return &data.GetResponse{
-		Value: value,
-	}, nil
-}
-
-func (n *Follower) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
+func (n *Follower) ExecuteTxnBatch(ctx context.Context, batch *data.TxnBatch) (*data.TxnBatchStatus, error) {
 	return nil, errors.NotLeader
 }

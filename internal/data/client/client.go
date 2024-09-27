@@ -62,29 +62,11 @@ func (c *dataClient) Stop() {
 	utils.LifecycleStop(logC.NoContext(), c.conn)
 }
 
-func (c *dataClient) Set(ctx context.Context, req *data.SetRequest, opts ...grpc.CallOption) (*data.SetResponse, error) {
+func (c *dataClient) ExecuteTxnBatch(ctx context.Context, batch *data.TxnBatch, opts ...grpc.CallOption) (*data.TxnBatchStatus, error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: req.PartitionId,
-		isWrite:     true,
+		partitionID: batch.PartitionId,
+		replicaRead: false,
 	})
 
-	return c.client.Set(ctx, req, opts...)
-}
-
-func (c *dataClient) Get(ctx context.Context, req *data.GetRequest, opts ...grpc.CallOption) (*data.GetResponse, error) {
-	ctx = withRouting(ctx, routing{
-		partitionID: req.PartitionId,
-		isWrite:     false,
-	})
-
-	return c.client.Get(ctx, req, opts...)
-}
-
-func (c *dataClient) Delete(ctx context.Context, req *data.DeleteRequest, opts ...grpc.CallOption) (*data.DeleteResponse, error) {
-	ctx = withRouting(ctx, routing{
-		partitionID: req.PartitionId,
-		isWrite:     true,
-	})
-
-	return c.client.Delete(ctx, req, opts...)
+	return c.client.ExecuteTxnBatch(ctx, batch, opts...)
 }

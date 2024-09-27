@@ -6,7 +6,7 @@ import (
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/partitions/common"
 	"github.com/bcrusu/graph/internal/data/server/storage"
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
 )
@@ -41,37 +41,22 @@ func (n *Leader) Stop() {
 	n.log.NoContext().Debug("Stopped leader")
 }
 
-func (n *Leader) Set(ctx context.Context, req *data.SetRequest) (*data.SetResponse, error) {
-	if req == nil || len(req.Key) == 0 {
-		return nil, errors.InvalidRequest
+// TODO: request validation
+func (n *Leader) ExecuteTxnBatch(ctx context.Context, batch *data.TxnBatch) (*data.TxnBatchStatus, error) {
+	cmd := &storage.ExecuteTxnBatch{
+		Timestamp:       hlc.Now(),
+		Autocommit:      batch.Autocommit,
+		TwoPhasePrepare: batch.TwoPhasePrepare,
+		TwoPhaseCommit:  batch.TwoPhaseCommit,
+		TwoPhaseAbort:   batch.TwoPhaseAbort,
 	}
 
-	//TODO
-
-	return &data.SetResponse{}, nil
-}
-
-func (n *Leader) Get(ctx context.Context, req *data.GetRequest) (*data.GetResponse, error) {
-	if req == nil || len(req.Key) == 0 {
-		return nil, errors.InvalidRequest
+	result, err := n.store.ExecuteTxnBatch(cmd)
+	if err != nil {
+		return nil, err
 	}
 
-	value, ok := n.store.Get(req.Keyspace, req.Key)
-	if !ok {
-		return nil, errors.NotFound
-	}
-
-	return &data.GetResponse{
-		Value: value,
+	return &data.TxnBatchStatus{
+		Status: result.Status,
 	}, nil
-}
-
-func (n *Leader) Delete(ctx context.Context, req *data.DeleteRequest) (*data.DeleteResponse, error) {
-	if req == nil || len(req.Key) == 0 {
-		return nil, errors.InvalidRequest
-	}
-
-	//TODO
-
-	return &data.DeleteResponse{}, nil
 }

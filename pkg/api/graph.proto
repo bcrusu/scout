@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package api;
 
-option go_package = "pkg/api";
+option go_package = "github.com/bcrusu/graph/pkg/api";
 
 import "pkg/api/common.proto";
 import "google/protobuf/timestamp.proto";
@@ -10,10 +10,10 @@ import "google/protobuf/timestamp.proto";
 // Graph represents the graph store operations.
 service Graph {
     rpc GetVertex(GetVertexRequest) returns (Vertex);
-    rpc SetVertex(Vertex) returns (Status);
+    rpc UpdateVertex(Vertex) returns (Status);
     rpc DeleteVertex(VertexId) returns (Status);
-    rpc GetEdge(EdgeId) returns (Edge);
-    rpc SetEdge(EdgeId) returns (Status);
+    rpc GetEdge(GetEdgeRequest) returns (Edge);
+    rpc UpdateEdge(Edge) returns (Status);
     rpc DeleteEdge(EdgeId) returns (Status);
 }
 
@@ -29,20 +29,23 @@ message EdgeId {
 }
 
 message Vertex {
-    uint64 timestamp = 1;
-    VertexId id = 2;
-    map<uint32, Value> properties = 3;
-    google.protobuf.Timestamp last_changed = 4;
+    VertexId id = 1;
+    map<uint32, Value> properties = 2;
+    google.protobuf.Timestamp time = 3;
 }
 
 message Edge {
-    uint64 timestamp = 1;
-    EdgeId id = 2;
-    map<uint32, Value> properties = 3;
-    google.protobuf.Timestamp last_changed = 4;
+    EdgeId id = 1;
+    map<uint32, Value> properties = 2;
+    google.protobuf.Timestamp time = 3;
 }
 
 message GetVertexRequest {
-    uint64 timestamp = 1;
-    VertexId id = 2; 
+    VertexId id = 1;
+    google.protobuf.Timestamp at_time = 2;
+}
+
+message GetEdgeRequest {
+    EdgeId id = 1;
+    google.protobuf.Timestamp at_time = 2;
 }

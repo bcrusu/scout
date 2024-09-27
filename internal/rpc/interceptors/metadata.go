@@ -2,7 +2,10 @@ package interceptors
 
 import (
 	"context"
+	"strconv"
 
+	"github.com/bcrusu/graph/internal/hlc"
+	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -49,7 +52,9 @@ func appendMetadata(ctx context.Context) context.Context {
 		ctx = tracing.WithTraceID(ctx, "")
 	}
 
-	var kv []string
+	kv := []string{
+		"graph-hlc", strconv.FormatUint(hlc.Now(), 10),
+	}
 
 	if value, ok := tracing.GetTraceID(ctx); ok {
 		kv = append(kv, "graph-trace-id", value)
@@ -68,6 +73,15 @@ func extractMetadata(ctx context.Context) context.Context {
 		ctx = tracing.WithTraceID(ctx, values[0])
 	} else {
 		ctx = tracing.WithTraceID(ctx, "")
+	}
+
+	if values, ok := md["graph-hlc"]; ok {
+		incoming, err := strconv.ParseUint(values[0], 10, 64)
+		if err != nil {
+			logging.Error(ctx, "Received bad HLC value.", "hlc", values[0])
+		} else {
+			hlc.Update(incoming)
+		}
 	}
 
 	return ctx

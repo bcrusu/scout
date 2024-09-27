@@ -9,6 +9,7 @@ replace github.com/bcrusu/multiraft => ../multiraft
 require (
 	github.com/Jille/raft-grpc-transport v1.6.1
 	github.com/bcrusu/multiraft v0.0.0-00010101000000-000000000000
+	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.2
