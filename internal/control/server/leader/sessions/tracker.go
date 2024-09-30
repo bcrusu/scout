@@ -38,7 +38,6 @@ var (
 )
 
 type Tracker struct {
-	config                config.Service
 	store                 storage.Store
 	startSessionCh        chan startSession
 	sessionCh             chan sessionMessage
@@ -70,9 +69,10 @@ type sessionID uint64
 type sessions map[sessionID]*session
 type sessionsByServer map[uint64]*session
 
-func NewTracker(config config.Service, store storage.Store) *Tracker {
+func NewTracker(store storage.Store) *Tracker {
+	config := config.Get().Service
+
 	return &Tracker{
-		config:                config,
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),

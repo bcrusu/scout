@@ -4,10 +4,9 @@ import (
 	"os"
 
 	"github.com/bcrusu/graph/internal/cmd"
-	"github.com/bcrusu/graph/internal/data/server"
+	"github.com/bcrusu/graph/internal/data/server/config"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/utils"
-	"github.com/bcrusu/graph/internal/validation"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -18,8 +17,13 @@ func newRootCmd() *cobra.Command {
 		Short:         "Graph data storage server.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRun: func(c *cobra.Command, args []string) {
+		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			cmd.SetLogLevel(c)
+			cfg, err := getConfig(c)
+			if err != nil {
+				return err
+			}
+			return config.Set(cfg)
 		},
 	}
 
@@ -33,24 +37,24 @@ func newRootCmd() *cobra.Command {
 	return c
 }
 
-func getConfig(c *cobra.Command) (server.Config, error) {
+func getConfig(c *cobra.Command) (config.Config, error) {
 	flags, err := cmd.GetConfigFlags(c)
 	if err != nil {
-		return server.Config{}, err
+		return config.Config{}, err
 	}
 
 	data, err := os.ReadFile(flags.ConfigFile)
 	if err != nil {
-		return server.Config{}, errors.Error("failed to read config file")
+		return config.Config{}, errors.Error("failed to read config file")
 	}
 
-	var cfg server.Config
+	var cfg config.Config
 	if err := utils.SetDefaults(&cfg); err != nil {
-		return server.Config{}, err
+		return config.Config{}, err
 	}
 
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return server.Config{}, errors.Error("failed to parse config file")
+		return config.Config{}, errors.Error("failed to parse config file")
 	}
 
 	if flags.BindAddress != "" {
@@ -59,10 +63,6 @@ func getConfig(c *cobra.Command) (server.Config, error) {
 
 	if flags.DataDir != "" {
 		cfg.DataDir = flags.DataDir
-	}
-
-	if err := validation.Validate(cfg); err != nil {
-		return server.Config{}, err
 	}
 
 	return cfg, nil

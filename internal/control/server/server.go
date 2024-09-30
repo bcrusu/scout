@@ -39,9 +39,9 @@ type Server struct {
 	components []utils.Lifecycle
 }
 
-func NewServer(config config.Config, action Action) *Server {
+func NewServer(action Action) *Server {
 	return &Server{
-		config: config,
+		config: config.Get(),
 		action: action,
 	}
 }
@@ -88,7 +88,7 @@ func (n *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	controlService := NewControlService(n.config.Service, raft, store)
+	controlService := NewControlService(raft, store)
 	server := rpc.NewServer(n.config.Server, controlService, transportService)
 
 	n.components = []utils.Lifecycle{

@@ -7,7 +7,6 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/partitions/leader"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
@@ -19,7 +18,6 @@ import (
 
 type replica struct {
 	name        string
-	config      leader.TxnConfig
 	multiraft   *multiraft.MultiRaft
 	dataClient  data.ServiceClient
 	log         logging.LoggerNoContext
@@ -107,7 +105,6 @@ func (p *replica) mainLoop(ctx context.Context, config *control.DataServerConfig
 
 			serving := &replicaServing{
 				id:         config.Id,
-				config:     p.config,
 				raft:       raft,
 				store:      store,
 				dataClient: p.dataClient,

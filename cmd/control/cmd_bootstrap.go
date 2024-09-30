@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/bcrusu/graph/internal/control/server"
+	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
@@ -15,16 +16,12 @@ func newBootstrapCmd() *cobra.Command {
 		Short:   "Bootstraps a new cluster. Must be executed using the same params on all bootstrapped servers.",
 		RunE: func(c *cobra.Command, args []string) error {
 			log := logging.WithComponent("cmd_bootstrap")
-			config, err := getConfig(c)
-			if err != nil {
-				return err
-			}
 
-			if config.Bootstrap == nil {
+			if config.Get().Bootstrap == nil {
 				return errors.Error("missing bootstrap config")
 			}
 
-			s := server.NewServer(config, server.DoBootstrap)
+			s := server.NewServer(server.DoBootstrap)
 			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}

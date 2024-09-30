@@ -3,6 +3,7 @@ package txn
 import (
 	"context"
 
+	"github.com/bcrusu/graph/internal/api/server/config"
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
@@ -17,27 +18,21 @@ var (
 	log                 = logging.WithComponent("txn")
 )
 
-type Config struct {
-	RetryPolicy utils.RetryPolicy `yaml:"retryPolicy" default:"3" validate:"min:1,max:10"`
-}
-
 type Processor struct {
 	identity     identity.Identity
-	config       Config
 	partitioner  *partitioner
 	client       data.ServiceClient
 	processor2pc *processor2PC
 }
 
-func NewProcessor(id identity.Identity, config Config, client data.ServiceClient) *Processor {
+func NewProcessor(id identity.Identity, client data.ServiceClient) *Processor {
 	client = &clientRetrier{
-		policy: config.RetryPolicy,
+		policy: config.Get().Transactions.RetryPolicy,
 		inner:  client,
 	}
 
 	return &Processor{
 		identity: id,
-		config:   config,
 		client:   client,
 		processor2pc: &processor2PC{
 			id:     id,

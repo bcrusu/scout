@@ -9,8 +9,26 @@ import (
 )
 
 var (
-	_ validation.CanValidate = (*Config)(nil)
+	_      validation.CanValidate = (*Config)(nil)
+	global *Config
 )
+
+func Get() Config {
+	if global == nil {
+		panic("config was not set")
+	}
+	return *global
+}
+
+func Set(config Config) error {
+	if global != nil {
+		panic("config already set")
+	} else if err := validation.Validate(config); err != nil {
+		return err
+	}
+	global = &config
+	return nil
+}
 
 type Config struct {
 	Server    rpc.ServerConfig `yaml:"server"`

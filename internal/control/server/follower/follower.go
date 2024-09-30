@@ -5,7 +5,6 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/common"
-	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
@@ -27,9 +26,9 @@ type Follower struct {
 	raft *multiraft.Raft
 }
 
-func New(config config.Service, raft *multiraft.Raft, store storage.Store) *Follower {
+func New(raft *multiraft.Raft, store storage.Store) *Follower {
 	return &Follower{
-		Shared: common.New(config, raft, store),
+		Shared: common.New(raft, store),
 		raft:   raft,
 	}
 }

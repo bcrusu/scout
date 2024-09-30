@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 
+	"github.com/bcrusu/graph/internal/api/server/config"
 	"github.com/bcrusu/graph/internal/api/server/graph"
 	"github.com/bcrusu/graph/internal/api/server/keyvalue"
 	"github.com/bcrusu/graph/internal/api/server/session"
@@ -10,7 +11,6 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	cclient "github.com/bcrusu/graph/internal/control/client"
 	dclient "github.com/bcrusu/graph/internal/data/client"
-	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
@@ -31,22 +31,15 @@ var (
 
 type Action string
 
-type Config struct {
-	Server       rpc.ServerConfig    `yaml:"server"`
-	DataDir      string              `yaml:"dataDir" validate:"required"`
-	Discovery    discovery.Discovery `yaml:"discovery"`
-	Transactions txn.Config          `yaml:"transactions"`
-}
-
 type Server struct {
-	config     Config
+	config     config.Config
 	action     Action
 	components []utils.Lifecycle
 }
 
-func NewServer(config Config, action Action) *Server {
+func NewServer(action Action) *Server {
 	return &Server{
-		config: config,
+		config: config.Get(),
 		action: action,
 	}
 }
@@ -85,7 +78,7 @@ func (n *Server) Start(ctx context.Context) error {
 
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
-	txnProcessor := txn.NewProcessor(*id, n.config.Transactions, dataClient)
+	txnProcessor := txn.NewProcessor(*id, dataClient)
 	adminService := NewAdminService(*id)
 	keyValueService := NewKeyValueService(*keyvalue.NewStore(txnProcessor))
 	graphService := NewGraphService(graph.NewStore(txnProcessor))

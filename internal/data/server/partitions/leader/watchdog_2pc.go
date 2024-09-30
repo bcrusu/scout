@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/data/server/config"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/logging"
@@ -16,14 +17,9 @@ var (
 	_ utils.Lifecycle = (*watchdog2PC)(nil)
 )
 
-type TxnConfig struct {
-	Phase1Timeout time.Duration `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
-	Phase2Timeout time.Duration `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
-}
-
 type watchdog2PC struct {
+	config      config.TxnConfig
 	partitionID uint32
-	config      TxnConfig
 	store       storage.Store
 	dataClient  data.ServiceClient
 	log         logging.Logger
@@ -33,8 +29,9 @@ type watchdog2PC struct {
 
 type dogQueue = *utils.Queue[storage.TxnRunning]
 
-func newWatchdog2PC(partitionID uint32, config TxnConfig, store storage.Store, dataClient data.ServiceClient) *watchdog2PC {
+func newWatchdog2PC(partitionID uint32, store storage.Store, dataClient data.ServiceClient) *watchdog2PC {
 	return &watchdog2PC{
+		config:      config.Get().Transactions,
 		partitionID: partitionID,
 		store:       store,
 		dataClient:  dataClient,

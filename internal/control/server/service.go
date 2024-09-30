@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/follower"
 	"github.com/bcrusu/graph/internal/control/server/leader"
 	"github.com/bcrusu/graph/internal/control/server/storage"
@@ -26,7 +25,6 @@ var (
 // ControlService represents the control plane service
 type ControlService struct {
 	control.UnsafeServiceServer
-	config     config.Service
 	raft       *multiraft.Raft
 	store      storage.Store
 	cancelFunc context.CancelFunc
@@ -39,11 +37,10 @@ type role interface {
 }
 
 // NewControlService returns a new ControlService instance
-func NewControlService(config config.Service, raft *multiraft.Raft, store storage.Store) *ControlService {
+func NewControlService(raft *multiraft.Raft, store storage.Store) *ControlService {
 	return &ControlService{
-		config: config,
-		raft:   raft,
-		store:  store,
+		raft:  raft,
+		store: store,
 	}
 }
 
@@ -121,9 +118,9 @@ func (s *ControlService) setRole(ctx context.Context, isLeader bool) bool {
 
 	var new role
 	if isLeader {
-		new = leader.New(s.config, s.raft, s.store)
+		new = leader.New(s.raft, s.store)
 	} else {
-		new = follower.New(s.config, s.raft, s.store)
+		new = follower.New(s.raft, s.store)
 	}
 
 	drainer := newRoleDrainer(new)

@@ -7,7 +7,6 @@ import (
 	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/utils"
-	"github.com/bcrusu/graph/internal/validation"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -18,8 +17,13 @@ func newRootCmd() *cobra.Command {
 		Short:         "Graph control plane server.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRun: func(c *cobra.Command, args []string) {
+		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			cmd.SetLogLevel(c)
+			cfg, err := getConfig(c)
+			if err != nil {
+				return err
+			}
+			return config.Set(cfg)
 		},
 	}
 
@@ -60,10 +64,6 @@ func getConfig(c *cobra.Command) (config.Config, error) {
 
 	if flags.DataDir != "" {
 		cfg.DataDir = flags.DataDir
-	}
-
-	if err := validation.Validate(cfg); err != nil {
-		return config.Config{}, err
 	}
 
 	return cfg, nil

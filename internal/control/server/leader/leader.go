@@ -5,7 +5,6 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/control/server/common"
-	"github.com/bcrusu/graph/internal/control/server/config"
 	"github.com/bcrusu/graph/internal/control/server/convert"
 	"github.com/bcrusu/graph/internal/control/server/leader/sessions"
 	"github.com/bcrusu/graph/internal/control/server/storage"
@@ -32,12 +31,12 @@ type Leader struct {
 	sessionTracker *sessions.Tracker
 }
 
-func New(config config.Service, raft *multiraft.Raft, store storage.Store) *Leader {
+func New(raft *multiraft.Raft, store storage.Store) *Leader {
 	return &Leader{
-		Shared:         common.New(config, raft, store),
+		Shared:         common.New(raft, store),
 		raft:           raft,
 		store:          store,
-		sessionTracker: sessions.NewTracker(config, store),
+		sessionTracker: sessions.NewTracker(store),
 	}
 }
 

@@ -14,12 +14,7 @@ func newJoinCmd() *cobra.Command {
 		Short:   "Joins an existing cluster.",
 		RunE: func(c *cobra.Command, args []string) error {
 			log := logging.WithComponent("cmd_join")
-			config, err := getConfig(c)
-			if err != nil {
-				return err
-			}
-
-			s := server.NewServer(config, server.DoRegister)
+			s := server.NewServer(server.DoRegister)
 			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}

@@ -7,10 +7,9 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	cclient "github.com/bcrusu/graph/internal/control/client"
 	dclient "github.com/bcrusu/graph/internal/data/client"
+	"github.com/bcrusu/graph/internal/data/server/config"
 	"github.com/bcrusu/graph/internal/data/server/partitions"
-	"github.com/bcrusu/graph/internal/data/server/partitions/leader"
 	"github.com/bcrusu/graph/internal/data/server/session"
-	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
@@ -32,22 +31,15 @@ var (
 
 type Action string
 
-type Config struct {
-	Server       rpc.ServerConfig    `yaml:"server"`
-	DataDir      string              `yaml:"dataDir" validate:"required"`
-	Discovery    discovery.Discovery `yaml:"discovery"`
-	Transactions leader.TxnConfig    `yaml:"transactions"`
-}
-
 type Server struct {
-	config     Config
+	config     config.Config
 	action     Action
 	components []utils.Lifecycle
 }
 
-func NewServer(config Config, action Action) *Server {
+func NewServer(action Action) *Server {
 	return &Server{
-		config: config,
+		config: config.Get(),
 		action: action,
 	}
 }
@@ -87,7 +79,7 @@ func (n *Server) Start(ctx context.Context) error {
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	transportService, mraft := n.buildMultiRaft(*id)
-	partitionController := partitions.NewController(*id, n.config.Transactions, mraft, dataClient)
+	partitionController := partitions.NewController(*id, mraft, dataClient)
 	dataService := NewDataService(partitionController)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
 

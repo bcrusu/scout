@@ -25,12 +25,12 @@ type Leader struct {
 	watchdog2pc *watchdog2PC
 }
 
-func New(pid uint32, config TxnConfig, store storage.Store, dataClient data.ServiceClient) *Leader {
+func New(pid uint32, store storage.Store, dataClient data.ServiceClient) *Leader {
 	return &Leader{
 		pid:         pid,
 		log:         logging.WithComponent("leader").With("partition", pid),
 		store:       store,
-		watchdog2pc: newWatchdog2PC(pid, config, store, dataClient),
+		watchdog2pc: newWatchdog2PC(pid, store, dataClient),
 	}
 }
 

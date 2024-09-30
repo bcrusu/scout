@@ -18,15 +18,15 @@ var (
 
 // Shared implements common functionality for both leader and follower roles.
 type Shared struct {
-	config            config.Service
 	raft              *multiraft.Raft
 	store             storage.Store
 	serviceConfigJson string
 }
 
-func New(config config.Service, raft *multiraft.Raft, store storage.Store) *Shared {
+func New(raft *multiraft.Raft, store storage.Store) *Shared {
+	config := config.Get().Service
+
 	return &Shared{
-		config:            config,
 		raft:              raft,
 		store:             store,
 		serviceConfigJson: config.ControlClient.GetServiceConfigJson(serviceconfig.LBNameGraphControl, control.Service_ServiceDesc),
