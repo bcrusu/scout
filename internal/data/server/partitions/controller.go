@@ -84,7 +84,7 @@ func (c *Controller) mainLoop(ctx context.Context) {
 	}
 }
 
-func (c *Controller) GetServiceForPartition(id uint32) (data.ServiceServer, bool) {
+func (c *Controller) GetServiceReplica(id uint32) (ServiceReplica, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 

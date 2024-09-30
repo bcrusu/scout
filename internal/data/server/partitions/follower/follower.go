@@ -39,6 +39,10 @@ func (n *Follower) Stop() {
 	n.log.NoContext().Debug("Stopped")
 }
 
+func (n *Follower) IsLeader() bool {
+	return false
+}
+
 func (n *Follower) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
 	if !txn.IsReplicaRead() {
 		return nil, errors.NotLeader

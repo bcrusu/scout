@@ -278,7 +278,7 @@ func (p *replica) tryGetRaftServers(config *control.DataServerConfig_Partition, 
 	return servers, true
 }
 
-func (p *replica) getService() (data.ServiceServer, bool) {
+func (p *replica) getService() (ServiceReplica, bool) {
 	v := p.serving.Load()
 	if v == nil {
 		return nil, false

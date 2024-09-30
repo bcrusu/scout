@@ -14,11 +14,11 @@ var (
 
 type partitionDrainer struct {
 	data.UnsafeServiceServer
-	inner   data.ServiceServer
+	inner   ServiceReplica
 	drainer *utils.Drainer
 }
 
-func newPartitionDrainer(inner data.ServiceServer) *partitionDrainer {
+func newPartitionDrainer(inner ServiceReplica) *partitionDrainer {
 	return &partitionDrainer{
 		inner: inner,
 	}
@@ -31,6 +31,10 @@ func (d *partitionDrainer) Start(ctx context.Context) error {
 
 func (d *partitionDrainer) Stop() {
 	d.drainer.Stop()
+}
+
+func (d *partitionDrainer) IsLeader() bool {
+	return d.inner.IsLeader()
 }
 
 func (d *partitionDrainer) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {

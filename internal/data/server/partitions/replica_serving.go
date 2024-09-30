@@ -26,9 +26,10 @@ type replicaServing struct {
 	cancelFunc context.CancelFunc
 }
 
-type partition interface {
+type ServiceReplica interface {
 	data.ServiceServer
 	utils.Lifecycle
+	IsLeader() bool
 }
 
 type updateServersCmd struct {
@@ -68,7 +69,7 @@ func (p *replicaServing) mainLoop(ctx context.Context, etag string, servers []ra
 			old := p.partition.Swap(nil)
 			go old.Stop()
 
-			var new partition
+			var new ServiceReplica
 
 			if isLeader {
 				new = leader.New(p.id, p.store, p.dataClient)
@@ -185,7 +186,7 @@ func (p *replicaServing) updateRaftServers(newServers []raft.Server) bool {
 	return true
 }
 
-func (p *replicaServing) getService() (data.ServiceServer, bool) {
+func (p *replicaServing) getService() (ServiceReplica, bool) {
 	v := p.partition.Load()
 	if v == nil {
 		return nil, false

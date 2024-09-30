@@ -48,6 +48,10 @@ func (n *Leader) Stop() {
 	n.log.NoContext().Debug("Stopped leader")
 }
 
+func (n *Leader) IsLeader() bool {
+	return true
+}
+
 // TODO: request validation
 // TODO: batch incoming txn
 func (n *Leader) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
