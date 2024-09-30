@@ -7,10 +7,6 @@ import (
 	"github.com/bcrusu/graph/internal/data"
 )
 
-func (b *ExecuteTxnBatch) totalLen() int {
-	return len(b.Autocommit) + len(b.TwoPhasePrepare) + len(b.TwoPhaseCommit) + len(b.TwoPhaseAbort)
-}
-
 func (l *Lock) compatibleWith(other *Lock) bool {
 	switch x := l.Payload.(type) {
 	case *Lock_KeyLock:

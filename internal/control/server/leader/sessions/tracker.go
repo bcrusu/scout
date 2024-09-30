@@ -55,7 +55,6 @@ type session struct {
 	serverType    control.ServerType
 	serverAddress string
 	createdAt     time.Time
-	lastSeen      time.Time
 	sendBufferCh  chan *control.SessionOut
 	ctx           context.Context
 	log           logging.Logger
@@ -78,7 +77,7 @@ func NewTracker(config config.Service, store storage.Store) *Tracker {
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
 		dataServiceConfigJson: config.DataClient.GetServiceConfigJson(serviceconfig.LBNameGraphData, data.Service_ServiceDesc),
-		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameGraphApi, api.KeyValue_ServiceDesc, api.Graph_ServiceDesc),
+		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameGraphApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
 }
 
@@ -195,7 +194,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				recvLimiter:   rate.NewLimiter(recvLimit, recvBurst),
 			}
 
-			new.log = server.AddToLog(logS).With("session_id", new.id, "address", new.serverAddress)
+			new.log = logS.With("server", server.Id, "session_id", new.id, "address", new.serverAddress)
 
 			if old := sessionsByServer[x.serverID]; old != nil {
 				new.log.Debugf(ctx, "Closing old session %d created at %v.", old.id, old.createdAt)

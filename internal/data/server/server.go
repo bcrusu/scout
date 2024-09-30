@@ -5,8 +5,10 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/client"
+	cclient "github.com/bcrusu/graph/internal/control/client"
+	dclient "github.com/bcrusu/graph/internal/data/client"
 	"github.com/bcrusu/graph/internal/data/server/partitions"
+	"github.com/bcrusu/graph/internal/data/server/partitions/leader"
 	"github.com/bcrusu/graph/internal/data/server/session"
 	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/errors"
@@ -31,9 +33,10 @@ var (
 type Action string
 
 type Config struct {
-	Server    rpc.ServerConfig    `yaml:"server"`
-	DataDir   string              `yaml:"dataDir" validate:"required"`
-	Discovery discovery.Discovery `yaml:"discovery"`
+	Server       rpc.ServerConfig    `yaml:"server"`
+	DataDir      string              `yaml:"dataDir" validate:"required"`
+	Discovery    discovery.Discovery `yaml:"discovery"`
+	Transactions leader.TxnConfig    `yaml:"transactions"`
 }
 
 type Server struct {
@@ -55,9 +58,9 @@ func (n *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	controlClient := client.New(
-		client.WithClusterName(n.config.Server.ClusterName),
-		client.WithDiscovery(n.config.Discovery),
+	controlClient := cclient.New(
+		cclient.WithClusterName(n.config.Server.ClusterName),
+		cclient.WithDiscovery(n.config.Discovery),
 	)
 
 	var id *identity.Identity
@@ -81,16 +84,18 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
-	transportService, mraft := n.buildMultiRaft(*id)
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
-	partitionController := partitions.NewController(*id, mraft)
+	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
+	transportService, mraft := n.buildMultiRaft(*id)
+	partitionController := partitions.NewController(*id, n.config.Transactions, mraft, dataClient)
 	dataService := NewDataService(partitionController)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
-		transportService,
 		session,
+		dataClient,
+		transportService,
 		partitionController,
 		server,
 	}
@@ -102,7 +107,7 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient client.ControlClient) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient cclient.ControlClient) (*identity.Identity, error) {
 	params := register.Params{
 		ServerType:  control.ServerType_Data,
 		ClusterName: n.config.Server.ClusterName,

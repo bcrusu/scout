@@ -29,6 +29,12 @@ var (
 
 	// ResourceExhausted used for quota and rate limiting.
 	ResourceExhausted = Error("resource exhausted")
+
+	// TransactionAborted signals that transaction was aborted. Clients should retry.
+	TransactionAborted = Error("transaction was aborted")
+
+	// CorruptedData indicates that the stored data is unreadable/corrupted.
+	CorruptedData = Error("corrupted data")
 )
 
 // ValidationError is a validation error that carries extra information to callers.

@@ -257,12 +257,12 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 
 	if !routing.replicaRead {
 		if part.leader == nil {
-			logLB.Debug("Leader connection not available.", "partition_id", part.id)
+			logLB.Debug("Leader connection not available.", "partition", part.id)
 			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 		}
 
 		if part.leader.state != connectivity.Ready {
-			logLB.Debug("Leader connection not ready.", "partition_id", part.id)
+			logLB.Debug("Leader connection not ready.", "partition", part.id)
 			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 		}
 
@@ -292,7 +292,7 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		}, nil
 	}
 
-	logLB.Debug("Read connections not ready.", "partition_id", part.id)
+	logLB.Debug("Read connections not ready.", "partition", part.id)
 	return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 }
 

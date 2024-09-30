@@ -16,12 +16,13 @@ import (
 
 var (
 	_ rpc.Service     = (*AdminService)(nil)
+	_ api.AdminServer = (*AdminService)(nil)
 	_ utils.Lifecycle = (*AdminService)(nil)
 )
 
 // AdminService represents the administration service.
 type AdminService struct {
-	api.UnimplementedAdminServer
+	api.UnsafeAdminServer
 	id         identity.Identity
 	cancelFunc context.CancelFunc
 	discover   atomic.Pointer[api.DiscoverResponse]

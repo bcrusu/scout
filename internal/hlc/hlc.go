@@ -41,3 +41,11 @@ func AsTime(timestamp uint64) time.Time {
 func AsTimestamp(timestamp uint64) *timestamppb.Timestamp {
 	return nil
 }
+
+func FromTime(time time.Time) uint64 {
+	return 0
+}
+
+func FromTimestamp(timestamp *timestamppb.Timestamp) uint64 {
+	return 0
+}

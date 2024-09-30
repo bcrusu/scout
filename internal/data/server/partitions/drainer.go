@@ -8,11 +8,12 @@ import (
 )
 
 var (
-	_ utils.Lifecycle = (*partitionDrainer)(nil)
+	_ utils.Lifecycle    = (*partitionDrainer)(nil)
+	_ data.ServiceServer = (*partitionDrainer)(nil)
 )
 
 type partitionDrainer struct {
-	data.UnimplementedServiceServer
+	data.UnsafeServiceServer
 	inner   data.ServiceServer
 	drainer *utils.Drainer
 }
@@ -32,8 +33,32 @@ func (d *partitionDrainer) Stop() {
 	d.drainer.Stop()
 }
 
-func (d *partitionDrainer) ExecuteTxnBatch(ctx context.Context, batch *data.TxnBatch) (*data.TxnBatchStatus, error) {
+func (d *partitionDrainer) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
-	return d.inner.ExecuteTxnBatch(cctx, batch)
+	return d.inner.Autocommit(cctx, txn)
+}
+
+func (d *partitionDrainer) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
+	cctx, cancel := d.drainer.WithDrain(ctx)
+	defer cancel()
+	return d.inner.Prepare(cctx, req)
+}
+
+func (d *partitionDrainer) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
+	cctx, cancel := d.drainer.WithDrain(ctx)
+	defer cancel()
+	return d.inner.Commit(cctx, req)
+}
+
+func (d *partitionDrainer) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
+	cctx, cancel := d.drainer.WithDrain(ctx)
+	defer cancel()
+	return d.inner.Abort(cctx, req)
+}
+
+func (d *partitionDrainer) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*data.TxnStatus, error) {
+	cctx, cancel := d.drainer.WithDrain(ctx)
+	defer cancel()
+	return d.inner.StoreDecision(cctx, dec)
 }

@@ -11,12 +11,13 @@ import (
 )
 
 var (
-	_ rpc.Service = (*DataService)(nil)
+	_ rpc.Service        = (*DataService)(nil)
+	_ data.ServiceServer = (*DataService)(nil)
 )
 
 // DataService represents the data service.
 type DataService struct {
-	data.UnimplementedServiceServer
+	data.UnsafeServiceServer
 	controller *partitions.Controller
 }
 
@@ -31,10 +32,42 @@ func (s *DataService) RegisterToServer(server *grpc.Server) {
 	data.RegisterServiceServer(server, s)
 }
 
-func (s *DataService) ExecuteTxnBatch(ctx context.Context, batch *data.TxnBatch) (*data.TxnBatchStatus, error) {
-	if partition, ok := s.controller.GetServiceForPartition(batch.PartitionId); !ok {
+func (s *DataService) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
+	if partition, ok := s.controller.GetServiceForPartition(txn.Id.PrincipalPid); !ok {
 		return nil, errors.Unavailable
 	} else {
-		return partition.ExecuteTxnBatch(ctx, batch)
+		return partition.Autocommit(ctx, txn)
+	}
+}
+
+func (s *DataService) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
+	if partition, ok := s.controller.GetServiceForPartition(req.ParticipantPid); !ok {
+		return nil, errors.Unavailable
+	} else {
+		return partition.Prepare(ctx, req)
+	}
+}
+
+func (s *DataService) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
+	if partition, ok := s.controller.GetServiceForPartition(req.ParticipantPid); !ok {
+		return nil, errors.Unavailable
+	} else {
+		return partition.Commit(ctx, req)
+	}
+}
+
+func (s *DataService) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
+	if partition, ok := s.controller.GetServiceForPartition(req.ParticipantPid); !ok {
+		return nil, errors.Unavailable
+	} else {
+		return partition.Abort(ctx, req)
+	}
+}
+
+func (s *DataService) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*data.TxnStatus, error) {
+	if partition, ok := s.controller.GetServiceForPartition(dec.Id.PrincipalPid); !ok {
+		return nil, errors.Unavailable
+	} else {
+		return partition.StoreDecision(ctx, dec)
 	}
 }

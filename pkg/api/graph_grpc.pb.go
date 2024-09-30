@@ -19,20 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Graph_GetVertex_FullMethodName    = "/api.Graph/GetVertex"
-	Graph_UpdateVertex_FullMethodName = "/api.Graph/UpdateVertex"
-	Graph_DeleteVertex_FullMethodName = "/api.Graph/DeleteVertex"
-	Graph_GetEdge_FullMethodName      = "/api.Graph/GetEdge"
-	Graph_UpdateEdge_FullMethodName   = "/api.Graph/UpdateEdge"
-	Graph_DeleteEdge_FullMethodName   = "/api.Graph/DeleteEdge"
+	GraphService_GetVertex_FullMethodName    = "/api.GraphService/GetVertex"
+	GraphService_UpdateVertex_FullMethodName = "/api.GraphService/UpdateVertex"
+	GraphService_DeleteVertex_FullMethodName = "/api.GraphService/DeleteVertex"
+	GraphService_GetEdge_FullMethodName      = "/api.GraphService/GetEdge"
+	GraphService_UpdateEdge_FullMethodName   = "/api.GraphService/UpdateEdge"
+	GraphService_DeleteEdge_FullMethodName   = "/api.GraphService/DeleteEdge"
 )
 
-// GraphClient is the client API for Graph service.
+// GraphServiceClient is the client API for GraphService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Graph represents the graph store operations.
-type GraphClient interface {
+// GraphService represents the graph store operations.
+type GraphServiceClient interface {
 	GetVertex(ctx context.Context, in *GetVertexRequest, opts ...grpc.CallOption) (*Vertex, error)
 	UpdateVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error)
 	DeleteVertex(ctx context.Context, in *VertexId, opts ...grpc.CallOption) (*Status, error)
@@ -41,273 +41,273 @@ type GraphClient interface {
 	DeleteEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Status, error)
 }
 
-type graphClient struct {
+type graphServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewGraphClient(cc grpc.ClientConnInterface) GraphClient {
-	return &graphClient{cc}
+func NewGraphServiceClient(cc grpc.ClientConnInterface) GraphServiceClient {
+	return &graphServiceClient{cc}
 }
 
-func (c *graphClient) GetVertex(ctx context.Context, in *GetVertexRequest, opts ...grpc.CallOption) (*Vertex, error) {
+func (c *graphServiceClient) GetVertex(ctx context.Context, in *GetVertexRequest, opts ...grpc.CallOption) (*Vertex, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Vertex)
-	err := c.cc.Invoke(ctx, Graph_GetVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, GraphService_GetVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *graphClient) UpdateVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error) {
+func (c *graphServiceClient) UpdateVertex(ctx context.Context, in *Vertex, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Graph_UpdateVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, GraphService_UpdateVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *graphClient) DeleteVertex(ctx context.Context, in *VertexId, opts ...grpc.CallOption) (*Status, error) {
+func (c *graphServiceClient) DeleteVertex(ctx context.Context, in *VertexId, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Graph_DeleteVertex_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, GraphService_DeleteVertex_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *graphClient) GetEdge(ctx context.Context, in *GetEdgeRequest, opts ...grpc.CallOption) (*Edge, error) {
+func (c *graphServiceClient) GetEdge(ctx context.Context, in *GetEdgeRequest, opts ...grpc.CallOption) (*Edge, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Edge)
-	err := c.cc.Invoke(ctx, Graph_GetEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, GraphService_GetEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *graphClient) UpdateEdge(ctx context.Context, in *Edge, opts ...grpc.CallOption) (*Status, error) {
+func (c *graphServiceClient) UpdateEdge(ctx context.Context, in *Edge, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Graph_UpdateEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, GraphService_UpdateEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *graphClient) DeleteEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Status, error) {
+func (c *graphServiceClient) DeleteEdge(ctx context.Context, in *EdgeId, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Graph_DeleteEdge_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, GraphService_DeleteEdge_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// GraphServer is the server API for Graph service.
-// All implementations must embed UnimplementedGraphServer
+// GraphServiceServer is the server API for GraphService service.
+// All implementations must embed UnimplementedGraphServiceServer
 // for forward compatibility.
 //
-// Graph represents the graph store operations.
-type GraphServer interface {
+// GraphService represents the graph store operations.
+type GraphServiceServer interface {
 	GetVertex(context.Context, *GetVertexRequest) (*Vertex, error)
 	UpdateVertex(context.Context, *Vertex) (*Status, error)
 	DeleteVertex(context.Context, *VertexId) (*Status, error)
 	GetEdge(context.Context, *GetEdgeRequest) (*Edge, error)
 	UpdateEdge(context.Context, *Edge) (*Status, error)
 	DeleteEdge(context.Context, *EdgeId) (*Status, error)
-	mustEmbedUnimplementedGraphServer()
+	mustEmbedUnimplementedGraphServiceServer()
 }
 
-// UnimplementedGraphServer must be embedded to have
+// UnimplementedGraphServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedGraphServer struct{}
+type UnimplementedGraphServiceServer struct{}
 
-func (UnimplementedGraphServer) GetVertex(context.Context, *GetVertexRequest) (*Vertex, error) {
+func (UnimplementedGraphServiceServer) GetVertex(context.Context, *GetVertexRequest) (*Vertex, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVertex not implemented")
 }
-func (UnimplementedGraphServer) UpdateVertex(context.Context, *Vertex) (*Status, error) {
+func (UnimplementedGraphServiceServer) UpdateVertex(context.Context, *Vertex) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateVertex not implemented")
 }
-func (UnimplementedGraphServer) DeleteVertex(context.Context, *VertexId) (*Status, error) {
+func (UnimplementedGraphServiceServer) DeleteVertex(context.Context, *VertexId) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteVertex not implemented")
 }
-func (UnimplementedGraphServer) GetEdge(context.Context, *GetEdgeRequest) (*Edge, error) {
+func (UnimplementedGraphServiceServer) GetEdge(context.Context, *GetEdgeRequest) (*Edge, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEdge not implemented")
 }
-func (UnimplementedGraphServer) UpdateEdge(context.Context, *Edge) (*Status, error) {
+func (UnimplementedGraphServiceServer) UpdateEdge(context.Context, *Edge) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateEdge not implemented")
 }
-func (UnimplementedGraphServer) DeleteEdge(context.Context, *EdgeId) (*Status, error) {
+func (UnimplementedGraphServiceServer) DeleteEdge(context.Context, *EdgeId) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteEdge not implemented")
 }
-func (UnimplementedGraphServer) mustEmbedUnimplementedGraphServer() {}
-func (UnimplementedGraphServer) testEmbeddedByValue()               {}
+func (UnimplementedGraphServiceServer) mustEmbedUnimplementedGraphServiceServer() {}
+func (UnimplementedGraphServiceServer) testEmbeddedByValue()                      {}
 
-// UnsafeGraphServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to GraphServer will
+// UnsafeGraphServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to GraphServiceServer will
 // result in compilation errors.
-type UnsafeGraphServer interface {
-	mustEmbedUnimplementedGraphServer()
+type UnsafeGraphServiceServer interface {
+	mustEmbedUnimplementedGraphServiceServer()
 }
 
-func RegisterGraphServer(s grpc.ServiceRegistrar, srv GraphServer) {
-	// If the following call pancis, it indicates UnimplementedGraphServer was
+func RegisterGraphServiceServer(s grpc.ServiceRegistrar, srv GraphServiceServer) {
+	// If the following call pancis, it indicates UnimplementedGraphServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Graph_ServiceDesc, srv)
+	s.RegisterService(&GraphService_ServiceDesc, srv)
 }
 
-func _Graph_GetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GraphService_GetVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetVertexRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).GetVertex(ctx, in)
+		return srv.(GraphServiceServer).GetVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_GetVertex_FullMethodName,
+		FullMethod: GraphService_GetVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).GetVertex(ctx, req.(*GetVertexRequest))
+		return srv.(GraphServiceServer).GetVertex(ctx, req.(*GetVertexRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_UpdateVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GraphService_UpdateVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Vertex)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).UpdateVertex(ctx, in)
+		return srv.(GraphServiceServer).UpdateVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_UpdateVertex_FullMethodName,
+		FullMethod: GraphService_UpdateVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).UpdateVertex(ctx, req.(*Vertex))
+		return srv.(GraphServiceServer).UpdateVertex(ctx, req.(*Vertex))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_DeleteVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GraphService_DeleteVertex_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(VertexId)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).DeleteVertex(ctx, in)
+		return srv.(GraphServiceServer).DeleteVertex(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_DeleteVertex_FullMethodName,
+		FullMethod: GraphService_DeleteVertex_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).DeleteVertex(ctx, req.(*VertexId))
+		return srv.(GraphServiceServer).DeleteVertex(ctx, req.(*VertexId))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_GetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GraphService_GetEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetEdgeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).GetEdge(ctx, in)
+		return srv.(GraphServiceServer).GetEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_GetEdge_FullMethodName,
+		FullMethod: GraphService_GetEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).GetEdge(ctx, req.(*GetEdgeRequest))
+		return srv.(GraphServiceServer).GetEdge(ctx, req.(*GetEdgeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_UpdateEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GraphService_UpdateEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Edge)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).UpdateEdge(ctx, in)
+		return srv.(GraphServiceServer).UpdateEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_UpdateEdge_FullMethodName,
+		FullMethod: GraphService_UpdateEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).UpdateEdge(ctx, req.(*Edge))
+		return srv.(GraphServiceServer).UpdateEdge(ctx, req.(*Edge))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Graph_DeleteEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _GraphService_DeleteEdge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(EdgeId)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GraphServer).DeleteEdge(ctx, in)
+		return srv.(GraphServiceServer).DeleteEdge(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Graph_DeleteEdge_FullMethodName,
+		FullMethod: GraphService_DeleteEdge_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GraphServer).DeleteEdge(ctx, req.(*EdgeId))
+		return srv.(GraphServiceServer).DeleteEdge(ctx, req.(*EdgeId))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Graph_ServiceDesc is the grpc.ServiceDesc for Graph service.
+// GraphService_ServiceDesc is the grpc.ServiceDesc for GraphService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Graph_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.Graph",
-	HandlerType: (*GraphServer)(nil),
+var GraphService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.GraphService",
+	HandlerType: (*GraphServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "GetVertex",
-			Handler:    _Graph_GetVertex_Handler,
+			Handler:    _GraphService_GetVertex_Handler,
 		},
 		{
 			MethodName: "UpdateVertex",
-			Handler:    _Graph_UpdateVertex_Handler,
+			Handler:    _GraphService_UpdateVertex_Handler,
 		},
 		{
 			MethodName: "DeleteVertex",
-			Handler:    _Graph_DeleteVertex_Handler,
+			Handler:    _GraphService_DeleteVertex_Handler,
 		},
 		{
 			MethodName: "GetEdge",
-			Handler:    _Graph_GetEdge_Handler,
+			Handler:    _GraphService_GetEdge_Handler,
 		},
 		{
 			MethodName: "UpdateEdge",
-			Handler:    _Graph_UpdateEdge_Handler,
+			Handler:    _GraphService_UpdateEdge_Handler,
 		},
 		{
 			MethodName: "DeleteEdge",
-			Handler:    _Graph_DeleteEdge_Handler,
+			Handler:    _GraphService_DeleteEdge_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

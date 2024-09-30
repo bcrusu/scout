@@ -19,6 +19,14 @@ func SetDefaults[T any](instance *T) error {
 	return setDefaultsRec(val)
 }
 
+// MustSetDefaults sets struct field values as specified via the 'default' tag.
+func MustSetDefaults[T any](instance *T) *T {
+	if err := SetDefaults(instance); err != nil {
+		panic(errors.Wrap(err, "failed to set defaults"))
+	}
+	return instance
+}
+
 func setDefaultsRec(val reflect.Value) error {
 	typ := val.Type()
 	for i := 0; i < typ.NumField(); i++ {

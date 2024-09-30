@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	_ rpc.Service = (*KeyValueService)(nil)
+	_ rpc.Service               = (*KeyValueService)(nil)
+	_ api.KeyValueServiceServer = (*KeyValueService)(nil)
 )
 
 // KeyValueService represents the key-value service.
 type KeyValueService struct {
-	api.UnimplementedKeyValueServer
+	api.UnsafeKeyValueServiceServer
 	store keyvalue.Store
 }
 
@@ -27,17 +28,17 @@ func NewKeyValueService(store keyvalue.Store) *KeyValueService {
 }
 
 func (s *KeyValueService) RegisterToServer(server *grpc.Server) {
-	api.RegisterKeyValueServer(server, s)
+	api.RegisterKeyValueServiceServer(server, s)
 }
 
-func (s *KeyValueService) Get(ctx context.Context, req *api.GetRequest) (*api.GetResponse, error) {
+func (s *KeyValueService) Get(ctx context.Context, req *api.KeyAt) (*api.ValueAt, error) {
 	return s.store.Get(ctx, req)
 }
 
-func (s *KeyValueService) Set(ctx context.Context, req *api.SetRequest) (*api.Status, error) {
+func (s *KeyValueService) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error) {
 	return s.store.Set(ctx, req)
 }
 
-func (s *KeyValueService) Delete(ctx context.Context, req *api.DeleteRequest) (*api.Status, error) {
+func (s *KeyValueService) Delete(ctx context.Context, req *api.Key) (*api.Status, error) {
 	return s.store.Delete(ctx, req)
 }

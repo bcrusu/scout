@@ -9,12 +9,13 @@ import (
 )
 
 var (
-	_ utils.Lifecycle = (*roleDrainer)(nil)
+	_ utils.Lifecycle       = (*roleDrainer)(nil)
+	_ control.ServiceServer = (*roleDrainer)(nil)
 )
 
 // roleDrainer will drain all in-flight requests and streams when stopped.
 type roleDrainer struct {
-	control.UnimplementedServiceServer
+	control.UnsafeServiceServer
 	inner   role
 	drainer *utils.Drainer
 }

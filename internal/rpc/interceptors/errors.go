@@ -77,6 +77,10 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.Unauthenticated, "Not Registered")
 	case errors.ResourceExhausted:
 		return status.Error(codes.ResourceExhausted, "Resource Exhausted")
+	case errors.TransactionAborted:
+		return status.Error(codes.Aborted, "Transaction Aborted")
+	case errors.CorruptedData:
+		return status.Error(codes.DataLoss, "Corrupted Data")
 	case errInternal:
 		return errInternal
 	}
@@ -122,6 +126,14 @@ func getGoError(err error) error {
 		}
 	case codes.ResourceExhausted:
 		return errors.ResourceExhausted
+	case codes.Aborted:
+		if s.Message() == "Transaction Aborted" {
+			return errors.TransactionAborted
+		}
+	case codes.DataLoss:
+		if s.Message() == "Corrupted Data" {
+			return errors.CorruptedData
+		}
 	}
 
 	return err

@@ -18,13 +18,14 @@ import (
 )
 
 var (
-	_ rpc.Service     = (*ControlService)(nil)
-	_ utils.Lifecycle = (*ControlService)(nil)
+	_ rpc.Service           = (*ControlService)(nil)
+	_ control.ServiceServer = (*ControlService)(nil)
+	_ utils.Lifecycle       = (*ControlService)(nil)
 )
 
 // ControlService represents the control plane service
 type ControlService struct {
-	control.UnimplementedServiceServer
+	control.UnsafeServiceServer
 	config     config.Service
 	raft       *multiraft.Raft
 	store      storage.Store

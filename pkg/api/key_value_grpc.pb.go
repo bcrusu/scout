@@ -19,181 +19,181 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	KeyValue_Get_FullMethodName    = "/api.KeyValue/Get"
-	KeyValue_Set_FullMethodName    = "/api.KeyValue/Set"
-	KeyValue_Delete_FullMethodName = "/api.KeyValue/Delete"
+	KeyValueService_Get_FullMethodName    = "/api.KeyValueService/Get"
+	KeyValueService_Set_FullMethodName    = "/api.KeyValueService/Set"
+	KeyValueService_Delete_FullMethodName = "/api.KeyValueService/Delete"
 )
 
-// KeyValueClient is the client API for KeyValue service.
+// KeyValueServiceClient is the client API for KeyValueService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// KeyValue represents the key-value operations.
-type KeyValueClient interface {
-	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
-	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*Status, error)
-	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*Status, error)
+// KeyValueService represents the key-value operations.
+type KeyValueServiceClient interface {
+	Get(ctx context.Context, in *KeyAt, opts ...grpc.CallOption) (*ValueAt, error)
+	Set(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*Status, error)
+	Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Status, error)
 }
 
-type keyValueClient struct {
+type keyValueServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewKeyValueClient(cc grpc.ClientConnInterface) KeyValueClient {
-	return &keyValueClient{cc}
+func NewKeyValueServiceClient(cc grpc.ClientConnInterface) KeyValueServiceClient {
+	return &keyValueServiceClient{cc}
 }
 
-func (c *keyValueClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *keyValueServiceClient) Get(ctx context.Context, in *KeyAt, opts ...grpc.CallOption) (*ValueAt, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, KeyValue_Get_FullMethodName, in, out, cOpts...)
+	out := new(ValueAt)
+	err := c.cc.Invoke(ctx, KeyValueService_Get_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *keyValueClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*Status, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Status)
-	err := c.cc.Invoke(ctx, KeyValue_Set_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *keyValueClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*Status, error) {
+func (c *keyValueServiceClient) Set(ctx context.Context, in *KeyValue, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, KeyValue_Delete_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, KeyValueService_Set_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// KeyValueServer is the server API for KeyValue service.
-// All implementations must embed UnimplementedKeyValueServer
+func (c *keyValueServiceClient) Delete(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Status, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Status)
+	err := c.cc.Invoke(ctx, KeyValueService_Delete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// KeyValueServiceServer is the server API for KeyValueService service.
+// All implementations must embed UnimplementedKeyValueServiceServer
 // for forward compatibility.
 //
-// KeyValue represents the key-value operations.
-type KeyValueServer interface {
-	Get(context.Context, *GetRequest) (*GetResponse, error)
-	Set(context.Context, *SetRequest) (*Status, error)
-	Delete(context.Context, *DeleteRequest) (*Status, error)
-	mustEmbedUnimplementedKeyValueServer()
+// KeyValueService represents the key-value operations.
+type KeyValueServiceServer interface {
+	Get(context.Context, *KeyAt) (*ValueAt, error)
+	Set(context.Context, *KeyValue) (*Status, error)
+	Delete(context.Context, *Key) (*Status, error)
+	mustEmbedUnimplementedKeyValueServiceServer()
 }
 
-// UnimplementedKeyValueServer must be embedded to have
+// UnimplementedKeyValueServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedKeyValueServer struct{}
+type UnimplementedKeyValueServiceServer struct{}
 
-func (UnimplementedKeyValueServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
+func (UnimplementedKeyValueServiceServer) Get(context.Context, *KeyAt) (*ValueAt, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedKeyValueServer) Set(context.Context, *SetRequest) (*Status, error) {
+func (UnimplementedKeyValueServiceServer) Set(context.Context, *KeyValue) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
-func (UnimplementedKeyValueServer) Delete(context.Context, *DeleteRequest) (*Status, error) {
+func (UnimplementedKeyValueServiceServer) Delete(context.Context, *Key) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
-func (UnimplementedKeyValueServer) mustEmbedUnimplementedKeyValueServer() {}
-func (UnimplementedKeyValueServer) testEmbeddedByValue()                  {}
+func (UnimplementedKeyValueServiceServer) mustEmbedUnimplementedKeyValueServiceServer() {}
+func (UnimplementedKeyValueServiceServer) testEmbeddedByValue()                         {}
 
-// UnsafeKeyValueServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to KeyValueServer will
+// UnsafeKeyValueServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to KeyValueServiceServer will
 // result in compilation errors.
-type UnsafeKeyValueServer interface {
-	mustEmbedUnimplementedKeyValueServer()
+type UnsafeKeyValueServiceServer interface {
+	mustEmbedUnimplementedKeyValueServiceServer()
 }
 
-func RegisterKeyValueServer(s grpc.ServiceRegistrar, srv KeyValueServer) {
-	// If the following call pancis, it indicates UnimplementedKeyValueServer was
+func RegisterKeyValueServiceServer(s grpc.ServiceRegistrar, srv KeyValueServiceServer) {
+	// If the following call pancis, it indicates UnimplementedKeyValueServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&KeyValue_ServiceDesc, srv)
+	s.RegisterService(&KeyValueService_ServiceDesc, srv)
 }
 
-func _KeyValue_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetRequest)
+func _KeyValueService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyAt)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KeyValueServer).Get(ctx, in)
+		return srv.(KeyValueServiceServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: KeyValue_Get_FullMethodName,
+		FullMethod: KeyValueService_Get_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueServer).Get(ctx, req.(*GetRequest))
+		return srv.(KeyValueServiceServer).Get(ctx, req.(*KeyAt))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KeyValue_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetRequest)
+func _KeyValueService_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyValue)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KeyValueServer).Set(ctx, in)
+		return srv.(KeyValueServiceServer).Set(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: KeyValue_Set_FullMethodName,
+		FullMethod: KeyValueService_Set_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueServer).Set(ctx, req.(*SetRequest))
+		return srv.(KeyValueServiceServer).Set(ctx, req.(*KeyValue))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _KeyValue_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteRequest)
+func _KeyValueService_Delete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Key)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KeyValueServer).Delete(ctx, in)
+		return srv.(KeyValueServiceServer).Delete(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: KeyValue_Delete_FullMethodName,
+		FullMethod: KeyValueService_Delete_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueServer).Delete(ctx, req.(*DeleteRequest))
+		return srv.(KeyValueServiceServer).Delete(ctx, req.(*Key))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// KeyValue_ServiceDesc is the grpc.ServiceDesc for KeyValue service.
+// KeyValueService_ServiceDesc is the grpc.ServiceDesc for KeyValueService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var KeyValue_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.KeyValue",
-	HandlerType: (*KeyValueServer)(nil),
+var KeyValueService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.KeyValueService",
+	HandlerType: (*KeyValueServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Get",
-			Handler:    _KeyValue_Get_Handler,
+			Handler:    _KeyValueService_Get_Handler,
 		},
 		{
 			MethodName: "Set",
-			Handler:    _KeyValue_Set_Handler,
+			Handler:    _KeyValueService_Set_Handler,
 		},
 		{
 			MethodName: "Delete",
-			Handler:    _KeyValue_Delete_Handler,
+			Handler:    _KeyValueService_Delete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

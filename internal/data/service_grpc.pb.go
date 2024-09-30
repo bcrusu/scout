@@ -19,7 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Service_ExecuteTxnBatch_FullMethodName = "/data.Service/ExecuteTxnBatch"
+	Service_Autocommit_FullMethodName    = "/data.Service/Autocommit"
+	Service_Prepare_FullMethodName       = "/data.Service/Prepare"
+	Service_Commit_FullMethodName        = "/data.Service/Commit"
+	Service_Abort_FullMethodName         = "/data.Service/Abort"
+	Service_StoreDecision_FullMethodName = "/data.Service/StoreDecision"
 )
 
 // ServiceClient is the client API for Service service.
@@ -28,7 +32,11 @@ const (
 //
 // Service represents the data storage service.
 type ServiceClient interface {
-	ExecuteTxnBatch(ctx context.Context, in *TxnBatch, opts ...grpc.CallOption) (*TxnBatchStatus, error)
+	Autocommit(ctx context.Context, in *Txn, opts ...grpc.CallOption) (*TxnStatus, error)
+	Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*TxnStatus, error)
+	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*TxnStatus, error)
+	Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*TxnStatus, error)
+	StoreDecision(ctx context.Context, in *TxnDecision, opts ...grpc.CallOption) (*TxnStatus, error)
 }
 
 type serviceClient struct {
@@ -39,10 +47,50 @@ func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
 }
 
-func (c *serviceClient) ExecuteTxnBatch(ctx context.Context, in *TxnBatch, opts ...grpc.CallOption) (*TxnBatchStatus, error) {
+func (c *serviceClient) Autocommit(ctx context.Context, in *Txn, opts ...grpc.CallOption) (*TxnStatus, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TxnBatchStatus)
-	err := c.cc.Invoke(ctx, Service_ExecuteTxnBatch_FullMethodName, in, out, cOpts...)
+	out := new(TxnStatus)
+	err := c.cc.Invoke(ctx, Service_Autocommit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TxnStatus)
+	err := c.cc.Invoke(ctx, Service_Prepare_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TxnStatus)
+	err := c.cc.Invoke(ctx, Service_Commit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TxnStatus)
+	err := c.cc.Invoke(ctx, Service_Abort_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *serviceClient) StoreDecision(ctx context.Context, in *TxnDecision, opts ...grpc.CallOption) (*TxnStatus, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TxnStatus)
+	err := c.cc.Invoke(ctx, Service_StoreDecision_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +103,11 @@ func (c *serviceClient) ExecuteTxnBatch(ctx context.Context, in *TxnBatch, opts 
 //
 // Service represents the data storage service.
 type ServiceServer interface {
-	ExecuteTxnBatch(context.Context, *TxnBatch) (*TxnBatchStatus, error)
+	Autocommit(context.Context, *Txn) (*TxnStatus, error)
+	Prepare(context.Context, *PrepareRequest) (*TxnStatus, error)
+	Commit(context.Context, *CommitRequest) (*TxnStatus, error)
+	Abort(context.Context, *AbortRequest) (*TxnStatus, error)
+	StoreDecision(context.Context, *TxnDecision) (*TxnStatus, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -66,8 +118,20 @@ type ServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedServiceServer struct{}
 
-func (UnimplementedServiceServer) ExecuteTxnBatch(context.Context, *TxnBatch) (*TxnBatchStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExecuteTxnBatch not implemented")
+func (UnimplementedServiceServer) Autocommit(context.Context, *Txn) (*TxnStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Autocommit not implemented")
+}
+func (UnimplementedServiceServer) Prepare(context.Context, *PrepareRequest) (*TxnStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Prepare not implemented")
+}
+func (UnimplementedServiceServer) Commit(context.Context, *CommitRequest) (*TxnStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
+}
+func (UnimplementedServiceServer) Abort(context.Context, *AbortRequest) (*TxnStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Abort not implemented")
+}
+func (UnimplementedServiceServer) StoreDecision(context.Context, *TxnDecision) (*TxnStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreDecision not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -90,20 +154,92 @@ func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Service_ExecuteTxnBatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TxnBatch)
+func _Service_Autocommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Txn)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).ExecuteTxnBatch(ctx, in)
+		return srv.(ServiceServer).Autocommit(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_ExecuteTxnBatch_FullMethodName,
+		FullMethod: Service_Autocommit_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).ExecuteTxnBatch(ctx, req.(*TxnBatch))
+		return srv.(ServiceServer).Autocommit(ctx, req.(*Txn))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Service_Prepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).Prepare(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_Prepare_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).Prepare(ctx, req.(*PrepareRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Service_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).Commit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_Commit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).Commit(ctx, req.(*CommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Service_Abort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AbortRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).Abort(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_Abort_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).Abort(ctx, req.(*AbortRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Service_StoreDecision_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TxnDecision)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).StoreDecision(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_StoreDecision_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).StoreDecision(ctx, req.(*TxnDecision))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -116,8 +252,24 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ExecuteTxnBatch",
-			Handler:    _Service_ExecuteTxnBatch_Handler,
+			MethodName: "Autocommit",
+			Handler:    _Service_Autocommit_Handler,
+		},
+		{
+			MethodName: "Prepare",
+			Handler:    _Service_Prepare_Handler,
+		},
+		{
+			MethodName: "Commit",
+			Handler:    _Service_Commit_Handler,
+		},
+		{
+			MethodName: "Abort",
+			Handler:    _Service_Abort_Handler,
+		},
+		{
+			MethodName: "StoreDecision",
+			Handler:    _Service_StoreDecision_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

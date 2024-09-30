@@ -2,13 +2,13 @@ package keyvalue
 
 import (
 	"context"
-	"time"
 
 	"github.com/bcrusu/graph/internal/api/server/txn"
+	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/utils"
 	"github.com/bcrusu/graph/pkg/api"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Store struct {
@@ -22,62 +22,82 @@ func NewStore(processor *txn.Processor) *Store {
 }
 
 // TODO: request validation
-func (s *Store) Get(ctx context.Context, req *api.GetRequest) (*api.GetResponse, error) {
-	var data []byte
-	var ts time.Time
-	var err error
+// TODO: keyspace allocation
+func (s *Store) Get(ctx context.Context, req *api.KeyAt) (*api.ValueAt, error) {
+	var action *data.Action
 
 	if req.AtTime == nil {
-		data, ts, err = s.processor.Get(ctx, req.Key)
+		action = txn.Read(0, req.Key)
 	} else {
-		data, ts, err = s.processor.GetAt(ctx, req.Key, req.AtTime.AsTime())
+		action = txn.ReadAt(0, req.Key, req.AtTime.AsTime())
 	}
 
+	result, err := s.processor.Execute(ctx, req.Key, action)
 	if err != nil {
 		return nil, err
 	}
 
-	value, err := utils.UnmarshalProto[api.Value](data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &api.GetResponse{
-		Value: value,
-		Time:  timestamppb.New(ts),
-	}, nil
+	return s.getSingleValue(result)
 }
 
-func (s *Store) Set(ctx context.Context, req *api.SetRequest) (*api.Status, error) {
+func (s *Store) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error) {
 	data, err := utils.MarshalProto(req.Value)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: keyspace allocation
 	action := txn.Upsert(0, req.Key, data)
 
-	status, err := s.processor.ExecuteSingle(ctx, req.Key, action)
+	result, err := s.processor.Execute(ctx, req.Key, action)
 	if err != nil {
 		return nil, err
 	}
 
-	//  TODO: check status.State/ActionError
-
-	return &api.Status{
-		Time: hlc.AsTimestamp(status.Timestamp),
-	}, nil
+	return s.getStatus(result)
 }
 
-func (s *Store) Delete(ctx context.Context, req *api.DeleteRequest) (*api.Status, error) {
+func (s *Store) Delete(ctx context.Context, req *api.Key) (*api.Status, error) {
 	action := txn.Delete(0, req.Key)
 
-	status, err := s.processor.ExecuteSingle(ctx, req.Key, action)
+	result, err := s.processor.Execute(ctx, req.Key, action)
 	if err != nil {
 		return nil, err
 	}
 
+	return s.getStatus(result)
+}
+
+func (s *Store) getSingleValue(r *txn.TxnResult) (*api.ValueAt, error) {
+	if err := r.GetError(); err != nil {
+		return nil, err
+	} else if l := len(r.ActionStatus); l != 1 {
+		return nil, errors.Errorf("txn%s expected sigle result, but got %d.", r.Id, l)
+	}
+
+	value := r.ActionStatus[0].Value
+
+	switch x := value.Payload.(type) {
+	case *data.Value_Bytes:
+		value, err := utils.UnmarshalProto[api.Value](x.Bytes)
+		if err != nil {
+			return nil, err
+		}
+
+		return &api.ValueAt{
+			Value:  value,
+			AtTime: hlc.AsTimestamp(r.Timestamp),
+		}, nil
+	default:
+		return nil, errors.Errorf("unexpected value type %T", value.Payload)
+	}
+}
+
+func (s *Store) getStatus(r *txn.TxnResult) (*api.Status, error) {
+	if err := r.GetError(); err != nil {
+		return nil, err
+	}
+
 	return &api.Status{
-		Time: hlc.AsTimestamp(status.Timestamp),
+		Time: hlc.AsTimestamp(r.Timestamp),
 	}, nil
 }

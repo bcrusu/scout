@@ -8,5 +8,26 @@ import "internal/data/common.proto";
 
 // Service represents the data storage service.
 service Service {
-    rpc ExecuteTxnBatch(TxnBatch) returns (TxnBatchStatus);
+    rpc Autocommit(Txn) returns (TxnStatus);
+    rpc Prepare(PrepareRequest) returns (TxnStatus);
+    rpc Commit(CommitRequest) returns (TxnStatus);
+    rpc Abort(AbortRequest) returns (TxnStatus);
+    rpc StoreDecision(TxnDecision) returns (TxnStatus);
+}
+
+message PrepareRequest {
+    uint32 participant_pid = 1;
+    Txn txn = 2;
+}
+
+message CommitRequest {
+    uint32 participant_pid = 1;
+    TxnId id = 2;
+    uint64 timestamp = 3;
+    bool fetch_results = 4;
+}
+
+message AbortRequest {
+    uint32 participant_pid = 1;
+    TxnId id = 2;
 }

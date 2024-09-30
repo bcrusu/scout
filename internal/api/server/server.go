@@ -33,9 +33,9 @@ type Action string
 
 type Config struct {
 	Server       rpc.ServerConfig    `yaml:"server"`
-	Transactions txn.Config          `yaml:"transactions"`
 	DataDir      string              `yaml:"dataDir" validate:"required"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
+	Transactions txn.Config          `yaml:"transactions"`
 }
 
 type Server struct {

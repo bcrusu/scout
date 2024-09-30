@@ -23,7 +23,7 @@ type Discovery struct {
 }
 
 // String returns the corresponding gRPC target string.
-func (d Discovery) String() string {
+func (d Discovery) Target() string {
 	q := url.Values{}
 	q.Add("discovery", d.getTarget())
 

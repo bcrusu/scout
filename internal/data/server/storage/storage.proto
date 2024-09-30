@@ -8,31 +8,65 @@ import "internal/data/common.proto";
 
 message Command {
     oneof payload {
-        ExecuteTxnBatch execute_txn_batch = 1;
+        TxnAutocommit autocommit = 1;
+        TxnPrepare prepare = 2;
+        TxnCommit commit = 3;
+        TxnAbort abort = 4;
+        StoreTxnDecision store_decision = 5;
+        TxnBatch batch = 6;
+        MarkTxnTimedout mark_timedout = 7;
     }
 }
 
-message ExecuteTxnBatch {
+message TxnAutocommit {
     uint64 timestamp = 1;
-    repeated Txn autocommit = 2;
-    repeated Txn two_phase_prepare = 3;
-    repeated TxnId two_phase_commit = 4;
-    repeated TxnId two_phase_abort = 5;
+    Txn txn = 2;
+}
+
+message TxnPrepare {
+    uint64 timestamp = 1;
+    Txn txn = 2;
+}
+
+message TxnCommit {
+    uint64 timestamp = 1;
+    TxnId id = 2;
+}
+
+message TxnAbort {
+    uint64 timestamp = 1;
+    TxnId id = 2;
+}
+
+message StoreTxnDecision {
+    uint64 timestamp = 1;
+    TxnDecision decision = 2;
+}
+
+// The watchdog will apply the command twice for each timedout txn
+// and the second will release the locks, completing the 2pc process.
+message MarkTxnTimedout {
+    uint64 timestamp = 1;
+    TxnId id = 2;
+    bool release_locks = 3;
+}
+
+message TxnBatch {
+    repeated TxnAutocommit autocommit = 1;
+    repeated TxnPrepare prepare = 2;
+    repeated TxnCommit commit = 3;
+    repeated TxnAbort abort = 4;
+    repeated StoreTxnDecision store_decision = 5;
 }
 
 message Snapshot {
     uint64 index = 1;
-    repeated TxnStatus txn_status = 2;
-    repeated TxnPrepared txn_prepared = 3;
-}
-
-message TxnPrepared {
-	Txn txn = 1;
-    repeated Lock locks = 2;
+    repeated TxnStatus status = 2;
+    repeated Txn prepared = 3;
 }
 
 message Lock {
-    uint32 action_index = 1;
+    uint32 action_id = 1;
 
     oneof payload {
         KeyLock key_lock = 2;

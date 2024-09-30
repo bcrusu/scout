@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/data/server/partitions/leader"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
@@ -18,7 +19,9 @@ import (
 
 type replica struct {
 	name        string
+	config      leader.TxnConfig
 	multiraft   *multiraft.MultiRaft
+	dataClient  data.ServiceClient
 	log         logging.LoggerNoContext
 	updateCh    chan *control.DataServerConfig_Partition
 	getStatusCh chan getStatusCmd
@@ -103,11 +106,13 @@ func (p *replica) mainLoop(ctx context.Context, config *control.DataServerConfig
 			}
 
 			serving := &replicaServing{
-				id:       config.Id,
-				raft:     raft,
-				store:    store,
-				log:      logging.WithComponent("replica_serving").With("id", config.Id, "name", config.Name, "replica", replica.Name),
-				updateCh: make(chan updateServersCmd, 1),
+				id:         config.Id,
+				config:     p.config,
+				raft:       raft,
+				store:      store,
+				dataClient: p.dataClient,
+				log:        logging.WithComponent("replica_serving").With("id", config.Id, "name", config.Name, "replica", replica.Name),
+				updateCh:   make(chan updateServersCmd, 1),
 			}
 			serving.Start(ctx, config.ETag, raftServers)
 			p.serving.Store(serving)

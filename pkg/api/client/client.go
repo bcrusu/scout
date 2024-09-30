@@ -22,14 +22,14 @@ func init() {
 }
 
 type Client interface {
-	api.KeyValueClient
-	api.GraphClient
+	api.KeyValueServiceClient
+	api.GraphServiceClient
 	utils.Lifecycle
 }
 
 type client struct {
-	api.KeyValueClient
-	api.GraphClient
+	api.KeyValueServiceClient
+	api.GraphServiceClient
 	opts *options
 	conn *rpc.Conn
 }
@@ -55,9 +55,9 @@ func (c *client) Start(ctx context.Context) error {
 	}
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts.clusterName}))
-	c.conn = rpc.NewConn(c.opts.discovery.String(), c.opts.clusterName, dialOpts...)
-	c.KeyValueClient = api.NewKeyValueClient(c.conn)
-	c.GraphClient = api.NewGraphClient(c.conn)
+	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
+	c.KeyValueServiceClient = api.NewKeyValueServiceClient(c.conn)
+	c.GraphServiceClient = api.NewGraphServiceClient(c.conn)
 
 	return utils.LifecycleStart(ctx, logC, c.conn)
 }

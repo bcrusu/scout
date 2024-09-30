@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	_ rpc.Service = (*GraphService)(nil)
+	_ rpc.Service            = (*GraphService)(nil)
+	_ api.GraphServiceServer = (*GraphService)(nil)
 )
 
 // GraphService represents the graph service.
 type GraphService struct {
-	api.UnimplementedGraphServer
+	api.UnsafeGraphServiceServer
 	store *graph.Store
 }
 
@@ -27,7 +28,7 @@ func NewGraphService(store *graph.Store) *GraphService {
 }
 
 func (s *GraphService) RegisterToServer(server *grpc.Server) {
-	api.RegisterGraphServer(server, s)
+	api.RegisterGraphServiceServer(server, s)
 }
 
 func (s *GraphService) GetVertex(ctx context.Context, req *api.GetVertexRequest) (*api.Vertex, error) {

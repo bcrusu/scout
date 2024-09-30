@@ -61,8 +61,20 @@ func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContex
 	log.Debugf("Applying command %T...", payload)
 
 	switch x := payload.(type) {
-	case *ExecuteTxnBatch:
-		result, err = f.txnProcessor.applyBatch(x)
+	case *TxnAutocommit:
+		result, err = f.txnProcessor.applyAutocommit(x)
+	case *TxnPrepare:
+		result, err = f.txnProcessor.applyPrepare(x)
+	case *TxnCommit:
+		result, err = f.txnProcessor.applyCommit(x)
+	case *TxnAbort:
+		result, err = f.txnProcessor.applyAbort(x)
+	case *StoreTxnDecision:
+		result, err = f.txnProcessor.applyStoreDecision(x)
+	case *MarkTxnTimedout:
+		result, err = f.txnProcessor.applyMarkTimedout(x)
+	case *TxnBatch:
+		result = f.txnProcessor.applyBatch(x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
@@ -85,15 +97,15 @@ func (f *FSM) Snapshot() ([]byte, error) {
 		status = append(status, s)
 	}
 
-	prepared := make([]*TxnPrepared, 0, len(f.txnProcessor.status))
+	prepared := make([]*data.Txn, 0, len(f.txnProcessor.prepared))
 	for _, p := range f.txnProcessor.prepared {
-		prepared = append(prepared, p)
+		prepared = append(prepared, p.Txn)
 	}
 
 	snap := &Snapshot{
-		Index:       f.index,
-		TxnStatus:   status,
-		TxnPrepared: prepared,
+		Index:    f.index,
+		Status:   status,
+		Prepared: prepared,
 	}
 
 	data, err := utils.MarshalProto(snap)
@@ -109,14 +121,17 @@ func (f *FSM) Restore(snapshot []byte) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	status := make(map[TxnId]*data.TxnStatus, len(snap.TxnStatus))
-	for _, s := range snap.TxnStatus {
-		status[newTxnId(s.Id)] = s
+	status := make(map[TxnId]*data.TxnStatus, len(snap.Status))
+	for _, s := range snap.Status {
+		status[NewTxnId(s.Id)] = s
 	}
 
-	prepared := make(map[TxnId]*TxnPrepared, len(snap.TxnPrepared))
-	for _, p := range snap.TxnPrepared {
-		prepared[newTxnId(p.Txn.Id)] = p
+	prepared := make(map[TxnId]*txnLocks, len(snap.Prepared))
+	for _, txn := range snap.Prepared {
+		prepared[NewTxnId(txn.Id)] = &txnLocks{
+			Txn:   txn,
+			Locks: buildLocks(txn),
+		}
 	}
 
 	f.index = snap.Index

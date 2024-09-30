@@ -7,7 +7,7 @@ import (
 
 // AddJitter adds random jitter in the range (-pct, +pct).
 func AddJitter(d time.Duration, pct float64) time.Duration {
-	if pct == 0 {
+	if pct <= 0 {
 		return d
 	}
 

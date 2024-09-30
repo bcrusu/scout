@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/events"
+	"github.com/bcrusu/graph/internal/data/server/partitions/leader"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
@@ -24,18 +25,24 @@ var (
 
 type Controller struct {
 	id         identity.Identity
+	config     leader.TxnConfig
 	multiraft  *multiraft.MultiRaft
+	dataClient data.ServiceClient
 	cancelFunc context.CancelFunc
 	lock       sync.RWMutex
 	replicas   map[uint32]*replica // map[partition_id]*replica
 }
 
-func NewController(id identity.Identity, multiraft *multiraft.MultiRaft) *Controller {
-	return &Controller{
+func NewController(id identity.Identity, config leader.TxnConfig, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient) *Controller {
+	c := &Controller{
 		id:        id,
+		config:    config,
 		multiraft: multiraft,
 		replicas:  map[uint32]*replica{},
 	}
+
+	c.dataClient = &dataClientLocal{c, dataClient}
+	return c
 }
 
 func (c *Controller) Start(ctx context.Context) error {
@@ -121,7 +128,9 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 
 		replica := &replica{
 			name:        replicaConfig.Name,
+			config:      c.config,
 			multiraft:   c.multiraft,
+			dataClient:  c.dataClient,
 			log:         logging.WithComponent("partition").With("id", id, "name", config.Name).NoContext(),
 			updateCh:    make(chan *control.DataServerConfig_Partition, 1),
 			getStatusCh: make(chan getStatusCmd),

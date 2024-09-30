@@ -38,9 +38,9 @@ type Config struct {
 }
 
 type Retry struct {
-	MaxAttempts uint32        `yaml:"maxAttempts" default:"3" validate:"min:1,max:10"`
-	MinDelay    time.Duration `yaml:"minDelay" default:"200ms" validate:"min:50ms,max:1s"`
-	MaxDelay    time.Duration `yaml:"maxDelay" default:"500ms" validate:"min:200ms,max:3s"`
+	MaxAttempts uint32        `yaml:"maxAttempts" default:"3" validate:"min:1"`
+	MinDelay    time.Duration `yaml:"minDelay" default:"100ms" validate:"min:10ms"`
+	MaxDelay    time.Duration `yaml:"maxDelay" default:"500ms" validate:"min:100ms"`
 }
 
 // GetServiceConfigJson returns the ServiceConfig json for the provided service specification.

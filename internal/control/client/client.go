@@ -54,7 +54,7 @@ func (c *controlClient) Start(ctx context.Context) error {
 	}
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts.clusterName}))
-	c.conn = rpc.NewConn(c.opts.discovery.String(), c.opts.clusterName, dialOpts...)
+	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
 	c.ServiceClient = control.NewServiceClient(c.conn)
 
 	return utils.LifecycleStart(ctx, logC, c.conn)

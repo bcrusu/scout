@@ -17,8 +17,10 @@ import (
 
 type replicaServing struct {
 	id         uint32
+	config     leader.TxnConfig
 	raft       *multiraft.Raft
 	store      storage.Store
+	dataClient data.ServiceClient
 	log        logging.Logger
 	updateCh   chan updateServersCmd
 	partition  atomic.Pointer[partitionDrainer]
@@ -70,7 +72,7 @@ func (p *replicaServing) mainLoop(ctx context.Context, etag string, servers []ra
 			var new partition
 
 			if isLeader {
-				new = leader.New(p.id, p.store)
+				new = leader.New(p.id, p.config, p.store, p.dataClient)
 			} else {
 				new = follower.New(p.id, p.store)
 			}

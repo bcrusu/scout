@@ -4,24 +4,36 @@ import "github.com/bcrusu/graph/internal/data"
 
 // TxnId is the map key friendly version of data.TxnId proto.
 type TxnId struct {
-	ServerID  uint64
-	Timestamp uint64
+	PrincipalPid uint32
+	ServerID     uint64
+	Timestamp    uint64
+}
+
+type TxnStatus struct {
+	Status *data.TxnStatus
+	Error  error
 }
 
 type TxnBatchResult struct {
-	Status []*data.TxnStatus
+	Autocommit    []TxnStatus
+	Prepare       []TxnStatus
+	Commit        []TxnStatus
+	Abort         []TxnStatus
+	StoreDecision []TxnStatus
 }
 
-func newTxnId(id *data.TxnId) TxnId {
+func NewTxnId(id *data.TxnId) TxnId {
 	return TxnId{
-		ServerID:  id.ServerId,
-		Timestamp: id.Timestamp,
+		PrincipalPid: id.PrincipalPid,
+		ServerID:     id.ServerId,
+		Timestamp:    id.Timestamp,
 	}
 }
 
-func (t *TxnId) Proto() *data.TxnId {
+func (t *TxnId) ToProto() *data.TxnId {
 	return &data.TxnId{
-		ServerId:  t.ServerID,
-		Timestamp: t.Timestamp,
+		PrincipalPid: t.PrincipalPid,
+		ServerId:     t.ServerID,
+		Timestamp:    t.Timestamp,
 	}
 }

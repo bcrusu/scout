@@ -4,6 +4,49 @@ package data;
 
 option go_package = "github.com/bcrusu/graph/internal/data";
 
+// TxnId uniquely identifies a transaction in the cluster.
+message TxnId {
+    // The principal partition is where the txn status is written.
+    // For a single-partition/autocommit txn, it corresponds to the
+    // the sole partition involved in the transaction.
+    // For a two-phase commit txn, a participant partition is selected
+    // to act as a secondary coordinator and holds the overall txn status.
+    uint32 principal_pid = 1;
+
+    // Originating server identifier.
+    uint64 server_id = 2;
+
+    // Originating server HLC from when txn is created. It acts as
+    // a unique identifier and differs from the commit timestamp found
+    // in TxnStatus which is decided by the participants.
+    uint64 timestamp = 3;
+}
+
+message Txn {
+    TxnId id = 1;
+    repeated Action actions = 2;
+    
+    // used only for 2PC txn and sent only to the principal partition. 
+    repeated uint32 participant_pids = 3;
+}
+
+enum TxnState {
+    Pending = 0;
+    Prepared = 1;
+    Committed = 2;
+    Aborted = 3;
+    Failed = 4;
+    Timedout = 5;
+    Decided = 6;
+}
+
+message TxnStatus  {
+    TxnId id = 1;
+    uint64 timestamp = 2;
+    TxnState state = 3;
+    map<uint32, ActionStatus> action_status = 4;
+}
+
 message Insert {
     uint64 keyspace = 1;
     bytes key = 2;
@@ -25,6 +68,12 @@ message Upsert {
 message Delete {
     uint64 keyspace = 1;
     bytes key = 2;
+}
+
+message Read {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    uint64 timestamp = 3; // optional; if not specified, it represents the latest value
 }
 
 message LockKey {
@@ -63,59 +112,42 @@ message RangeLock {
 }
 
 message Action {
+    uint32 id = 1;
+
     oneof payload {
-        Insert insert = 1;
-        Update update = 2;
-        Upsert upsert = 3;
-        Delete delete = 4;
-        LockKey lock_key = 5;
-        LockRange lock_range = 6;
+        Read read = 2;
+        Insert insert = 3;
+        Update update = 4;
+        Upsert upsert = 5;
+        Delete delete = 6;
+        LockKey lock_key = 7;
+        LockRange lock_range = 8;
     }
 }
 
-message TxnId {
-    uint64 server_id = 1;
-    uint64 timestamp = 2;
+message Value {
+    oneof payload {
+        bytes bytes = 1;
+    }
 }
 
-message Txn {
+message ActionStatus {
+    enum Code {
+        Success = 0;
+        KeyNotFound = 1;
+        KeyAlreadyExists = 2;
+        LockCheckFailed = 3;
+        LockFailed = 4;
+        CorruptedData = 5;
+    }
+
+    uint32 id = 1;
+    Code code = 2;
+    Value value = 3; // TODO: change to value reference to avoid storing the actual value in raft log
+}
+
+message TxnDecision {
     TxnId id = 1;
-    repeated Action actions = 2;
-}
-
-enum TxnState {
-    Pending = 0;
-    Prepared = 1;
-    Committed = 2;
-    Aborted = 3;
-    NotFound = 4;
-    ActionFailed = 5;
-}
-
-message TxnStatus {
-    TxnId id = 1;
-    uint64 timestamp = 2;
-    TxnState state = 3;
-    uint32 action_index = 4;     // only for ActionFailed state; the failed action index
-    ErrorCode action_error = 5;  // only for ActionFailed state; the failed action error code
-}
-
-enum ErrorCode {
-    None = 0;
-    KeyNotFound = 1;
-    KeyAlreadyExists = 2;
-    LockCheckFailed = 3;
-    LockFailed = 4;
-}
-
-message TxnBatch {
-    uint32 partition_id = 1;
-    repeated Txn autocommit = 2;
-    repeated Txn two_phase_prepare = 3;
-    repeated TxnId two_phase_commit = 4;
-    repeated TxnId two_phase_abort = 5;
-}
-
-message TxnBatchStatus {
-    repeated TxnStatus status = 1;
+    bool commit = 2;
+	uint64 commit_timestamp = 3;
 }

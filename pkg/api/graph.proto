@@ -7,8 +7,8 @@ option go_package = "github.com/bcrusu/graph/pkg/api";
 import "pkg/api/common.proto";
 import "google/protobuf/timestamp.proto";
 
-// Graph represents the graph store operations.
-service Graph {
+// GraphService represents the graph store operations.
+service GraphService {
     rpc GetVertex(GetVertexRequest) returns (Vertex);
     rpc UpdateVertex(Vertex) returns (Status);
     rpc DeleteVertex(VertexId) returns (Status);

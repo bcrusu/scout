@@ -24,6 +24,15 @@ func MakeSet[T comparable](slice []T) map[T]bool {
 	return result
 }
 
+// MakeKeySlice returns map keys slice.
+func MakeKeySlice[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // GetOptionalParameter is used by variadic functions to specify a single optional parameter.
 func GetOptionalParameter[T any](defaultValue T, values []T) T {
 	if len(values) == 1 {
@@ -37,4 +46,22 @@ func GetOptionalParameter[T any](defaultValue T, values []T) T {
 // PointerOf is a helper that returns the pointer of input value.
 func PointerOf[T any](val T) *T {
 	return &val
+}
+
+// GetSingleMapKey returns true if the map contains a single key.
+func GetSingleMapKey[K comparable, V any](m map[K]V) (k K, v V, ok bool) {
+	if len(m) == 1 {
+		for k, v = range m {
+			return k, v, true
+		}
+	}
+
+	return k, v, false
+}
+
+// AppendMap appends source map items to dest map.
+func AppendMap[K comparable, V any](dest, source map[K]V) {
+	for k, v := range source {
+		dest[k] = v
+	}
 }

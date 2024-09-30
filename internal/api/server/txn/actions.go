@@ -1,6 +1,30 @@
 package txn
 
-import "github.com/bcrusu/graph/internal/data"
+import (
+	"time"
+
+	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/hlc"
+)
+
+func Read(keyspace uint64, key []byte) *data.Action {
+	return &data.Action{Payload: &data.Action_Read{
+		Read: &data.Read{
+			Keyspace: keyspace,
+			Key:      key,
+		},
+	}}
+}
+
+func ReadAt(keyspace uint64, key []byte, time time.Time) *data.Action {
+	return &data.Action{Payload: &data.Action_Read{
+		Read: &data.Read{
+			Keyspace:  keyspace,
+			Key:       key,
+			Timestamp: hlc.FromTime(time),
+		},
+	}}
+}
 
 func Insert(keyspace uint64, key, value []byte) *data.Action {
 	return &data.Action{Payload: &data.Action_Insert{

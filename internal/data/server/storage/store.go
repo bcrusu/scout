@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"slices"
+
+	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -18,7 +21,20 @@ type Store interface {
 	AppliedIndex() uint64
 	Get(keyspace uint64, key []byte) ([]byte, bool)
 
-	ExecuteTxnBatch(*ExecuteTxnBatch) (*TxnBatchResult, error)
+	GetTxnRunning() []TxnRunning
+	TxnAutocommit(*TxnAutocommit) (*data.TxnStatus, error)
+	TxnPrepare(*TxnPrepare) (*data.TxnStatus, error)
+	TxnCommit(*TxnCommit) (*data.TxnStatus, error)
+	TxnAbort(*TxnAbort) (*data.TxnStatus, error)
+	StoreTxnDecision(*StoreTxnDecision) (*data.TxnStatus, error)
+	TxnBatch(*TxnBatch) (*TxnBatchResult, error)
+}
+
+type TxnRunning struct {
+	Id              TxnId
+	Timestamp       uint64
+	State           data.TxnState
+	ParticipantPids []uint32
 }
 
 type store struct {
@@ -51,7 +67,47 @@ func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
 	return nil, true
 }
 
-func (s *store) ExecuteTxnBatch(cmd *ExecuteTxnBatch) (*TxnBatchResult, error) {
+func (s *store) GetTxnRunning() []TxnRunning {
+	s.fsm.lock.RLock()
+	defer s.fsm.lock.RUnlock()
+
+	result := make([]TxnRunning, 0, len(s.fsm.txnProcessor.prepared))
+
+	for id, p := range s.fsm.txnProcessor.prepared {
+		s := s.fsm.txnProcessor.status[id]
+
+		result = append(result, TxnRunning{
+			Id:              id,
+			Timestamp:       s.Timestamp,
+			State:           s.State,
+			ParticipantPids: slices.Clone(p.Txn.ParticipantPids),
+		})
+	}
+
+	return result
+}
+
+func (s *store) TxnAutocommit(cmd *TxnAutocommit) (*data.TxnStatus, error) {
+	return applyR[*data.TxnStatus](s.raft, cmd)
+}
+
+func (s *store) TxnPrepare(cmd *TxnPrepare) (*data.TxnStatus, error) {
+	return applyR[*data.TxnStatus](s.raft, cmd)
+}
+
+func (s *store) TxnCommit(cmd *TxnCommit) (*data.TxnStatus, error) {
+	return applyR[*data.TxnStatus](s.raft, cmd)
+}
+
+func (s *store) TxnAbort(cmd *TxnAbort) (*data.TxnStatus, error) {
+	return applyR[*data.TxnStatus](s.raft, cmd)
+}
+
+func (s *store) StoreTxnDecision(cmd *StoreTxnDecision) (*data.TxnStatus, error) {
+	return applyR[*data.TxnStatus](s.raft, cmd)
+}
+
+func (s *store) TxnBatch(cmd *TxnBatch) (*TxnBatchResult, error) {
 	return applyR[*TxnBatchResult](s.raft, cmd)
 }
 

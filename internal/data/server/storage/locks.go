@@ -11,7 +11,7 @@ import (
 func (p *txnProcessor) checkLocks(id TxnId, timestamp uint64, locks []*Lock) *data.TxnStatus {
 	for _, lock := range locks {
 		if !p.checkLock(lock) {
-			return newActionFailedStatus(id, timestamp, int(lock.ActionIndex), data.ErrorCode_LockFailed)
+			return newTxnFailedStatus(id, timestamp, lock.ActionId, data.ActionStatus_LockFailed)
 		}
 	}
 
@@ -31,19 +31,27 @@ func (p *txnProcessor) checkLock(lock *Lock) bool {
 
 func buildLocks(t *data.Txn) []*Lock {
 	locks := make([]*Lock, 0, len(t.Actions))
-	for i, a := range t.Actions {
-		if lock := buildActionLock(i, a); lock != nil {
+	for _, a := range t.Actions {
+		if lock := buildActionLock(a); lock != nil {
 			locks = append(locks, lock)
 		}
 	}
 	return locks
 }
 
-func buildActionLock(i int, a *data.Action) *Lock {
+func buildActionLock(a *data.Action) *Lock {
 	switch x := a.Payload.(type) {
+	case *data.Action_Read:
+		return &Lock{
+			ActionId: a.Id,
+			Payload: &Lock_KeyLock{&data.KeyLock{
+				Keyspace:  x.Read.Keyspace,
+				Key:       x.Read.Key,
+				Exclusive: false,
+			}}}
 	case *data.Action_Insert:
 		return &Lock{
-			ActionIndex: uint32(i),
+			ActionId: a.Id,
 			Payload: &Lock_KeyLock{&data.KeyLock{
 				Keyspace:  x.Insert.Keyspace,
 				Key:       x.Insert.Key,
@@ -51,7 +59,7 @@ func buildActionLock(i int, a *data.Action) *Lock {
 			}}}
 	case *data.Action_Update:
 		return &Lock{
-			ActionIndex: uint32(i),
+			ActionId: a.Id,
 			Payload: &Lock_KeyLock{&data.KeyLock{
 				Keyspace:  x.Update.Keyspace,
 				Key:       x.Update.Key,
@@ -59,7 +67,7 @@ func buildActionLock(i int, a *data.Action) *Lock {
 			}}}
 	case *data.Action_Delete:
 		return &Lock{
-			ActionIndex: uint32(i),
+			ActionId: a.Id,
 			Payload: &Lock_KeyLock{&data.KeyLock{
 				Keyspace:  x.Delete.Keyspace,
 				Key:       x.Delete.Key,
@@ -67,7 +75,7 @@ func buildActionLock(i int, a *data.Action) *Lock {
 			}}}
 	case *data.Action_Upsert:
 		return &Lock{
-			ActionIndex: uint32(i),
+			ActionId: a.Id,
 			Payload: &Lock_KeyLock{&data.KeyLock{
 				Keyspace:  x.Upsert.Keyspace,
 				Key:       x.Upsert.Key,
@@ -75,13 +83,13 @@ func buildActionLock(i int, a *data.Action) *Lock {
 			}}}
 	case *data.Action_LockKey:
 		return &Lock{
-			ActionIndex: uint32(i),
-			Payload:     &Lock_KeyLock{x.LockKey.Lock},
+			ActionId: a.Id,
+			Payload:  &Lock_KeyLock{x.LockKey.Lock},
 		}
 	case *data.Action_LockRange:
 		return &Lock{
-			ActionIndex: uint32(i),
-			Payload:     &Lock_RangeLock{x.LockRange.Lock},
+			ActionId: a.Id,
+			Payload:  &Lock_RangeLock{x.LockRange.Lock},
 		}
 	default:
 		return nil
