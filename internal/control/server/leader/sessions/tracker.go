@@ -31,7 +31,6 @@ var (
 	logS                                       = logging.WithComponent("session_tracker")
 	_                          utils.Lifecycle = (*Tracker)(nil)
 	recvBurst                                  = 5
-	recvLimit                                  = rate.Limit(float64(recvBurst) / float64(time.Second.Seconds()))
 	recvMaxOffenses                            = 16 // after this the session will be closed
 	updateServerListDebounce                   = 200 * time.Millisecond
 	updateServerConfigDebounce                 = 200 * time.Millisecond
@@ -191,7 +190,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				waitCh:        x.waitCh,
 				dsConfig:      dsConfigs[x.serverID],
 				asConfig:      asConfigs[x.serverID],
-				recvLimiter:   rate.NewLimiter(recvLimit, recvBurst),
+				recvLimiter:   utils.NewRateLimiter(recvBurst, time.Second),
 			}
 
 			new.log = logS.With("server", server.Id, "session_id", new.id, "address", new.serverAddress)

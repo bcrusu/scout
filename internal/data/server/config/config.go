@@ -5,6 +5,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/discovery"
 	"github.com/bcrusu/graph/internal/rpc"
+	"github.com/bcrusu/graph/internal/utils"
 	"github.com/bcrusu/graph/internal/validation"
 )
 
@@ -37,6 +38,8 @@ type Config struct {
 }
 
 type TxnConfig struct {
-	Phase1Timeout time.Duration `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
-	Phase2Timeout time.Duration `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
+	Phase1Timeout     time.Duration     `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
+	Phase2Timeout     time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
+	RetryPolicy       utils.RetryPolicy `yaml:"retryPolicy"`
+	RetryBreakerLimit int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
 }

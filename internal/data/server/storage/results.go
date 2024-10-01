@@ -1,6 +1,10 @@
 package storage
 
-import "github.com/bcrusu/graph/internal/data"
+import (
+	"fmt"
+
+	"github.com/bcrusu/graph/internal/data"
+)
 
 // TxnId is the map key friendly version of data.TxnId proto.
 type TxnId struct {
@@ -36,4 +40,8 @@ func (t *TxnId) ToProto() *data.TxnId {
 		ServerId:     t.ServerID,
 		Timestamp:    t.Timestamp,
 	}
+}
+
+func (i TxnId) String() string {
+	return fmt.Sprintf("PrincipalPid:%d ServerID:%d Timestamp:%d", i.PrincipalPid, i.ServerID, i.Timestamp)
 }

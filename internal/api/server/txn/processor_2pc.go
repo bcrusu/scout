@@ -48,7 +48,7 @@ func (p *processor2PC) Process(ctx context.Context, txn *Txn) (*TxnResult, error
 		// after the method returns, but this could interfere with scenarios where
 		// the client retries the transaction faster than held locks are released.
 		//
-		// Implements the presumed abort optimization which does not store the
+		// Implements the "presumed abort" optimization which does not store the
 		// abort decision. If the current server fails during abort, the principal
 		// partition watchdog will trigger and perform the cleanup for us.
 		p.abort(ctx, txn, status)
@@ -196,9 +196,9 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.TxnDecision, t
 
 	handleResult := func(r commitResult) {
 		if r.err != nil {
-			errs = append(errs, errors.Wrapf(r.err, "2pc txn=%s commit failed at participant %d", txn.id, r.pid))
+			errs = append(errs, errors.Wrapf(r.err, "2pc txn=%s commit failed at participant %d.", txn.id, r.pid))
 		} else if r.status.State != data.TxnState_Committed {
-			errs = append(errs, errors.Errorf("2pc txn=%s commit failed with state %s at participant %d", txn.id, r.status.State, r.pid))
+			errs = append(errs, errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", txn.id, r.status.State, r.pid))
 		} else {
 			status[r.pid] = r.status
 		}
@@ -242,11 +242,15 @@ func (p *processor2PC) abort(ctx context.Context, txn *Txn, status statusMap) {
 
 		status, err := p.client.Abort(ctx, req)
 
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			resultCh <- err
-		} else if !status.State.IsFinal() {
-			resultCh <- errors.Errorf("abort failed for partition %d", pid)
-		} else {
+		switch {
+		case err != nil:
+			if !errors.Is(err, errors.NotFound) {
+				resultCh <- err
+			}
+			resultCh <- nil
+		case !status.State.IsFinal():
+			resultCh <- errors.Errorf("2pc txn=%s abort failed with state %s at participant %d.", txn.id, status.State, pid)
+		default:
 			resultCh <- nil
 		}
 	}

@@ -36,5 +36,5 @@ type Config struct {
 }
 
 type TxnConfig struct {
-	RetryPolicy utils.RetryPolicy `yaml:"retryPolicy" default:"3" validate:"min:1,max:10"`
+	RetryPolicy utils.RetryPolicy `yaml:"retryPolicy"`
 }

@@ -71,7 +71,7 @@ func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.T
 
 	status, err := n.store.TxnPrepare(cmd)
 	if err != nil {
-		n.watchdog2pc.UpdateTxnStatus(status, req.Txn)
+		n.watchdog2pc.UpdateTxnStatus(status, req.Txn, nil)
 	}
 
 	return status, err
@@ -85,7 +85,7 @@ func (n *Leader) Commit(ctx context.Context, req *data.CommitRequest) (*data.Txn
 
 	status, err := n.store.TxnCommit(cmd)
 	if err != nil {
-		n.watchdog2pc.UpdateTxnStatus(status, nil)
+		n.watchdog2pc.UpdateTxnStatus(status, nil, nil)
 	}
 
 	return status, err
@@ -99,14 +99,17 @@ func (n *Leader) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnSt
 
 	status, err := n.store.TxnAbort(cmd)
 	if err != nil {
-		n.watchdog2pc.UpdateTxnStatus(status, nil)
+		n.watchdog2pc.UpdateTxnStatus(status, nil, nil)
 	}
 
 	return status, err
 }
 
 func (n *Leader) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*data.TxnStatus, error) {
-	if dec.Id.PrincipalPid != n.pid {
+	if !dec.Commit {
+		// only commit decisions are stored
+		return nil, errors.InvalidRequest
+	} else if dec.Id.PrincipalPid != n.pid {
 		n.log.Warn(ctx, "Received 2pc decision for another partition.", "principal_pid", dec.Id.PrincipalPid)
 		return nil, errors.PermissionDenied
 	}
@@ -118,7 +121,7 @@ func (n *Leader) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*dat
 
 	status, err := n.store.StoreTxnDecision(cmd)
 	if err != nil {
-		n.watchdog2pc.UpdateTxnStatus(status, nil)
+		n.watchdog2pc.UpdateTxnStatus(status, nil, dec)
 	}
 
 	return status, err

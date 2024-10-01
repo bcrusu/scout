@@ -27,6 +27,7 @@ type Store interface {
 	TxnCommit(*TxnCommit) (*data.TxnStatus, error)
 	TxnAbort(*TxnAbort) (*data.TxnStatus, error)
 	StoreTxnDecision(*StoreTxnDecision) (*data.TxnStatus, error)
+	MarkTxnTimedout(cmd *MarkTxnTimedout) (*data.TxnStatus, error)
 	TxnBatch(*TxnBatch) (*TxnBatchResult, error)
 }
 
@@ -35,6 +36,7 @@ type TxnRunning struct {
 	Timestamp       uint64
 	State           data.TxnState
 	ParticipantPids []uint32
+	Decision        *data.TxnDecision
 }
 
 type store struct {
@@ -74,13 +76,14 @@ func (s *store) GetTxnRunning() []TxnRunning {
 	result := make([]TxnRunning, 0, len(s.fsm.txnProcessor.prepared))
 
 	for id, p := range s.fsm.txnProcessor.prepared {
-		s := s.fsm.txnProcessor.status[id]
+		status := s.fsm.txnProcessor.status[id]
 
 		result = append(result, TxnRunning{
 			Id:              id,
-			Timestamp:       s.Timestamp,
-			State:           s.State,
+			Timestamp:       status.Timestamp,
+			State:           status.State,
 			ParticipantPids: slices.Clone(p.Txn.ParticipantPids),
+			Decision:        utils.CloneProto(s.fsm.txnProcessor.decisions[id]),
 		})
 	}
 
@@ -104,6 +107,10 @@ func (s *store) TxnAbort(cmd *TxnAbort) (*data.TxnStatus, error) {
 }
 
 func (s *store) StoreTxnDecision(cmd *StoreTxnDecision) (*data.TxnStatus, error) {
+	return applyR[*data.TxnStatus](s.raft, cmd)
+}
+
+func (s *store) MarkTxnTimedout(cmd *MarkTxnTimedout) (*data.TxnStatus, error) {
 	return applyR[*data.TxnStatus](s.raft, cmd)
 }
 
