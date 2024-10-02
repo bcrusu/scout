@@ -447,6 +447,8 @@ func (x *StoreTxnDecision) GetDecision() *data.TxnDecision {
 	return nil
 }
 
+// The watchdog will apply the command twice for each timedout txn
+// and the second will release the locks, completing the 2pc process.
 type MarkTxnTimedout struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

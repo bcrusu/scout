@@ -23,7 +23,7 @@ message PrepareRequest {
 message CommitRequest {
     uint32 participant_pid = 1;
     TxnId id = 2;
-    uint64 timestamp = 3;
+    uint64 commit_timestamp = 3;
     bool fetch_results = 4;
 }
 

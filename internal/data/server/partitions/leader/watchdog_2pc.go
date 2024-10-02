@@ -300,10 +300,10 @@ func (w *watchdog2PC) commit(ctx context.Context, txn storage.TxnRunning) {
 	resultCh := make(chan error, 1)
 	invokeCommit := func(pid uint32) {
 		req := &data.CommitRequest{
-			ParticipantPid: pid,
-			Id:             txn.Id.ToProto(),
-			Timestamp:      txn.Decision.CommitTimestamp,
-			FetchResults:   false,
+			ParticipantPid:  pid,
+			Id:              txn.Id.ToProto(),
+			CommitTimestamp: txn.Decision.CommitTimestamp,
+			FetchResults:    false,
 		}
 
 		resultCh <- utils.RetryForeverE(ctx, &w.config.RetryPolicy.Backoff, w.withBreaker(func() error {

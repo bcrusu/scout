@@ -3,21 +3,19 @@ package storage
 import (
 	"encoding/base64"
 	"fmt"
-	"time"
+	"iter"
 
 	"github.com/bcrusu/graph/internal/utils"
 )
 
-// TODO: make configurable
-var (
-	retryPolicy = utils.RetryPolicy{
-		MaxAttempts: 10,
-		Backoff: utils.Backoff{
-			MinDelay: 50 * time.Millisecond,
-			MaxDelay: 100 * time.Millisecond,
-		},
-	}
-)
+type DB interface {
+	Get(Location) (*ValueAt, error)
+	GetRange(Range) (Iterator, error)
+	Exists(Location) (bool, error)
+	ExistsInRange(Range) (bool, error)
+	Set(Location, []byte) error
+	Delete(Location) error
+}
 
 type Location struct {
 	PartitionID uint32
@@ -34,47 +32,33 @@ type Range struct {
 	Timestamp   uint64 // optional; if not specified, it represents the latest value
 }
 
-type Iterator interface {
-	//TODO
+type ValueAt struct {
+	Data      []byte
+	Timestamp uint64
 }
 
-type DB interface {
-	Get(Location) ([]byte, uint64, error)
-	GetRange(Range) (Iterator, error)
-	Exists(Location) (bool, error)
-	ExistsInRange(Range) (bool, error)
-	Set(Location, []byte) error
-	Delete(Location) error
-}
+type Iterator = iter.Seq2[ValueAt, error]
 
 // crticalDB wraps the DB object to ensure operation success or total destruction.
 type crticalDB struct {
-	db DB
+	db          DB
+	retryPolicy utils.RetryPolicy
 }
 
-type crticalIterator struct {
-	inner Iterator
-}
-
-func (d *crticalDB) Get(loc Location) ([]byte, uint64) {
-	var value []byte
-	var timestamp uint64
-	var err error
-
-	err = utils.RetryE(retryPolicy, func() error {
-		value, timestamp, err = d.db.Get(loc)
-		return err
+func (d *crticalDB) Get(loc Location) *ValueAt {
+	value, err := utils.RetryR(d.retryPolicy, func() (*ValueAt, error) {
+		return d.db.Get(loc)
 	})
 
 	if err != nil {
 		utils.ShutdownNow("crticalDB.Get failed")
 	}
 
-	return value, timestamp
+	return value
 }
 
 func (d *crticalDB) GetRange(rang Range) Iterator {
-	iter, err := utils.RetryR(retryPolicy, func() (Iterator, error) {
+	iter, err := utils.RetryR(d.retryPolicy, func() (Iterator, error) {
 		return d.db.GetRange(rang)
 	})
 
@@ -82,13 +66,11 @@ func (d *crticalDB) GetRange(rang Range) Iterator {
 		utils.ShutdownNow("crticalDB.GetRange failed")
 	}
 
-	return &crticalIterator{
-		inner: iter,
-	}
+	return iter
 }
 
 func (d *crticalDB) Exists(loc Location) bool {
-	result, err := utils.RetryR(retryPolicy, func() (bool, error) {
+	result, err := utils.RetryR(d.retryPolicy, func() (bool, error) {
 		return d.db.Exists(loc)
 	})
 
@@ -100,7 +82,7 @@ func (d *crticalDB) Exists(loc Location) bool {
 }
 
 func (d *crticalDB) ExistsInRange(rang Range) bool {
-	result, err := utils.RetryR(retryPolicy, func() (bool, error) {
+	result, err := utils.RetryR(d.retryPolicy, func() (bool, error) {
 		return d.db.ExistsInRange(rang)
 	})
 
@@ -111,9 +93,9 @@ func (d *crticalDB) ExistsInRange(rang Range) bool {
 	return result
 }
 
-func (d *crticalDB) Set(loc Location, value []byte) {
-	err := utils.RetryE(retryPolicy, func() error {
-		return d.db.Set(loc, value)
+func (d *crticalDB) Set(loc Location, data []byte) {
+	err := utils.RetryE(d.retryPolicy, func() error {
+		return d.db.Set(loc, data)
 	})
 
 	if err != nil {
@@ -122,7 +104,7 @@ func (d *crticalDB) Set(loc Location, value []byte) {
 }
 
 func (d *crticalDB) Delete(loc Location) {
-	err := utils.RetryE(retryPolicy, func() error {
+	err := utils.RetryE(d.retryPolicy, func() error {
 		return d.db.Delete(loc)
 	})
 

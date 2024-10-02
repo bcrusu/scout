@@ -43,5 +43,5 @@ func (t *TxnId) ToProto() *data.TxnId {
 }
 
 func (i TxnId) String() string {
-	return fmt.Sprintf("PrincipalPid:%d ServerID:%d Timestamp:%d", i.PrincipalPid, i.ServerID, i.Timestamp)
+	return fmt.Sprintf("principal_pid=%d server_id=%d timestamp=%d", i.PrincipalPid, i.ServerID, i.Timestamp)
 }

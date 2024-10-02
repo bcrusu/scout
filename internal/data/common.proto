@@ -45,6 +45,7 @@ message TxnStatus  {
     uint64 timestamp = 2;
     TxnState state = 3;
     map<uint32, ActionStatus> action_status = 4;
+    repeated uint32 participant_pids = 5;
 }
 
 message Insert {
@@ -131,6 +132,12 @@ message Value {
     }
 }
 
+message ValueRef {
+    uint64 keyspace = 1;
+    bytes key = 2;
+    uint64 timestamp = 3;
+}
+
 message ActionStatus {
     enum Code {
         Success = 0;
@@ -143,7 +150,8 @@ message ActionStatus {
 
     uint32 id = 1;
     Code code = 2;
-    Value value = 3; // TODO: change to value reference to avoid storing the actual value in raft log
+    ValueRef value_ref = 3;
+    Value value = 4;
 }
 
 message TxnDecision {

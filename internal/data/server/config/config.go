@@ -31,10 +31,11 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	Server       rpc.ServerConfig    `yaml:"server"`
-	DataDir      string              `yaml:"dataDir" validate:"required"`
-	Discovery    discovery.Discovery `yaml:"discovery"`
-	Transactions TxnConfig           `yaml:"transactions"`
+	Server        rpc.ServerConfig    `yaml:"server"`
+	DataDir       string              `yaml:"dataDir" validate:"required"`
+	Discovery     discovery.Discovery `yaml:"discovery"`
+	Transactions  TxnConfig           `yaml:"transactions"`
+	DBRetryPolicy utils.RetryPolicy   `yaml:"dbRetryPolicy"`
 }
 
 type TxnConfig struct {

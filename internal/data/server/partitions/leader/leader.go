@@ -79,7 +79,7 @@ func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.T
 
 func (n *Leader) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
 	cmd := &storage.TxnCommit{
-		Timestamp: req.Timestamp,
+		Timestamp: req.CommitTimestamp,
 		Id:        req.Id,
 	}
 

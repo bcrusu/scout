@@ -66,6 +66,8 @@ func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
 	s.fsm.lock.RLock()
 	defer s.fsm.lock.RUnlock()
 
+	//TODO
+
 	return nil, true
 }
 
@@ -75,14 +77,14 @@ func (s *store) GetTxnRunning() []TxnRunning {
 
 	result := make([]TxnRunning, 0, len(s.fsm.txnProcessor.prepared))
 
-	for id, p := range s.fsm.txnProcessor.prepared {
+	for id := range s.fsm.txnProcessor.prepared {
 		status := s.fsm.txnProcessor.status[id]
 
 		result = append(result, TxnRunning{
 			Id:              id,
 			Timestamp:       status.Timestamp,
 			State:           status.State,
-			ParticipantPids: slices.Clone(p.Txn.ParticipantPids),
+			ParticipantPids: slices.Clone(status.ParticipantPids),
 			Decision:        utils.CloneProto(s.fsm.txnProcessor.decisions[id]),
 		})
 	}

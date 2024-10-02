@@ -10,6 +10,7 @@ import (
 	"github.com/bcrusu/graph/internal/data/server/config"
 	"github.com/bcrusu/graph/internal/data/server/partitions"
 	"github.com/bcrusu/graph/internal/data/server/session"
+	"github.com/bcrusu/graph/internal/data/server/storage/inmem"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
@@ -76,10 +77,11 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
+	db := inmem.New()
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	transportService, mraft := n.buildMultiRaft(*id)
-	partitionController := partitions.NewController(*id, mraft, dataClient)
+	partitionController := partitions.NewController(*id, db, mraft, dataClient)
 	dataService := NewDataService(partitionController)
 	server := rpc.NewServer(n.config.Server, dataService, transportService)
 

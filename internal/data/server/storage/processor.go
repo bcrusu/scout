@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 
 	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/data/server/config"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/logging"
 )
@@ -27,9 +28,14 @@ type txnLocks struct {
 }
 
 func newTxnProcessor(partitionID uint32, db DB) *txnProcessor {
+	cdb := &crticalDB{
+		db:          db,
+		retryPolicy: config.Get().DBRetryPolicy,
+	}
+
 	return &txnProcessor{
 		partitionID: partitionID,
-		db:          &crticalDB{db},
+		db:          cdb,
 		status:      map[TxnId]*data.TxnStatus{},
 		prepared:    map[TxnId]*txnLocks{},
 	}
@@ -263,7 +269,11 @@ func (p *txnProcessor) commit(id TxnId, timestamp uint64) (*data.TxnStatus, erro
 	delete(p.prepared, id)
 	delete(p.decisions, id)
 
-	return newTxnStatus(id, timestamp, data.TxnState_Committed, results), nil
+	status := newTxnStatus(id, timestamp, data.TxnState_Committed, results)
+	// stores the list of participants to be able to recompose the txn results
+	// after the initial client call returns.
+	status.ParticipantPids = prepared.Txn.ParticipantPids
+	return status, nil
 }
 
 func (p *txnProcessor) abort(id TxnId, timestamp uint64) (*data.TxnStatus, error) {
@@ -277,28 +287,29 @@ func (p *txnProcessor) abort(id TxnId, timestamp uint64) (*data.TxnStatus, error
 	return newTxnStatus(id, timestamp, data.TxnState_Aborted, nil), nil
 }
 
+// Note: all validation checks below substract 1 from the timestamp parameter. This is a
+// quick hack to enable idempotent behavior for the txn and made possible by the fact that
+// HLC timestamps are strictly monotonic, synced with the control plane on session start,
+// and persisted in the partition raft log.
+//
+// It is required that each action has repetable and deterministic execution behavior even
+// when the underlying key-value store already contains the txn result/s. This scenario is
+// expected to happen during normal service operation when a new replica joins the raft
+// group: it will first fetch/stream an up-to-date key-value store checkpoint from another
+// running replica, install it locally, then start applying the pending raft log entries.
+// Unless a perfect in-sync, at the same applied raft index, kv store checkpoint and raft
+// snapshot can be created it is almost certain that duplicate txn execution will happen.
 func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data.TxnStatus {
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *data.Action_Read:
-			loc := Location{
-				PartitionID: p.partitionID,
-				Keyspace:    x.Read.Keyspace,
-				Key:         x.Read.Key,
-				Timestamp:   x.Read.Timestamp,
-			}
-
-			if !p.db.Exists(loc) {
-				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
-			}
 		case *data.Action_Insert:
 			loc := Location{
 				PartitionID: p.partitionID,
 				Keyspace:    x.Insert.Keyspace,
 				Key:         x.Insert.Key,
+				Timestamp:   timestamp - 1,
 			}
 
-			// TODO: validation code is not idempotent!
 			if p.db.Exists(loc) {
 				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyAlreadyExists)
 			}
@@ -307,6 +318,7 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 				PartitionID: p.partitionID,
 				Keyspace:    x.Update.Keyspace,
 				Key:         x.Update.Key,
+				Timestamp:   timestamp - 1,
 			}
 
 			if !p.db.Exists(loc) {
@@ -319,6 +331,7 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 				PartitionID: p.partitionID,
 				Keyspace:    x.Delete.Keyspace,
 				Key:         x.Delete.Key,
+				Timestamp:   timestamp - 1,
 			}
 
 			if !p.db.Exists(loc) {
@@ -333,6 +346,7 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 				PartitionID: p.partitionID,
 				Keyspace:    x.LockKey.Lock.Keyspace,
 				Key:         x.LockKey.Lock.Key,
+				Timestamp:   timestamp - 1,
 			}
 
 			actual := p.db.Exists(loc)
@@ -351,6 +365,7 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 				Keyspace:    x.LockRange.Lock.Keyspace,
 				StartKey:    x.LockRange.Lock.StartKey,
 				EndKey:      x.LockRange.Lock.EndKey,
+				Timestamp:   timestamp - 1,
 			}
 
 			actual := p.db.ExistsInRange(rang)
@@ -383,12 +398,11 @@ func (p *txnProcessor) doActions(timestamp uint64, txn *data.Txn) map[uint32]*da
 				Timestamp:   ts,
 			}
 
-			bytes, timestamp := p.db.Get(loc)
-			value, err := decodeValue(bytes)
-			if err != nil {
-				str := base64.RawURLEncoding.EncodeToString(bytes)
+			if valueAt := p.db.Get(loc); valueAt == nil {
+				result[action.Id] = newActionStatus(action.Id, data.ActionStatus_KeyNotFound, nil)
+			} else if value, err := decodeValue(valueAt.Data); err != nil {
+				str := base64.RawURLEncoding.EncodeToString(valueAt.Data)
 				logT.WithError(err).Error("Failed to decode.", "value", str, "value_timestamp", timestamp, "location", loc)
-
 				result[action.Id] = newActionStatus(action.Id, data.ActionStatus_CorruptedData, nil)
 			} else {
 				result[action.Id] = newActionStatus(action.Id, data.ActionStatus_Success, value)
@@ -401,7 +415,7 @@ func (p *txnProcessor) doActions(timestamp uint64, txn *data.Txn) map[uint32]*da
 				Timestamp:   timestamp,
 			}
 
-			p.db.Set(loc, mustEncodeValueBytes(loc, x.Insert.Value))
+			p.db.Set(loc, mustEncodeValue(x.Insert.Value))
 		case *data.Action_Update:
 			loc := Location{
 				PartitionID: p.partitionID,
@@ -410,7 +424,7 @@ func (p *txnProcessor) doActions(timestamp uint64, txn *data.Txn) map[uint32]*da
 				Timestamp:   timestamp,
 			}
 
-			p.db.Set(loc, mustEncodeValueBytes(loc, x.Update.Value))
+			p.db.Set(loc, mustEncodeValue(x.Update.Value))
 		case *data.Action_Upsert:
 			loc := Location{
 				PartitionID: p.partitionID,
@@ -419,7 +433,7 @@ func (p *txnProcessor) doActions(timestamp uint64, txn *data.Txn) map[uint32]*da
 				Timestamp:   timestamp,
 			}
 
-			p.db.Set(loc, mustEncodeValueBytes(loc, x.Upsert.Value))
+			p.db.Set(loc, mustEncodeValue(x.Upsert.Value))
 		case *data.Action_Delete:
 			loc := Location{
 				PartitionID: p.partitionID,
@@ -459,8 +473,9 @@ func newTxnFailedStatus(id TxnId, timestamp uint64, actionId uint32, code data.A
 
 func newActionStatus(id uint32, code data.ActionStatus_Code, value *data.Value) *data.ActionStatus {
 	return &data.ActionStatus{
-		Id:    id,
-		Code:  code,
-		Value: value,
+		Id:       id,
+		Code:     code,
+		ValueRef: nil,
+		Value:    value, // TODO: set only ValueRef to avoid the Value being written to the Raft log. Later, the actual value bytes can be fetched from db
 	}
 }

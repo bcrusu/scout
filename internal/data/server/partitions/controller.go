@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/events"
+	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/identity"
 	"github.com/bcrusu/graph/internal/logging"
@@ -24,6 +25,7 @@ var (
 
 type Controller struct {
 	id         identity.Identity
+	db         storage.DB
 	multiraft  *multiraft.MultiRaft
 	dataClient data.ServiceClient
 	cancelFunc context.CancelFunc
@@ -31,9 +33,10 @@ type Controller struct {
 	replicas   map[uint32]*replica // map[partition_id]*replica
 }
 
-func NewController(id identity.Identity, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient) *Controller {
+func NewController(id identity.Identity, db storage.DB, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient) *Controller {
 	c := &Controller{
 		id:        id,
+		db:        db,
 		multiraft: multiraft,
 		replicas:  map[uint32]*replica{},
 	}

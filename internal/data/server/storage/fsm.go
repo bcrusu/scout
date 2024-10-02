@@ -21,6 +21,7 @@ type FSM struct {
 	txnProcessor *txnProcessor
 	lock         sync.RWMutex // guards all below
 	index        uint64       // last applied raft index
+	// TODO: store last HLC timestamp hlc.Update() on each apply
 }
 
 func NewFSM(partitionID uint32, db DB) *FSM {

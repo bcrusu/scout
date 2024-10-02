@@ -18,6 +18,7 @@ import (
 
 type replica struct {
 	name        string
+	db          storage.DB
 	multiraft   *multiraft.MultiRaft
 	dataClient  data.ServiceClient
 	log         logging.LoggerNoContext
@@ -190,7 +191,7 @@ func (p *replica) mainLoop(ctx context.Context, config *control.DataServerConfig
 
 func (p *replica) tryCreateRaft(config *control.DataServerConfig_Partition, dataServers *control.DataServers) (*multiraft.Raft, storage.Store) {
 	replica := config.Replicas[p.name]
-	fsm := storage.NewFSM(config.Id, nil) // TODO: real KV DB impl.
+	fsm := storage.NewFSM(config.Id, p.db)
 
 	groupID := config.Name
 	hasState, err := p.multiraft.HasExistingState(groupID)

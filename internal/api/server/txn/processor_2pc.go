@@ -170,10 +170,10 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.TxnDecision, t
 	resultCh := make(chan commitResult, 1)
 	invokeCommit := func(pid uint32) {
 		req := &data.CommitRequest{
-			ParticipantPid: pid,
-			Id:             txn.id,
-			Timestamp:      decision.CommitTimestamp,
-			FetchResults:   true,
+			ParticipantPid:  pid,
+			Id:              txn.id,
+			CommitTimestamp: decision.CommitTimestamp,
+			FetchResults:    true,
 		}
 
 		status, err := p.client.Commit(ctx, req)
