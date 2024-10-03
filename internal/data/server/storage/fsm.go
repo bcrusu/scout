@@ -6,6 +6,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -21,7 +22,7 @@ type FSM struct {
 	txnProcessor *txnProcessor
 	lock         sync.RWMutex // guards all below
 	index        uint64       // last applied raft index
-	// TODO: store last HLC timestamp hlc.Update() on each apply
+	timestamp    uint64       // last observed HLC timestamp
 }
 
 func NewFSM(partitionID uint32, db DB) *FSM {
@@ -51,39 +52,26 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 }
 
 func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContext) any {
-	payload, err := getPayload(cmd)
-	if err != nil {
-		log.WithError(err).Debug("getPayload failed")
-		return err
-	}
-
+	payload := getPayload(cmd)
 	var result any
+	var timestamp uint64
 
 	log.Debugf("Applying command %T...", payload)
 
 	switch x := payload.(type) {
-	case *TxnAutocommit:
-		result, err = f.txnProcessor.applyAutocommit(x)
-	case *TxnPrepare:
-		result, err = f.txnProcessor.applyPrepare(x)
-	case *TxnCommit:
-		result, err = f.txnProcessor.applyCommit(x)
-	case *TxnAbort:
-		result, err = f.txnProcessor.applyAbort(x)
-	case *StoreTxnDecision:
-		result, err = f.txnProcessor.applyStoreDecision(x)
-	case *MarkTxnTimedout:
-		result, err = f.txnProcessor.applyMarkTimedout(x)
 	case *TxnBatch:
+		timestamp = x.MaxTimestamp()
+		if timestamp <= f.timestamp {
+			return errors.Errorf("TxnBatch timestamp %d is lower than current FSM timestamp %d.", timestamp, f.timestamp)
+		}
+
 		result = f.txnProcessor.applyBatch(x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
 
-	if err != nil {
-		log.WithError(err).Debugf("Applying command %T failed", payload)
-		return err
-	}
+	f.timestamp = timestamp
+	hlc.Update(timestamp)
 
 	logF.Debugf("Applying command %T success", payload)
 	return result
@@ -104,9 +92,10 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	}
 
 	snap := &Snapshot{
-		Index:    f.index,
-		Status:   status,
-		Prepared: prepared,
+		Index:     f.index,
+		Status:    status,
+		Prepared:  prepared,
+		Timestamp: f.timestamp,
 	}
 
 	data, err := utils.MarshalProto(snap)
@@ -138,6 +127,7 @@ func (f *FSM) Restore(snapshot []byte) error {
 	f.index = snap.Index
 	f.txnProcessor.status = status
 	f.txnProcessor.prepared = prepared
+	f.timestamp = snap.Timestamp
 
 	return nil
 }

@@ -8,13 +8,7 @@ import "internal/data/common.proto";
 
 message Command {
     oneof payload {
-        TxnAutocommit autocommit = 1;
-        TxnPrepare prepare = 2;
-        TxnCommit commit = 3;
-        TxnAbort abort = 4;
-        StoreTxnDecision store_decision = 5;
-        TxnBatch batch = 6;
-        MarkTxnTimedout mark_timedout = 7;
+        TxnBatch batch = 1;
     }
 }
 
@@ -57,12 +51,14 @@ message TxnBatch {
     repeated TxnCommit commit = 3;
     repeated TxnAbort abort = 4;
     repeated StoreTxnDecision store_decision = 5;
+    repeated MarkTxnTimedout mark_timedout = 6;
 }
 
 message Snapshot {
     uint64 index = 1;
     repeated TxnStatus status = 2;
     repeated Txn prepared = 3;
+    uint64 timestamp = 4;
 }
 
 message Lock {

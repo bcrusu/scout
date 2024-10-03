@@ -166,10 +166,7 @@ func (s *store) UpdatePartitionStatus(cmd *UpdatePartitionStatus) (*UpdateResult
 
 func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {
 	var zero R
-	cmd, err := newCommand(payload)
-	if err != nil {
-		return zero, err
-	}
+	cmd := newCommand(payload)
 
 	data, err := utils.MarshalProto(cmd)
 	if err != nil {
@@ -186,18 +183,4 @@ func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {
 	} else {
 		return t, nil
 	}
-}
-
-func applyAsync(raft *multiraft.Raft, payload payload) error {
-	cmd, err := newCommand(payload)
-	if err != nil {
-		return err
-	}
-
-	data, err := utils.MarshalProto(cmd)
-	if err != nil {
-		return err
-	}
-
-	return raft.ApplyAsync(data)
 }

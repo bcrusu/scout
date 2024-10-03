@@ -6,7 +6,6 @@ import (
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
 )
@@ -53,24 +52,13 @@ func (n *Leader) IsLeader() bool {
 }
 
 // TODO: request validation
-// TODO: batch incoming txn
 func (n *Leader) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
-	cmd := &storage.TxnAutocommit{
-		Timestamp: hlc.Now(),
-		Txn:       txn,
-	}
-
-	return n.store.TxnAutocommit(cmd)
+	return n.store.Autocommit(txn)
 }
 
 func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
-	cmd := &storage.TxnPrepare{
-		Timestamp: hlc.Now(),
-		Txn:       req.Txn,
-	}
-
-	status, err := n.store.TxnPrepare(cmd)
-	if err != nil {
+	status, err := n.store.Prepare(req.Txn)
+	if err == nil {
 		n.watchdog2pc.UpdateTxnStatus(status, req.Txn, nil)
 	}
 
@@ -78,27 +66,19 @@ func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.T
 }
 
 func (n *Leader) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
-	cmd := &storage.TxnCommit{
-		Timestamp: req.CommitTimestamp,
-		Id:        req.Id,
-	}
-
-	status, err := n.store.TxnCommit(cmd)
-	if err != nil {
+	status, err := n.store.Commit(req.Id, req.CommitTimestamp)
+	if err == nil {
 		n.watchdog2pc.UpdateTxnStatus(status, nil, nil)
 	}
+
+	// TODO: cmd.FetchResults
 
 	return status, err
 }
 
 func (n *Leader) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
-	cmd := &storage.TxnAbort{
-		Timestamp: hlc.Now(),
-		Id:        req.Id,
-	}
-
-	status, err := n.store.TxnAbort(cmd)
-	if err != nil {
+	status, err := n.store.Abort(req.Id)
+	if err == nil {
 		n.watchdog2pc.UpdateTxnStatus(status, nil, nil)
 	}
 
@@ -114,13 +94,8 @@ func (n *Leader) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*dat
 		return nil, errors.PermissionDenied
 	}
 
-	cmd := &storage.StoreTxnDecision{
-		Timestamp: hlc.Now(),
-		Decision:  dec,
-	}
-
-	status, err := n.store.StoreTxnDecision(cmd)
-	if err != nil {
+	status, err := n.store.StoreDecision(dec)
+	if err == nil {
 		n.watchdog2pc.UpdateTxnStatus(status, nil, dec)
 	}
 

@@ -46,8 +46,13 @@ func (d *inmemDB) Get(loc storage.Location) (*storage.ValueAt, error) {
 	}
 
 	return &storage.ValueAt{
-		Data:      ks.entries[i].data,
-		Timestamp: ks.entries[i].timestamp,
+		Data: ks.entries[i].data,
+		Location: storage.Location{
+			PartitionID: loc.PartitionID,
+			Keyspace:    loc.Keyspace,
+			Key:         loc.Key,
+			Timestamp:   ks.entries[i].timestamp,
+		},
 	}, nil
 }
 
@@ -74,16 +79,19 @@ func (d *inmemDB) GetRange(rang storage.Range) (storage.Iterator, error) {
 				}
 				continue
 			case bytes.Equal(a.key, skipKey):
-				// pass
-			case rang.Timestamp == 0:
-				if !yield(storage.ValueAt{Data: a.data, Timestamp: a.timestamp}, nil) {
+				continue
+			case rang.Timestamp == 0 || a.timestamp <= rang.Timestamp:
+				loc := storage.Location{
+					PartitionID: rang.PartitionID,
+					Keyspace:    rang.Keyspace,
+					Key:         a.key,
+					Timestamp:   a.timestamp,
+				}
+
+				if !yield(storage.ValueAt{Data: a.data, Location: loc}, nil) {
 					return
 				}
-				skipKey = a.key
-			case a.timestamp <= rang.Timestamp:
-				if !yield(storage.ValueAt{Data: a.data, Timestamp: a.timestamp}, nil) {
-					return
-				}
+
 				skipKey = a.key
 			}
 		}

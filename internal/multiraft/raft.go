@@ -40,6 +40,11 @@ type Stats struct {
 	AppliedIndex      uint64
 }
 
+type AsyncResult struct {
+	Result any
+	Error  error
+}
+
 type fsmAdapter struct {
 	fsm FSM
 }
@@ -191,13 +196,33 @@ func (r *Raft) Apply(cmd []byte) (any, error) {
 
 // ApplyAsync is used to apply a command to the FSM and do not wait for the result.
 // Must be invoked on the leader.
-func (r *Raft) ApplyAsync(cmd []byte) error {
+func (r *Raft) ApplyAsync(cmd []byte) <-chan AsyncResult {
+	resultCh := make(chan AsyncResult, 1)
+
 	if err := r.checkLeader(); err != nil {
-		return err
+		resultCh <- AsyncResult{Error: err}
+		return resultCh
 	}
 
-	r.raft.Apply(cmd, 0)
-	return nil
+	// Ensures that the log entry is queued by raft, but only waits for
+	// the future result in the goroutine.
+	future := r.raft.Apply(cmd, 0)
+
+	go func() {
+		if err := future.Error(); err != nil {
+			resultCh <- AsyncResult{Error: r.convertError(err)}
+			return
+		}
+
+		resp := future.Response()
+		if err, ok := resp.(error); ok {
+			resultCh <- AsyncResult{Error: r.convertError(err)}
+		} else {
+			resultCh <- AsyncResult{Result: resp}
+		}
+	}()
+
+	return resultCh
 }
 
 // GetStats returns info about current Raft instance.

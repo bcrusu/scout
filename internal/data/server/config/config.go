@@ -43,4 +43,6 @@ type TxnConfig struct {
 	Phase2Timeout     time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
 	RetryPolicy       utils.RetryPolicy `yaml:"retryPolicy"`
 	RetryBreakerLimit int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
+	BatchMaxSize      int               `yaml:"batchMaxSize" default:"128" validate:"min:1"`
+	BatchMaxDelay     time.Duration     `yaml:"batchMaxDelay" default:"100ms" validate:"min:1ms"`
 }

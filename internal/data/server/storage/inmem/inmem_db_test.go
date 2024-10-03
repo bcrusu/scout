@@ -45,10 +45,10 @@ var _ = Describe("inmemDB tests", func() {
 		}
 	}
 
-	valueAt := func(data []byte, timestamp uint64) *storage.ValueAt {
+	valueAt := func(data []byte, loc storage.Location) *storage.ValueAt {
 		return &storage.ValueAt{
-			Data:      data,
-			Timestamp: timestamp,
+			Data:     data,
+			Location: loc,
 		}
 	}
 
@@ -96,7 +96,7 @@ var _ = Describe("inmemDB tests", func() {
 			data := bytes("value1")
 			Expect(db.Set(loc, data)).To(BeNil())
 
-			expected := valueAt(data, loc.Timestamp)
+			expected := valueAt(data, loc)
 			Expect(db.Get(loc)).To(Equal(expected))
 		})
 
@@ -123,7 +123,7 @@ var _ = Describe("inmemDB tests", func() {
 		}
 
 		makeValueAt := func(pid uint32, ks uint64, key string, atTs uint64) *storage.ValueAt {
-			return valueAt(makeData(pid, ks, key, atTs), atTs)
+			return valueAt(makeData(pid, ks, key, atTs), makeLoc(pid, ks, key, atTs))
 		}
 
 		initKeyspace := func(pid uint32, keyspace uint64) {
@@ -133,7 +133,7 @@ var _ = Describe("inmemDB tests", func() {
 
 					if !deleted[i] {
 						Expect(db.Set(loc, data)).To(BeNil())
-						expected := valueAt(data, loc.Timestamp)
+						expected := valueAt(data, loc)
 						Expect(db.Get(loc)).To(Equal(expected))
 					} else {
 						db.Delete(loc)
@@ -252,7 +252,7 @@ var _ = Describe("inmemDB tests", func() {
 			loc := makeLoc(part[1], ks[1], keys[1], timestamp)
 			data := bytes("test1")
 			Expect(db.Set(loc, data)).To(BeNil())
-			Expect(db.Get(loc)).To(Equal(valueAt(data, timestamp)))
+			Expect(db.Get(loc)).To(Equal(valueAt(data, loc)))
 		})
 
 		It("Delete should delete at timestamp", func() {

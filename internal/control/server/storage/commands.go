@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/bcrusu/graph/internal/errors"
+	"fmt"
 )
 
 // Marker interface for allowed command payload types.
@@ -10,7 +10,7 @@ type payload interface {
 }
 
 // newCommand returns a new commmand with the specified payload.
-func newCommand(payload payload) (*Command, error) {
+func newCommand(payload payload) *Command {
 	var p isCommand_Payload
 
 	switch x := payload.(type) {
@@ -23,26 +23,24 @@ func newCommand(payload payload) (*Command, error) {
 	case *UpdatePartitionStatus:
 		p = &Command_UpdatePartitionStatus{UpdatePartitionStatus: x}
 	default:
-		return nil, errors.Errorf("newCommand: unhandled payload type %T", payload)
+		panic(fmt.Sprintf("unhandled payload type %T", payload))
 	}
 
-	return &Command{
-		Payload: p,
-	}, nil
+	return &Command{Payload: p}
 }
 
-func getPayload(cmd *Command) (payload, error) {
+func getPayload(cmd *Command) payload {
 	switch x := cmd.Payload.(type) {
 	case *Command_Bootstrap:
-		return x.Bootstrap, nil
+		return x.Bootstrap
 	case *Command_Register:
-		return x.Register, nil
+		return x.Register
 	case *Command_UpdateServerStatus:
-		return x.UpdateServerStatus, nil
+		return x.UpdateServerStatus
 	case *Command_UpdatePartitionStatus:
-		return x.UpdatePartitionStatus, nil
+		return x.UpdatePartitionStatus
 	default:
-		return nil, errors.Errorf("getPayload: unhandled payload type %T", cmd.Payload)
+		panic(fmt.Sprintf("unhandled payload type %T", cmd.Payload))
 	}
 }
 

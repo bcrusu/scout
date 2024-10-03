@@ -6,7 +6,6 @@ import (
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/utils"
 )
@@ -48,12 +47,7 @@ func (n *Follower) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStat
 		return nil, errors.NotLeader
 	}
 
-	cmd := &storage.TxnAutocommit{
-		Timestamp: hlc.Now(),
-		Txn:       txn,
-	}
-
-	return n.store.TxnAutocommit(cmd)
+	return n.store.Autocommit(txn)
 }
 
 func (n *Follower) Prepare(context.Context, *data.PrepareRequest) (*data.TxnStatus, error) {

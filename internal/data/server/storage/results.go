@@ -24,6 +24,7 @@ type TxnBatchResult struct {
 	Commit        []TxnStatus
 	Abort         []TxnStatus
 	StoreDecision []TxnStatus
+	MarkTimedout  []TxnStatus
 }
 
 func NewTxnId(id *data.TxnId) TxnId {

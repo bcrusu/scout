@@ -175,7 +175,7 @@ func (w *watchdog2PC) UpdateTxnStatus(status *data.TxnStatus, prepared *data.Txn
 }
 
 func (w *watchdog2PC) loadRunning() (map[storage.TxnId]bool, dogQueue, dogQueue) {
-	running := w.store.GetTxnRunning()
+	running := w.store.GetRunning()
 
 	all := map[storage.TxnId]bool{}
 	prepared := make([]storage.TxnRunning, 0, len(running))
@@ -263,15 +263,9 @@ func (w *watchdog2PC) abort(ctx context.Context, txn storage.TxnRunning) {
 }
 
 func (w *watchdog2PC) markTimedout(ctx context.Context, txn storage.TxnRunning, releaseLocks bool) (bool, error) {
-	cmd := &storage.MarkTxnTimedout{
-		Timestamp:    hlc.Now(),
-		Id:           txn.Id.ToProto(),
-		ReleaseLocks: releaseLocks,
-	}
-
 	success := false
 	err := utils.RetryForeverE(ctx, &w.config.RetryPolicy.Backoff, w.withBreaker(func() error {
-		_, err := w.store.MarkTxnTimedout(cmd)
+		_, err := w.store.MarkTimedout(txn.Id.ToProto(), releaseLocks)
 
 		switch {
 		case err != nil:

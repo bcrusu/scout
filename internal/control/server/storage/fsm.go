@@ -59,13 +59,9 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 		return errors.FailedPrecondition
 	}
 
-	payload, err := getPayload(cmd)
-	if err != nil {
-		log.WithError(err).Debug("getPayload failed")
-		return err
-	}
-
+	payload := getPayload(cmd)
 	var result any
+	var err error
 
 	log.Debugf("Applying command %T...", payload)
 

@@ -16,7 +16,7 @@ var (
 // TODO: prune status for old txn
 type txnProcessor struct {
 	partitionID uint32
-	db          *crticalDB
+	db          *dbBreaker
 	status      map[TxnId]*data.TxnStatus
 	prepared    map[TxnId]*txnLocks
 	decisions   map[TxnId]*data.TxnDecision
@@ -28,7 +28,7 @@ type txnLocks struct {
 }
 
 func newTxnProcessor(partitionID uint32, db DB) *txnProcessor {
-	cdb := &crticalDB{
+	cdb := &dbBreaker{
 		db:          db,
 		retryPolicy: config.Get().DBRetryPolicy,
 	}
@@ -192,6 +192,7 @@ func (p *txnProcessor) applyBatch(batch *TxnBatch) *TxnBatchResult {
 		Commit:        make([]TxnStatus, len(batch.Commit)),
 		Abort:         make([]TxnStatus, len(batch.Abort)),
 		StoreDecision: make([]TxnStatus, len(batch.StoreDecision)),
+		MarkTimedout:  make([]TxnStatus, len(batch.MarkTimedout)),
 	}
 
 	for i, cmd := range batch.Autocommit {
@@ -217,6 +218,11 @@ func (p *txnProcessor) applyBatch(batch *TxnBatch) *TxnBatchResult {
 	for i, cmd := range batch.StoreDecision {
 		status, err := p.applyStoreDecision(cmd)
 		result.Abort[i] = TxnStatus{status, err}
+	}
+
+	for i, cmd := range batch.MarkTimedout {
+		status, err := p.applyMarkTimedout(cmd)
+		result.MarkTimedout[i] = TxnStatus{status, err}
 	}
 
 	return result
