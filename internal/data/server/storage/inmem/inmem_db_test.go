@@ -199,7 +199,7 @@ var _ = Describe("inmemDB tests", func() {
 					expected: []*storage.ValueAt{},
 				},
 				{
-					rang: makeRange(part[1], ks[0], "0", "z", 0), // latest value for all
+					rang: makeRange(part[1], ks[0], "", "", 0), // latest value for all
 					expected: []*storage.ValueAt{
 						makeValueAt(part[1], ks[0], keys[0], ts[0]),
 						makeValueAt(part[1], ks[0], keys[1], ts[0]),

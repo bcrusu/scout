@@ -57,6 +57,14 @@ func (x *HelloApiServer) Validate() error {
 	return nil
 }
 
+func (x *DataServerConfig) GetReplica(pid uint32, replicaName string) *DataServerConfig_Replica {
+	if part, ok := x.Partitions[pid]; !ok {
+		return nil
+	} else {
+		return part.Replicas[replicaName]
+	}
+}
+
 func (x *DataServerConfig) Validate() error {
 	if x == nil {
 		return errors.Error("DataServerConfig is nil")

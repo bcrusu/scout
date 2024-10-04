@@ -120,10 +120,11 @@ message Heartbeat {
 
 message DataServerConfig {
     enum ReplicaState {
-        Joining = 0;
-        Voter = 1;
-        NonVoter = 2;
-        Leaving = 3;
+        Unknown = 0;
+        Joining = 1;
+        Voter = 2;
+        NonVoter = 3;
+        Leaving = 4;
     }
 
     message Replica {

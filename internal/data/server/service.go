@@ -33,7 +33,7 @@ func (s *DataService) RegisterToServer(server *grpc.Server) {
 }
 
 func (s *DataService) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetServiceReplica(txn.Id.PrincipalPid); !ok {
+	if partition, ok := s.controller.GetService(txn.Id.PrincipalPid); !ok {
 		return nil, errors.Unavailable
 	} else {
 		return partition.Autocommit(ctx, txn)
@@ -41,7 +41,7 @@ func (s *DataService) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnS
 }
 
 func (s *DataService) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetServiceReplica(req.ParticipantPid); !ok {
+	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
 		return partition.Prepare(ctx, req)
@@ -49,7 +49,7 @@ func (s *DataService) Prepare(ctx context.Context, req *data.PrepareRequest) (*d
 }
 
 func (s *DataService) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetServiceReplica(req.ParticipantPid); !ok {
+	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
 		return partition.Commit(ctx, req)
@@ -57,7 +57,7 @@ func (s *DataService) Commit(ctx context.Context, req *data.CommitRequest) (*dat
 }
 
 func (s *DataService) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetServiceReplica(req.ParticipantPid); !ok {
+	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
 		return partition.Abort(ctx, req)
@@ -65,7 +65,7 @@ func (s *DataService) Abort(ctx context.Context, req *data.AbortRequest) (*data.
 }
 
 func (s *DataService) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetServiceReplica(dec.Id.PrincipalPid); !ok {
+	if partition, ok := s.controller.GetService(dec.Id.PrincipalPid); !ok {
 		return nil, errors.Unavailable
 	} else {
 		return partition.StoreDecision(ctx, dec)

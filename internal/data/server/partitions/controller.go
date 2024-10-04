@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/events"
+	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
 	"github.com/bcrusu/graph/internal/data/server/storage"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/identity"
@@ -87,14 +88,14 @@ func (c *Controller) mainLoop(ctx context.Context) {
 	}
 }
 
-func (c *Controller) GetServiceReplica(id uint32) (ServiceReplica, bool) {
+func (c *Controller) GetService(id uint32) (shared.Service, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	if part, ok := c.replicas[id]; !ok {
+	if replica, ok := c.replicas[id]; !ok {
 		return nil, false
 	} else {
-		return part.getService()
+		return replica.getService()
 	}
 }
 
@@ -103,40 +104,29 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 	defer c.lock.Unlock()
 
 	// stop unassigned
-	for id, part := range c.replicas {
+	for pid, replica := range c.replicas {
 		var replicaConfig *control.DataServerConfig_Replica
-		if config, ok := dsConfig.Partitions[id]; ok {
+		if config, ok := dsConfig.Partitions[pid]; ok {
 			replicaConfig = c.getLocalReplicaConfig(config)
 		}
 
-		if replicaConfig == nil || part.name != replicaConfig.Name {
-			go part.Stop()
-			delete(c.replicas, id)
+		if replicaConfig == nil || replica.name != replicaConfig.Name {
+			go replica.Stop()
+			delete(c.replicas, pid)
 		}
 	}
 
-	// start/update assigned
-	for id, config := range dsConfig.Partitions {
+	// start assigned
+	for pid, config := range dsConfig.Partitions {
 		replicaConfig := c.getLocalReplicaConfig(config)
-		if replicaConfig == nil {
-			continue
-		} else if part, ok := c.replicas[id]; ok {
-			// update existing
-			part.updateCh <- config
+		if replicaConfig == nil || c.replicas[pid] != nil {
 			continue
 		}
 
-		replica := &replica{
-			name:        replicaConfig.Name,
-			multiraft:   c.multiraft,
-			dataClient:  c.dataClient,
-			log:         logging.WithComponent("partition").With("id", id, "name", config.Name).NoContext(),
-			updateCh:    make(chan *control.DataServerConfig_Partition, 1),
-			getStatusCh: make(chan getStatusCmd),
-		}
+		replica := newReplica(pid, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
 
 		go replica.Start(ctx, config)
-		c.replicas[id] = replica
+		c.replicas[pid] = replica
 	}
 }
 

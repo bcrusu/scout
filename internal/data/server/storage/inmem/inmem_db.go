@@ -71,7 +71,7 @@ func (d *inmemDB) GetRange(rang storage.Range) (storage.Iterator, error) {
 			a := ks.entries[i]
 
 			switch {
-			case bytes.Equal(a.key, rang.EndKey):
+			case len(rang.EndKey) > 0 && bytes.Compare(a.key, rang.EndKey) >= 0:
 				return
 			case a.tombstone:
 				if a.timestamp <= rang.Timestamp {

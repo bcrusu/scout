@@ -1,9 +1,10 @@
-package partitions
+package serving
 
 import (
 	"context"
 
 	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
 	"github.com/bcrusu/graph/internal/utils"
 )
 
@@ -14,23 +15,33 @@ var (
 
 type partitionDrainer struct {
 	data.UnsafeServiceServer
-	inner   ServiceReplica
+	inner   service
 	drainer *utils.Drainer
 }
 
-func newPartitionDrainer(inner ServiceReplica) *partitionDrainer {
+type service interface {
+	shared.Service
+	utils.Lifecycle
+}
+
+func newPartitionDrainer(inner service) *partitionDrainer {
 	return &partitionDrainer{
 		inner: inner,
 	}
 }
 
 func (d *partitionDrainer) Start(ctx context.Context) error {
+	if err := d.inner.Start(ctx); err != nil {
+		return err
+	}
+
 	d.drainer = utils.NewDrainer(ctx)
 	return nil
 }
 
 func (d *partitionDrainer) Stop() {
 	d.drainer.Stop()
+	d.inner.Stop()
 }
 
 func (d *partitionDrainer) IsLeader() bool {

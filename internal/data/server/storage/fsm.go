@@ -22,7 +22,6 @@ type FSM struct {
 	txnProcessor *txnProcessor
 	lock         sync.RWMutex // guards all below
 	index        uint64       // last applied raft index
-	timestamp    uint64       // last observed HLC timestamp
 }
 
 func NewFSM(partitionID uint32, db DB) *FSM {
@@ -61,16 +60,11 @@ func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContex
 	switch x := payload.(type) {
 	case *TxnBatch:
 		timestamp = x.MaxTimestamp()
-		if timestamp <= f.timestamp {
-			return errors.Errorf("TxnBatch timestamp %d is lower than current FSM timestamp %d.", timestamp, f.timestamp)
-		}
-
 		result = f.txnProcessor.applyBatch(x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
 
-	f.timestamp = timestamp
 	hlc.Update(timestamp)
 
 	logF.Debugf("Applying command %T success", payload)
@@ -92,10 +86,9 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	}
 
 	snap := &Snapshot{
-		Index:     f.index,
-		Status:    status,
-		Prepared:  prepared,
-		Timestamp: f.timestamp,
+		Index:    f.index,
+		Status:   status,
+		Prepared: prepared,
 	}
 
 	data, err := utils.MarshalProto(snap)
@@ -127,7 +120,6 @@ func (f *FSM) Restore(snapshot []byte) error {
 	f.index = snap.Index
 	f.txnProcessor.status = status
 	f.txnProcessor.prepared = prepared
-	f.timestamp = snap.Timestamp
 
 	return nil
 }
