@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package control;
 
-option go_package = "github.com/bcrusu/graph/internal/control";
+option go_package = "github.com/bcrusu/scout/internal/control";
 
 import "google/protobuf/duration.proto";
 

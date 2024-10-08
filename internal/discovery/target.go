@@ -4,13 +4,13 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/rpc/routing"
-	"github.com/bcrusu/graph/internal/validation"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/rpc/routing"
+	"github.com/bcrusu/scout/internal/validation"
 )
 
 const (
-	Scheme = "graph"
+	Scheme = "scout"
 )
 
 var (
@@ -29,7 +29,7 @@ func (d Discovery) Target() string {
 
 	u := url.URL{
 		Scheme:   Scheme,
-		Opaque:   "graph",
+		Opaque:   "scout",
 		RawQuery: q.Encode(),
 	}
 

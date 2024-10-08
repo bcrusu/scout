@@ -3,11 +3,11 @@ package follower
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/storage"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/storage"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

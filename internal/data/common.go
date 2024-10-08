@@ -3,7 +3,7 @@ package data
 import (
 	"fmt"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 func (t *Txn) IsReplicaRead() bool {

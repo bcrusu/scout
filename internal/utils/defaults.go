@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 // SetDefaults sets struct field values as specified via the 'default' tag.

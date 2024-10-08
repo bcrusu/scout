@@ -1,8 +1,8 @@
 package mvcc
 
 import (
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 // DBBreaker ensures operation success or total destruction.

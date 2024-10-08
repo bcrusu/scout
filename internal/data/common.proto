@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package data;
 
-option go_package = "github.com/bcrusu/graph/internal/data";
+option go_package = "github.com/bcrusu/scout/internal/data";
 
 // TxnId uniquely identifies a transaction in the cluster.
 message TxnId {

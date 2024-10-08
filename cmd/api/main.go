@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/bcrusu/graph/internal/logging"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/spf13/cobra"
 )
 

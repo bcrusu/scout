@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 // MessageBus routes messages between participants.

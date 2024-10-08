@@ -3,10 +3,10 @@ package main
 import (
 	"os"
 
-	"github.com/bcrusu/graph/internal/cmd"
-	"github.com/bcrusu/graph/internal/control/server/config"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/cmd"
+	"github.com/bcrusu/scout/internal/control/server/config"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -14,7 +14,7 @@ import (
 func newRootCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:           "control",
-		Short:         "Graph control plane server.",
+		Short:         "Control plane server.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {

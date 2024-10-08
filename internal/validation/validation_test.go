@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/utils"
-	"github.com/bcrusu/graph/internal/utils/tests"
-	"github.com/bcrusu/graph/internal/validation"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/utils"
+	"github.com/bcrusu/scout/internal/utils/tests"
+	"github.com/bcrusu/scout/internal/validation"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

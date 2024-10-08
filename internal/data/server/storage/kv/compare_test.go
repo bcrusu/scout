@@ -3,7 +3,7 @@ package kv_test
 import (
 	"sort"
 
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

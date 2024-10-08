@@ -3,7 +3,7 @@ package routing
 import (
 	"net/url"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 func FormatTargetStatic(addrs []string) string {
@@ -14,7 +14,7 @@ func FormatTargetStatic(addrs []string) string {
 
 	u := url.URL{
 		Scheme:   schemeStatic,
-		Opaque:   "graph",
+		Opaque:   "scout",
 		RawQuery: q.Encode(),
 	}
 

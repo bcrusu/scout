@@ -5,14 +5,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/server/follower"
-	"github.com/bcrusu/graph/internal/control/server/leader"
-	"github.com/bcrusu/graph/internal/control/server/storage"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/multiraft"
-	"github.com/bcrusu/graph/internal/rpc"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/server/follower"
+	"github.com/bcrusu/scout/internal/control/server/leader"
+	"github.com/bcrusu/scout/internal/control/server/storage"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/multiraft"
+	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
 

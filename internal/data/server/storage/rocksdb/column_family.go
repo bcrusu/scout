@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/errors"
 	"github.com/linxGnu/grocksdb"
 )
 

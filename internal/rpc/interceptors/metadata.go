@@ -4,9 +4,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/bcrusu/graph/internal/hlc"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/tracing"
+	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -53,11 +53,11 @@ func appendMetadata(ctx context.Context) context.Context {
 	}
 
 	kv := []string{
-		"graph-hlc", strconv.FormatUint(hlc.Now(), 10),
+		"scout-hlc", strconv.FormatUint(hlc.Now(), 10),
 	}
 
 	if value, ok := tracing.GetTraceID(ctx); ok {
-		kv = append(kv, "graph-trace-id", value)
+		kv = append(kv, "scout-trace-id", value)
 	}
 
 	return metadata.AppendToOutgoingContext(ctx, kv...)
@@ -69,13 +69,13 @@ func extractMetadata(ctx context.Context) context.Context {
 		return tracing.WithTraceID(ctx, "")
 	}
 
-	if values, ok := md["graph-trace-id"]; ok {
+	if values, ok := md["scout-trace-id"]; ok {
 		ctx = tracing.WithTraceID(ctx, values[0])
 	} else {
 		ctx = tracing.WithTraceID(ctx, "")
 	}
 
-	if values, ok := md["graph-hlc"]; ok {
+	if values, ok := md["scout-hlc"]; ok {
 		incoming, err := strconv.ParseUint(values[0], 10, 64)
 		if err != nil {
 			logging.Error(ctx, "Received bad HLC value.", "hlc", values[0])

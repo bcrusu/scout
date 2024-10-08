@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package data.storage;
 
-option go_package = "github.com/bcrusu/graph/internal/data/server/storage";
+option go_package = "github.com/bcrusu/scout/internal/data/server/storage";
 
 import "internal/data/common.proto";
 

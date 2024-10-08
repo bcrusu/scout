@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bcrusu/graph/internal/tracing"
+	"github.com/bcrusu/scout/internal/tracing"
 )
 
 type handler struct {

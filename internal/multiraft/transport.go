@@ -4,9 +4,9 @@ import (
 	"context"
 
 	transport "github.com/Jille/raft-grpc-transport"
-	"github.com/bcrusu/graph/internal/rpc"
-	"github.com/bcrusu/graph/internal/utils"
 	"github.com/bcrusu/multiraft"
+	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 )

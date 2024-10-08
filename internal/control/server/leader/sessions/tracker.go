@@ -7,17 +7,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/server/config"
-	"github.com/bcrusu/graph/internal/control/server/convert"
-	"github.com/bcrusu/graph/internal/control/server/storage"
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
-	"github.com/bcrusu/graph/internal/utils"
-	"github.com/bcrusu/graph/pkg/api"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/server/config"
+	"github.com/bcrusu/scout/internal/control/server/convert"
+	"github.com/bcrusu/scout/internal/control/server/storage"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
+	"github.com/bcrusu/scout/internal/utils"
+	"github.com/bcrusu/scout/pkg/api"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 )
@@ -75,8 +75,8 @@ func NewTracker(store storage.Store) *Tracker {
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
-		dataServiceConfigJson: config.DataClient.GetServiceConfigJson(serviceconfig.LBNameGraphData, data.Service_ServiceDesc),
-		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameGraphApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
+		dataServiceConfigJson: config.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
+		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
 }
 

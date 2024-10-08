@@ -1,9 +1,9 @@
 package client
 
 import (
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/resolver"
@@ -33,7 +33,7 @@ func (b *balancerBuilder) Build(clientConn balancer.ClientConn, opt balancer.Bui
 }
 
 func (b *balancerBuilder) Name() string {
-	return serviceconfig.LBNameGraphControl
+	return serviceconfig.LBNameScoutControl
 }
 
 func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) error {

@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/multiraft"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/multiraft"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

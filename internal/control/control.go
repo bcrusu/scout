@@ -1,6 +1,6 @@
 package control
 
-import "github.com/bcrusu/graph/internal/errors"
+import "github.com/bcrusu/scout/internal/errors"
 
 func (x *Hello) Validate() error {
 	if x == nil {

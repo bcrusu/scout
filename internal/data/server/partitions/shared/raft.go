@@ -3,9 +3,9 @@ package shared
 import (
 	"fmt"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/multiraft"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/hashicorp/raft"
 )
 

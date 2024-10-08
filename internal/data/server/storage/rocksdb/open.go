@@ -3,9 +3,9 @@ package rocksdb
 import (
 	"path"
 
-	"github.com/bcrusu/graph/internal/data/server/config"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/data/server/config"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/linxGnu/grocksdb"
 )
 

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package api;
 
-option go_package = "github.com/bcrusu/graph/pkg/api";
+option go_package = "github.com/bcrusu/scout/pkg/api";
 
 import "pkg/api/common.proto";
 import "google/protobuf/timestamp.proto";

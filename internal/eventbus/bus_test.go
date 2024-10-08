@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/utils/tests"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/utils/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/logging"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
 )
 
 var (

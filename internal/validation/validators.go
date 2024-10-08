@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

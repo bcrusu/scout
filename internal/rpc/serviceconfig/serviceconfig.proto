@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package serviceconfig;
 
-option go_package = "github.com/bcrusu/graph/internal/rpc/serviceconfig";
+option go_package = "github.com/bcrusu/scout/internal/rpc/serviceconfig";
 
 import "google/protobuf/duration.proto";
 
@@ -43,9 +43,9 @@ message LBConfig {
     oneof policy {
         LBConfigPickFirst pick_first = 1 [json_name = "pick_first"];
         LBConfigRoundRobin round_robin = 2 [json_name = "round_robin"];
-        LBConfigGraphControl graph_control = 3 [json_name = "graph_control"];
-        LBConfigGraphApi graph_api = 4 [json_name = "graph_api"];
-        LBConfigGraphData graph_data = 5 [json_name = "graph_data"];
+        LBConfigScoutControl scout_control = 3 [json_name = "scout_control"];
+        LBConfigScoutApi scout_api = 4 [json_name = "scout_api"];
+        LBConfigScoutData scout_data = 5 [json_name = "scout_data"];
     }
 }
 
@@ -55,8 +55,8 @@ message LBConfigPickFirst {
 
 message LBConfigRoundRobin {}
 
-message LBConfigGraphControl {}
+message LBConfigScoutControl {}
 
-message LBConfigGraphApi {}
+message LBConfigScoutApi {}
 
-message LBConfigGraphData {}
+message LBConfigScoutData {}

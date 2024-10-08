@@ -1,9 +1,9 @@
 package shared
 
 import (
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 type Service interface {

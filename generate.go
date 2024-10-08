@@ -1,4 +1,4 @@
-package graph
+package scout
 
 //go:generate protoc --go_out=. --go_opt=paths=source_relative ./pkg/api/common.proto
 //go:generate protoc --go_out=. --go_opt=paths=source_relative ./pkg/api/key_value.proto

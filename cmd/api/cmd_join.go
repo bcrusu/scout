@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/bcrusu/graph/internal/api/server"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/api/server"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/spf13/cobra"
 )
 

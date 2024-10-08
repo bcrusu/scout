@@ -6,12 +6,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/config"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/hlc"
-	"github.com/bcrusu/graph/internal/multiraft"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/config"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/multiraft"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

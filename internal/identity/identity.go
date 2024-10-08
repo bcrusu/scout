@@ -1,9 +1,9 @@
 package identity
 
 import (
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/tracing"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/tracing"
 	"github.com/google/uuid"
 )
 

@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/partitions"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/rpc"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/partitions"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/rpc"
 	"google.golang.org/grpc"
 )
 

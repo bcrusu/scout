@@ -3,8 +3,8 @@ package rocksdb
 import (
 	"path"
 
-	"github.com/bcrusu/graph/internal/data/server/config"
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/config"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/linxGnu/grocksdb"
 )
 

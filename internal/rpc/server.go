@@ -5,10 +5,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/rpc/interceptors"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/rpc/interceptors"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

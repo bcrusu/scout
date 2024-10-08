@@ -6,14 +6,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/client"
-	"github.com/bcrusu/graph/internal/data/server/events"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/identity"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/client"
+	"github.com/bcrusu/scout/internal/data/server/events"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/identity"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
 

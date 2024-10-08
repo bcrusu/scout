@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 func encodeUint32(v uint32) []byte {

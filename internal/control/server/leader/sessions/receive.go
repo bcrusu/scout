@@ -3,8 +3,8 @@ package sessions
 import (
 	"io"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {

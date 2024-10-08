@@ -5,9 +5,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/bcrusu/graph/internal/data/server/storage/inmem"
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
-	"github.com/bcrusu/graph/internal/utils/tests"
+	"github.com/bcrusu/scout/internal/data/server/storage/inmem"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/utils/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

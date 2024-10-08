@@ -52,7 +52,7 @@ func StreamAuthClientInterceptor(clusterName string) grpc.StreamClientIntercepto
 }
 
 func appendAuth(ctx context.Context, clusterName string) context.Context {
-	return metadata.AppendToOutgoingContext(ctx, "graph-cluster-name", clusterName)
+	return metadata.AppendToOutgoingContext(ctx, "scout-cluster-name", clusterName)
 }
 
 func checkAuth(ctx context.Context, clusterName string) error {
@@ -61,7 +61,7 @@ func checkAuth(ctx context.Context, clusterName string) error {
 		return errUnauthenticated
 	}
 
-	incoming, ok := md["graph-cluster-name"]
+	incoming, ok := md["scout-cluster-name"]
 	if !ok || len(incoming) != 1 || incoming[0] != clusterName {
 		return errUnauthenticated
 	}

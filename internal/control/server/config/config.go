@@ -1,11 +1,11 @@
 package config
 
 import (
-	"github.com/bcrusu/graph/internal/discovery"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/rpc"
-	"github.com/bcrusu/graph/internal/rpc/serviceconfig"
-	"github.com/bcrusu/graph/internal/validation"
+	"github.com/bcrusu/scout/internal/discovery"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
+	"github.com/bcrusu/scout/internal/validation"
 )
 
 var (

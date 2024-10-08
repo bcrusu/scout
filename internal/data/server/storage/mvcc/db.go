@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 )
 
 type DB interface {

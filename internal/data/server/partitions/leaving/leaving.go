@@ -3,10 +3,10 @@ package leaving
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

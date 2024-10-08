@@ -4,7 +4,7 @@ import (
 	"io"
 	stdlog "log"
 
-	"github.com/bcrusu/graph/internal/logging"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/hashicorp/go-hclog"
 )
 

@@ -1,8 +1,8 @@
 package multiraft
 
 import (
-	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/multiraft"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/hashicorp/raft"
 )
 

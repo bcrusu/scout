@@ -180,9 +180,9 @@ type LBConfig struct {
 	//
 	//	*LBConfig_PickFirst
 	//	*LBConfig_RoundRobin
-	//	*LBConfig_GraphControl
-	//	*LBConfig_GraphApi
-	//	*LBConfig_GraphData
+	//	*LBConfig_ScoutControl
+	//	*LBConfig_ScoutApi
+	//	*LBConfig_ScoutData
 	Policy isLBConfig_Policy `protobuf_oneof:"policy"`
 }
 
@@ -239,23 +239,23 @@ func (x *LBConfig) GetRoundRobin() *LBConfigRoundRobin {
 	return nil
 }
 
-func (x *LBConfig) GetGraphControl() *LBConfigGraphControl {
-	if x, ok := x.GetPolicy().(*LBConfig_GraphControl); ok {
-		return x.GraphControl
+func (x *LBConfig) GetScoutControl() *LBConfigScoutControl {
+	if x, ok := x.GetPolicy().(*LBConfig_ScoutControl); ok {
+		return x.ScoutControl
 	}
 	return nil
 }
 
-func (x *LBConfig) GetGraphApi() *LBConfigGraphApi {
-	if x, ok := x.GetPolicy().(*LBConfig_GraphApi); ok {
-		return x.GraphApi
+func (x *LBConfig) GetScoutApi() *LBConfigScoutApi {
+	if x, ok := x.GetPolicy().(*LBConfig_ScoutApi); ok {
+		return x.ScoutApi
 	}
 	return nil
 }
 
-func (x *LBConfig) GetGraphData() *LBConfigGraphData {
-	if x, ok := x.GetPolicy().(*LBConfig_GraphData); ok {
-		return x.GraphData
+func (x *LBConfig) GetScoutData() *LBConfigScoutData {
+	if x, ok := x.GetPolicy().(*LBConfig_ScoutData); ok {
+		return x.ScoutData
 	}
 	return nil
 }
@@ -272,27 +272,27 @@ type LBConfig_RoundRobin struct {
 	RoundRobin *LBConfigRoundRobin `protobuf:"bytes,2,opt,name=round_robin,proto3,oneof"`
 }
 
-type LBConfig_GraphControl struct {
-	GraphControl *LBConfigGraphControl `protobuf:"bytes,3,opt,name=graph_control,proto3,oneof"`
+type LBConfig_ScoutControl struct {
+	ScoutControl *LBConfigScoutControl `protobuf:"bytes,3,opt,name=scout_control,proto3,oneof"`
 }
 
-type LBConfig_GraphApi struct {
-	GraphApi *LBConfigGraphApi `protobuf:"bytes,4,opt,name=graph_api,proto3,oneof"`
+type LBConfig_ScoutApi struct {
+	ScoutApi *LBConfigScoutApi `protobuf:"bytes,4,opt,name=scout_api,proto3,oneof"`
 }
 
-type LBConfig_GraphData struct {
-	GraphData *LBConfigGraphData `protobuf:"bytes,5,opt,name=graph_data,proto3,oneof"`
+type LBConfig_ScoutData struct {
+	ScoutData *LBConfigScoutData `protobuf:"bytes,5,opt,name=scout_data,proto3,oneof"`
 }
 
 func (*LBConfig_PickFirst) isLBConfig_Policy() {}
 
 func (*LBConfig_RoundRobin) isLBConfig_Policy() {}
 
-func (*LBConfig_GraphControl) isLBConfig_Policy() {}
+func (*LBConfig_ScoutControl) isLBConfig_Policy() {}
 
-func (*LBConfig_GraphApi) isLBConfig_Policy() {}
+func (*LBConfig_ScoutApi) isLBConfig_Policy() {}
 
-func (*LBConfig_GraphData) isLBConfig_Policy() {}
+func (*LBConfig_ScoutData) isLBConfig_Policy() {}
 
 type LBConfigPickFirst struct {
 	state         protoimpl.MessageState
@@ -379,14 +379,14 @@ func (*LBConfigRoundRobin) Descriptor() ([]byte, []int) {
 	return file_internal_rpc_serviceconfig_serviceconfig_proto_rawDescGZIP(), []int{4}
 }
 
-type LBConfigGraphControl struct {
+type LBConfigScoutControl struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *LBConfigGraphControl) Reset() {
-	*x = LBConfigGraphControl{}
+func (x *LBConfigScoutControl) Reset() {
+	*x = LBConfigScoutControl{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -394,13 +394,13 @@ func (x *LBConfigGraphControl) Reset() {
 	}
 }
 
-func (x *LBConfigGraphControl) String() string {
+func (x *LBConfigScoutControl) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LBConfigGraphControl) ProtoMessage() {}
+func (*LBConfigScoutControl) ProtoMessage() {}
 
-func (x *LBConfigGraphControl) ProtoReflect() protoreflect.Message {
+func (x *LBConfigScoutControl) ProtoReflect() protoreflect.Message {
 	mi := &file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -412,19 +412,19 @@ func (x *LBConfigGraphControl) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LBConfigGraphControl.ProtoReflect.Descriptor instead.
-func (*LBConfigGraphControl) Descriptor() ([]byte, []int) {
+// Deprecated: Use LBConfigScoutControl.ProtoReflect.Descriptor instead.
+func (*LBConfigScoutControl) Descriptor() ([]byte, []int) {
 	return file_internal_rpc_serviceconfig_serviceconfig_proto_rawDescGZIP(), []int{5}
 }
 
-type LBConfigGraphApi struct {
+type LBConfigScoutApi struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *LBConfigGraphApi) Reset() {
-	*x = LBConfigGraphApi{}
+func (x *LBConfigScoutApi) Reset() {
+	*x = LBConfigScoutApi{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -432,13 +432,13 @@ func (x *LBConfigGraphApi) Reset() {
 	}
 }
 
-func (x *LBConfigGraphApi) String() string {
+func (x *LBConfigScoutApi) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LBConfigGraphApi) ProtoMessage() {}
+func (*LBConfigScoutApi) ProtoMessage() {}
 
-func (x *LBConfigGraphApi) ProtoReflect() protoreflect.Message {
+func (x *LBConfigScoutApi) ProtoReflect() protoreflect.Message {
 	mi := &file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -450,19 +450,19 @@ func (x *LBConfigGraphApi) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LBConfigGraphApi.ProtoReflect.Descriptor instead.
-func (*LBConfigGraphApi) Descriptor() ([]byte, []int) {
+// Deprecated: Use LBConfigScoutApi.ProtoReflect.Descriptor instead.
+func (*LBConfigScoutApi) Descriptor() ([]byte, []int) {
 	return file_internal_rpc_serviceconfig_serviceconfig_proto_rawDescGZIP(), []int{6}
 }
 
-type LBConfigGraphData struct {
+type LBConfigScoutData struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 }
 
-func (x *LBConfigGraphData) Reset() {
-	*x = LBConfigGraphData{}
+func (x *LBConfigScoutData) Reset() {
+	*x = LBConfigScoutData{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -470,13 +470,13 @@ func (x *LBConfigGraphData) Reset() {
 	}
 }
 
-func (x *LBConfigGraphData) String() string {
+func (x *LBConfigScoutData) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LBConfigGraphData) ProtoMessage() {}
+func (*LBConfigScoutData) ProtoMessage() {}
 
-func (x *LBConfigGraphData) ProtoReflect() protoreflect.Message {
+func (x *LBConfigScoutData) ProtoReflect() protoreflect.Message {
 	mi := &file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -488,8 +488,8 @@ func (x *LBConfigGraphData) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LBConfigGraphData.ProtoReflect.Descriptor instead.
-func (*LBConfigGraphData) Descriptor() ([]byte, []int) {
+// Deprecated: Use LBConfigScoutData.ProtoReflect.Descriptor instead.
+func (*LBConfigScoutData) Descriptor() ([]byte, []int) {
 	return file_internal_rpc_serviceconfig_serviceconfig_proto_rawDescGZIP(), []int{7}
 }
 
@@ -765,32 +765,32 @@ var file_internal_rpc_serviceconfig_serviceconfig_proto_rawDesc = []byte{
 	0x28, 0x0b, 0x32, 0x21, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x63, 0x6f, 0x6e, 0x66,
 	0x69, 0x67, 0x2e, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x52, 0x6f, 0x75, 0x6e, 0x64,
 	0x52, 0x6f, 0x62, 0x69, 0x6e, 0x48, 0x00, 0x52, 0x0b, 0x72, 0x6f, 0x75, 0x6e, 0x64, 0x5f, 0x72,
-	0x6f, 0x62, 0x69, 0x6e, 0x12, 0x4b, 0x0a, 0x0d, 0x67, 0x72, 0x61, 0x70, 0x68, 0x5f, 0x63, 0x6f,
+	0x6f, 0x62, 0x69, 0x6e, 0x12, 0x4b, 0x0a, 0x0d, 0x73, 0x63, 0x6f, 0x75, 0x74, 0x5f, 0x63, 0x6f,
 	0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x23, 0x2e, 0x73, 0x65,
 	0x72, 0x76, 0x69, 0x63, 0x65, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x4c, 0x42, 0x43, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x47, 0x72, 0x61, 0x70, 0x68, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
-	0x48, 0x00, 0x52, 0x0d, 0x67, 0x72, 0x61, 0x70, 0x68, 0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
-	0x6c, 0x12, 0x3f, 0x0a, 0x09, 0x67, 0x72, 0x61, 0x70, 0x68, 0x5f, 0x61, 0x70, 0x69, 0x18, 0x04,
+	0x6e, 0x66, 0x69, 0x67, 0x53, 0x63, 0x6f, 0x75, 0x74, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c,
+	0x48, 0x00, 0x52, 0x0d, 0x73, 0x63, 0x6f, 0x75, 0x74, 0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f,
+	0x6c, 0x12, 0x3f, 0x0a, 0x09, 0x73, 0x63, 0x6f, 0x75, 0x74, 0x5f, 0x61, 0x70, 0x69, 0x18, 0x04,
 	0x20, 0x01, 0x28, 0x0b, 0x32, 0x1f, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x63, 0x6f,
-	0x6e, 0x66, 0x69, 0x67, 0x2e, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x47, 0x72, 0x61,
-	0x70, 0x68, 0x41, 0x70, 0x69, 0x48, 0x00, 0x52, 0x09, 0x67, 0x72, 0x61, 0x70, 0x68, 0x5f, 0x61,
-	0x70, 0x69, 0x12, 0x42, 0x0a, 0x0a, 0x67, 0x72, 0x61, 0x70, 0x68, 0x5f, 0x64, 0x61, 0x74, 0x61,
+	0x6e, 0x66, 0x69, 0x67, 0x2e, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x63, 0x6f,
+	0x75, 0x74, 0x41, 0x70, 0x69, 0x48, 0x00, 0x52, 0x09, 0x73, 0x63, 0x6f, 0x75, 0x74, 0x5f, 0x61,
+	0x70, 0x69, 0x12, 0x42, 0x0a, 0x0a, 0x73, 0x63, 0x6f, 0x75, 0x74, 0x5f, 0x64, 0x61, 0x74, 0x61,
 	0x18, 0x05, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
-	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x47,
-	0x72, 0x61, 0x70, 0x68, 0x44, 0x61, 0x74, 0x61, 0x48, 0x00, 0x52, 0x0a, 0x67, 0x72, 0x61, 0x70,
-	0x68, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x42, 0x08, 0x0a, 0x06, 0x70, 0x6f, 0x6c, 0x69, 0x63, 0x79,
+	0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x2e, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53,
+	0x63, 0x6f, 0x75, 0x74, 0x44, 0x61, 0x74, 0x61, 0x48, 0x00, 0x52, 0x0a, 0x73, 0x63, 0x6f, 0x75,
+	0x74, 0x5f, 0x64, 0x61, 0x74, 0x61, 0x42, 0x08, 0x0a, 0x06, 0x70, 0x6f, 0x6c, 0x69, 0x63, 0x79,
 	0x22, 0x43, 0x0a, 0x11, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x50, 0x69, 0x63, 0x6b,
 	0x46, 0x69, 0x72, 0x73, 0x74, 0x12, 0x2e, 0x0a, 0x12, 0x73, 0x68, 0x75, 0x66, 0x66, 0x6c, 0x65,
 	0x41, 0x64, 0x64, 0x72, 0x65, 0x73, 0x73, 0x4c, 0x69, 0x73, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x08, 0x52, 0x12, 0x73, 0x68, 0x75, 0x66, 0x66, 0x6c, 0x65, 0x41, 0x64, 0x64, 0x72, 0x65, 0x73,
 	0x73, 0x4c, 0x69, 0x73, 0x74, 0x22, 0x14, 0x0a, 0x12, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69,
 	0x67, 0x52, 0x6f, 0x75, 0x6e, 0x64, 0x52, 0x6f, 0x62, 0x69, 0x6e, 0x22, 0x16, 0x0a, 0x14, 0x4c,
-	0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x47, 0x72, 0x61, 0x70, 0x68, 0x43, 0x6f, 0x6e, 0x74,
-	0x72, 0x6f, 0x6c, 0x22, 0x12, 0x0a, 0x10, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x47,
-	0x72, 0x61, 0x70, 0x68, 0x41, 0x70, 0x69, 0x22, 0x13, 0x0a, 0x11, 0x4c, 0x42, 0x43, 0x6f, 0x6e,
-	0x66, 0x69, 0x67, 0x47, 0x72, 0x61, 0x70, 0x68, 0x44, 0x61, 0x74, 0x61, 0x42, 0x34, 0x5a, 0x32,
+	0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53, 0x63, 0x6f, 0x75, 0x74, 0x43, 0x6f, 0x6e, 0x74,
+	0x72, 0x6f, 0x6c, 0x22, 0x12, 0x0a, 0x10, 0x4c, 0x42, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x53,
+	0x63, 0x6f, 0x75, 0x74, 0x41, 0x70, 0x69, 0x22, 0x13, 0x0a, 0x11, 0x4c, 0x42, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x53, 0x63, 0x6f, 0x75, 0x74, 0x44, 0x61, 0x74, 0x61, 0x42, 0x34, 0x5a, 0x32,
 	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x62, 0x63, 0x72, 0x75, 0x73,
-	0x75, 0x2f, 0x67, 0x72, 0x61, 0x70, 0x68, 0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c,
+	0x75, 0x2f, 0x73, 0x63, 0x6f, 0x75, 0x74, 0x2f, 0x69, 0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c,
 	0x2f, 0x72, 0x70, 0x63, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x63, 0x6f, 0x6e, 0x66,
 	0x69, 0x67, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
@@ -814,9 +814,9 @@ var file_internal_rpc_serviceconfig_serviceconfig_proto_goTypes = []any{
 	(*LBConfig)(nil),                            // 2: serviceconfig.LBConfig
 	(*LBConfigPickFirst)(nil),                   // 3: serviceconfig.LBConfigPickFirst
 	(*LBConfigRoundRobin)(nil),                  // 4: serviceconfig.LBConfigRoundRobin
-	(*LBConfigGraphControl)(nil),                // 5: serviceconfig.LBConfigGraphControl
-	(*LBConfigGraphApi)(nil),                    // 6: serviceconfig.LBConfigGraphApi
-	(*LBConfigGraphData)(nil),                   // 7: serviceconfig.LBConfigGraphData
+	(*LBConfigScoutControl)(nil),                // 5: serviceconfig.LBConfigScoutControl
+	(*LBConfigScoutApi)(nil),                    // 6: serviceconfig.LBConfigScoutApi
+	(*LBConfigScoutData)(nil),                   // 7: serviceconfig.LBConfigScoutData
 	(*ServiceConfig_RetryThrottlingPolicy)(nil), // 8: serviceconfig.ServiceConfig.RetryThrottlingPolicy
 	(*MethodConfig_Name)(nil),                   // 9: serviceconfig.MethodConfig.Name
 	(*MethodConfig_RetryPolicy)(nil),            // 10: serviceconfig.MethodConfig.RetryPolicy
@@ -831,9 +831,9 @@ var file_internal_rpc_serviceconfig_serviceconfig_proto_depIdxs = []int32{
 	10, // 5: serviceconfig.MethodConfig.retry_policy:type_name -> serviceconfig.MethodConfig.RetryPolicy
 	3,  // 6: serviceconfig.LBConfig.pick_first:type_name -> serviceconfig.LBConfigPickFirst
 	4,  // 7: serviceconfig.LBConfig.round_robin:type_name -> serviceconfig.LBConfigRoundRobin
-	5,  // 8: serviceconfig.LBConfig.graph_control:type_name -> serviceconfig.LBConfigGraphControl
-	6,  // 9: serviceconfig.LBConfig.graph_api:type_name -> serviceconfig.LBConfigGraphApi
-	7,  // 10: serviceconfig.LBConfig.graph_data:type_name -> serviceconfig.LBConfigGraphData
+	5,  // 8: serviceconfig.LBConfig.scout_control:type_name -> serviceconfig.LBConfigScoutControl
+	6,  // 9: serviceconfig.LBConfig.scout_api:type_name -> serviceconfig.LBConfigScoutApi
+	7,  // 10: serviceconfig.LBConfig.scout_data:type_name -> serviceconfig.LBConfigScoutData
 	11, // 11: serviceconfig.MethodConfig.RetryPolicy.initial_backoff:type_name -> google.protobuf.Duration
 	11, // 12: serviceconfig.MethodConfig.RetryPolicy.max_backoff:type_name -> google.protobuf.Duration
 	13, // [13:13] is the sub-list for method output_type
@@ -910,7 +910,7 @@ func file_internal_rpc_serviceconfig_serviceconfig_proto_init() {
 			}
 		}
 		file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[5].Exporter = func(v any, i int) any {
-			switch v := v.(*LBConfigGraphControl); i {
+			switch v := v.(*LBConfigScoutControl); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -922,7 +922,7 @@ func file_internal_rpc_serviceconfig_serviceconfig_proto_init() {
 			}
 		}
 		file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[6].Exporter = func(v any, i int) any {
-			switch v := v.(*LBConfigGraphApi); i {
+			switch v := v.(*LBConfigScoutApi); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -934,7 +934,7 @@ func file_internal_rpc_serviceconfig_serviceconfig_proto_init() {
 			}
 		}
 		file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[7].Exporter = func(v any, i int) any {
-			switch v := v.(*LBConfigGraphData); i {
+			switch v := v.(*LBConfigScoutData); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -985,9 +985,9 @@ func file_internal_rpc_serviceconfig_serviceconfig_proto_init() {
 	file_internal_rpc_serviceconfig_serviceconfig_proto_msgTypes[2].OneofWrappers = []any{
 		(*LBConfig_PickFirst)(nil),
 		(*LBConfig_RoundRobin)(nil),
-		(*LBConfig_GraphControl)(nil),
-		(*LBConfig_GraphApi)(nil),
-		(*LBConfig_GraphData)(nil),
+		(*LBConfig_ScoutControl)(nil),
+		(*LBConfig_ScoutApi)(nil),
+		(*LBConfig_ScoutData)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

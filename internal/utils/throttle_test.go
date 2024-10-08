@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

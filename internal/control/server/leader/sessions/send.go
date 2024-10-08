@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bcrusu/graph/internal/control"
+	"github.com/bcrusu/scout/internal/control"
 )
 
 func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {

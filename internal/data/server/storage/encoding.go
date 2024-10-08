@@ -3,8 +3,8 @@ package storage
 import (
 	"fmt"
 
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 func mustEncodeValue(payload any) []byte {

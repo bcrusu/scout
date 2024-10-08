@@ -3,7 +3,7 @@ package partitions
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/scout/internal/data"
 	"google.golang.org/grpc"
 )
 

@@ -4,14 +4,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/multiraft"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/multiraft"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 

@@ -1,11 +1,11 @@
 package storage
 
 import (
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/config"
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
-	"github.com/bcrusu/graph/internal/data/server/storage/mvcc"
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/config"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 // TODO: prune status for old txn

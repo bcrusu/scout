@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
 )
 

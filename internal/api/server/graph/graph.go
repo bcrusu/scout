@@ -3,8 +3,8 @@ package graph
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/api/server/txn"
-	"github.com/bcrusu/graph/pkg/api"
+	"github.com/bcrusu/scout/internal/api/server/txn"
+	"github.com/bcrusu/scout/pkg/api"
 )
 
 type Store struct {

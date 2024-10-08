@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/api/server/graph"
-	"github.com/bcrusu/graph/internal/rpc"
-	"github.com/bcrusu/graph/pkg/api"
+	"github.com/bcrusu/scout/internal/api/server/graph"
+	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/pkg/api"
 	"google.golang.org/grpc"
 )
 

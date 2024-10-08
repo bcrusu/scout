@@ -3,14 +3,14 @@ package txn
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/api/server/config"
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/identity"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/api/server/config"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/identity"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

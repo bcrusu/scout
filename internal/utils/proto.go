@@ -3,7 +3,7 @@ package utils
 import (
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

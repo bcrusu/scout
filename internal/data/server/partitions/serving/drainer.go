@@ -3,9 +3,9 @@ package serving
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (

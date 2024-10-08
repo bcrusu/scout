@@ -1,9 +1,9 @@
 package txn
 
 import (
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/hlc"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 )
 
 type Txn struct {

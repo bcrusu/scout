@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 func (f *FSM) applyUpdatePartitionStatus(_ time.Time, cmd *UpdatePartitionStatus) (*UpdateResult, error) {

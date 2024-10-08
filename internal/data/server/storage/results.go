@@ -3,7 +3,7 @@ package storage
 import (
 	"fmt"
 
-	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/scout/internal/data"
 )
 
 // TxnId is the map key friendly version of data.TxnId proto.

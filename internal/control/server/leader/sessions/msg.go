@@ -1,6 +1,6 @@
 package sessions
 
-import "github.com/bcrusu/graph/internal/control"
+import "github.com/bcrusu/scout/internal/control"
 
 type startSession struct {
 	stream        sessionStream

@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/scout/internal/data"
 )
 
 // checkLocks implementation is not that clever as it simply iterates the input locks to compare

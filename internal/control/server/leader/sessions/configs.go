@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/server/convert"
-	"github.com/bcrusu/graph/internal/control/server/storage"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/server/convert"
+	"github.com/bcrusu/scout/internal/control/server/storage"
 )
 
 type dsConfigs map[uint64]*control.DataServerConfig

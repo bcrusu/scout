@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/scout/internal/data"
 )
 
 func (l *Lock) compatibleWith(other *Lock) bool {

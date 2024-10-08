@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bcrusu/graph/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 )
 
 var (

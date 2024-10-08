@@ -3,8 +3,8 @@ package convert
 import (
 	"fmt"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/control/server/storage"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/server/storage"
 )
 
 func FromServerType(in storage.ServerType) control.ServerType {

@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
 

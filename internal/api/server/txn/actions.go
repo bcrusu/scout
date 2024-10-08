@@ -3,8 +3,8 @@ package txn
 import (
 	"time"
 
-	"github.com/bcrusu/graph/internal/data"
-	"github.com/bcrusu/graph/internal/hlc"
+	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/hlc"
 )
 
 func Read(keyspace uint32, key []byte) *data.Action {

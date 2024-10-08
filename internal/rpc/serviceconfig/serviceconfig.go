@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -15,9 +15,9 @@ import (
 const (
 	LBNamePickFirst    = "pick_first"
 	LBNameRoundRobin   = "round_robin"
-	LBNameGraphControl = "graph_control"
-	LBNameGraphData    = "graph_data"
-	LBNameGraphApi     = "graph_api"
+	LBNameScoutControl = "scout_control"
+	LBNameScoutData    = "scout_data"
+	LBNameScoutApi     = "scout_api"
 )
 
 var (
@@ -118,12 +118,12 @@ func buildLoadBalancingConfig(name string) []*LBConfig {
 		return []*LBConfig{{Policy: &LBConfig_RoundRobin{}}}
 	case LBNameRoundRobin:
 		return []*LBConfig{{Policy: &LBConfig_PickFirst{PickFirst: &LBConfigPickFirst{ShuffleAddressList: true}}}}
-	case LBNameGraphControl:
-		return []*LBConfig{{Policy: &LBConfig_GraphControl{}}}
-	case LBNameGraphData:
-		return []*LBConfig{{Policy: &LBConfig_GraphData{}}}
-	case LBNameGraphApi:
-		return []*LBConfig{{Policy: &LBConfig_GraphApi{}}}
+	case LBNameScoutControl:
+		return []*LBConfig{{Policy: &LBConfig_ScoutControl{}}}
+	case LBNameScoutData:
+		return []*LBConfig{{Policy: &LBConfig_ScoutData{}}}
+	case LBNameScoutApi:
+		return []*LBConfig{{Policy: &LBConfig_ScoutApi{}}}
 	default:
 		panic(fmt.Sprintf("unknown LB %s", name))
 	}

@@ -4,13 +4,13 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/bcrusu/graph/internal/api"
-	"github.com/bcrusu/graph/internal/control"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/eventbus"
-	"github.com/bcrusu/graph/internal/identity"
-	"github.com/bcrusu/graph/internal/rpc"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/api"
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/identity"
+	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
 

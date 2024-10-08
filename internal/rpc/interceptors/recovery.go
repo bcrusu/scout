@@ -4,7 +4,7 @@ import (
 	"context"
 	"runtime"
 
-	"github.com/bcrusu/graph/internal/logging"
+	"github.com/bcrusu/scout/internal/logging"
 	"google.golang.org/grpc"
 )
 

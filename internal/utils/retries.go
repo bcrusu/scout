@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/bcrusu/graph/internal/errors"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 var (

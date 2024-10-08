@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/bcrusu/graph/internal/discovery"
+	"github.com/bcrusu/scout/internal/discovery"
 	"google.golang.org/grpc"
 )
 

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/bcrusu/graph/internal/control/server"
-	"github.com/bcrusu/graph/internal/control/server/config"
-	"github.com/bcrusu/graph/internal/errors"
-	"github.com/bcrusu/graph/internal/logging"
-	"github.com/bcrusu/graph/internal/utils"
+	"github.com/bcrusu/scout/internal/control/server"
+	"github.com/bcrusu/scout/internal/control/server/config"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/spf13/cobra"
 )
 

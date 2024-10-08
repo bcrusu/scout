@@ -1,4 +1,4 @@
-module github.com/bcrusu/graph
+module github.com/bcrusu/scout
 
 go 1.23.0
 
