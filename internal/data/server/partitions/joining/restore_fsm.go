@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/storage"
+	"github.com/bcrusu/graph/internal/data/server/storage/kv"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
 	"github.com/bcrusu/graph/internal/utils"
@@ -26,12 +27,12 @@ type restoreFsm struct {
 	pid        uint32
 	localName  string
 	dataClient data.ServiceClient
-	db         storage.DB
+	db         kv.DB
 	log        logging.LoggerNoContext
 	index      atomic.Uint64
 }
 
-func newRestoreFsm(pid uint32, log logging.LoggerNoContext, dataClient data.ServiceClient, db storage.DB) *restoreFsm {
+func newRestoreFsm(pid uint32, log logging.LoggerNoContext, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
 	return &restoreFsm{
 		pid:        pid,
 		dataClient: dataClient,

@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/raft"
 )
 
-func CreateRaft(multiraft *multiraft.MultiRaft, groupID, localID string, fsm multiraft.FSM, servers []raft.Server) (*multiraft.Raft, error) {
+func CreateRaft(multiraft *multiraft.MultiRaft, groupID, localID string, fsm multiraft.FSM, servers ...raft.Server) (*multiraft.Raft, error) {
 	hasState, err := multiraft.HasExistingState(groupID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to determine Raft group state.")
@@ -20,7 +20,7 @@ func CreateRaft(multiraft *multiraft.MultiRaft, groupID, localID string, fsm mul
 		return nil, errors.Wrap(err, "failed to start Raft.")
 	}
 
-	if hasState {
+	if hasState || len(servers) == 0 {
 		return raft, nil
 	}
 

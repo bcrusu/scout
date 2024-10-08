@@ -11,6 +11,11 @@ import (
 	"github.com/bcrusu/graph/pkg/api"
 )
 
+const (
+	// TODO: keyspace allocation
+	keyValueKeyspace = 100
+)
+
 type Store struct {
 	processor *txn.Processor
 }
@@ -22,14 +27,13 @@ func NewStore(processor *txn.Processor) *Store {
 }
 
 // TODO: request validation
-// TODO: keyspace allocation
 func (s *Store) Get(ctx context.Context, req *api.KeyAt) (*api.ValueAt, error) {
 	var action *data.Action
 
 	if req.AtTime == nil {
-		action = txn.Read(0, req.Key)
+		action = txn.Read(keyValueKeyspace, req.Key)
 	} else {
-		action = txn.ReadAt(0, req.Key, req.AtTime.AsTime())
+		action = txn.ReadAt(keyValueKeyspace, req.Key, req.AtTime.AsTime())
 	}
 
 	result, err := s.processor.Execute(ctx, req.Key, action)
@@ -46,7 +50,7 @@ func (s *Store) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error)
 		return nil, err
 	}
 
-	action := txn.Upsert(0, req.Key, data)
+	action := txn.Upsert(keyValueKeyspace, req.Key, data)
 
 	result, err := s.processor.Execute(ctx, req.Key, action)
 	if err != nil {
@@ -57,7 +61,7 @@ func (s *Store) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error)
 }
 
 func (s *Store) Delete(ctx context.Context, req *api.Key) (*api.Status, error) {
-	action := txn.Delete(0, req.Key)
+	action := txn.Delete(keyValueKeyspace, req.Key)
 
 	result, err := s.processor.Execute(ctx, req.Key, action)
 	if err != nil {

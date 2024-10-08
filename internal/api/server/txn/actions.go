@@ -7,7 +7,7 @@ import (
 	"github.com/bcrusu/graph/internal/hlc"
 )
 
-func Read(keyspace uint64, key []byte) *data.Action {
+func Read(keyspace uint32, key []byte) *data.Action {
 	return &data.Action{Payload: &data.Action_Read{
 		Read: &data.Read{
 			Keyspace: keyspace,
@@ -16,7 +16,7 @@ func Read(keyspace uint64, key []byte) *data.Action {
 	}}
 }
 
-func ReadAt(keyspace uint64, key []byte, time time.Time) *data.Action {
+func ReadAt(keyspace uint32, key []byte, time time.Time) *data.Action {
 	return &data.Action{Payload: &data.Action_Read{
 		Read: &data.Read{
 			Keyspace:  keyspace,
@@ -26,7 +26,7 @@ func ReadAt(keyspace uint64, key []byte, time time.Time) *data.Action {
 	}}
 }
 
-func Insert(keyspace uint64, key, value []byte) *data.Action {
+func Insert(keyspace uint32, key, value []byte) *data.Action {
 	return &data.Action{Payload: &data.Action_Insert{
 		Insert: &data.Insert{
 			Keyspace: keyspace,
@@ -36,7 +36,7 @@ func Insert(keyspace uint64, key, value []byte) *data.Action {
 	}}
 }
 
-func Update(keyspace uint64, key, value []byte) *data.Action {
+func Update(keyspace uint32, key, value []byte) *data.Action {
 	return &data.Action{Payload: &data.Action_Update{
 		Update: &data.Update{
 			Keyspace: keyspace,
@@ -46,7 +46,7 @@ func Update(keyspace uint64, key, value []byte) *data.Action {
 	}}
 }
 
-func Upsert(keyspace uint64, key, value []byte) *data.Action {
+func Upsert(keyspace uint32, key, value []byte) *data.Action {
 	return &data.Action{Payload: &data.Action_Upsert{
 		Upsert: &data.Upsert{
 			Keyspace: keyspace,
@@ -56,7 +56,7 @@ func Upsert(keyspace uint64, key, value []byte) *data.Action {
 	}}
 }
 
-func Delete(keyspace uint64, key []byte) *data.Action {
+func Delete(keyspace uint32, key []byte) *data.Action {
 	return &data.Action{Payload: &data.Action_Delete{
 		Delete: &data.Delete{
 			Keyspace: keyspace,
@@ -65,7 +65,7 @@ func Delete(keyspace uint64, key []byte) *data.Action {
 	}}
 }
 
-func LockKey(keyspace uint64, key []byte, exclusive bool, check data.LockKey_Check) *data.Action {
+func LockKey(keyspace uint32, key []byte, exclusive bool, check data.LockKey_Check) *data.Action {
 	return &data.Action{Payload: &data.Action_LockKey{
 		LockKey: &data.LockKey{
 			Check: check,
@@ -78,7 +78,7 @@ func LockKey(keyspace uint64, key []byte, exclusive bool, check data.LockKey_Che
 	}}
 }
 
-func LockRange(keyspace uint64, startKey, endKey []byte, exclusive bool, check data.LockRange_Check) *data.Action {
+func LockRange(keyspace uint32, startKey, endKey []byte, exclusive bool, check data.LockRange_Check) *data.Action {
 	return &data.Action{Payload: &data.Action_LockRange{
 		LockRange: &data.LockRange{
 			Check: check,

@@ -7,7 +7,7 @@ import (
 	"github.com/bcrusu/graph/internal/control"
 	"github.com/bcrusu/graph/internal/data"
 	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
-	"github.com/bcrusu/graph/internal/data/server/storage"
+	"github.com/bcrusu/graph/internal/data/server/storage/kv"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
@@ -25,13 +25,13 @@ type Joining struct {
 	localReplica string
 	multiraft    *multiraft.MultiRaft
 	dataClient   data.ServiceClient
-	db           storage.DB
+	db           kv.DB
 	log          logging.Logger
 	getStatusCh  chan chan<- *control.DataServerStatus_Replica
 	cancelFunc   context.CancelFunc
 }
 
-func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db storage.DB) *Joining {
+func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *Joining {
 	return &Joining{
 		pid:          pid,
 		localReplica: localReplica,
@@ -57,29 +57,23 @@ func (p *Joining) Stop() {
 
 func (p *Joining) mainLoop(ctx context.Context) {
 	dataServerConfigSub := eventbus.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval)
-	dataServersSub := eventbus.SubscribeDebounced[*control.DataServers](ctx, debounceInterval)
 	defer dataServerConfigSub.Unsubscribe()
-	defer dataServersSub.Unsubscribe()
 
 	var partConfig *control.DataServerConfig_Partition
-	var dataServers *control.DataServers
 	var raft *multiraft.Raft
 	var fsm *restoreFsm
 
 	createRaft := func() {
 		if raft != nil {
 			return
-		} else if servers := shared.TryMakeRaftServerList(partConfig, dataServers); len(servers) == 0 {
-			eventbus.TryPublishRefreshDataServers()
-			return
-		} else if raft == nil {
-			fsm = newRestoreFsm(p.pid, p.log.NoContext(), p.dataClient, p.db)
+		}
 
-			if r, err := shared.CreateRaft(p.multiraft, partConfig.Name, p.localReplica, fsm, servers); err != nil {
-				p.log.WithError(err).Error(ctx, "Failed to create Raft group.")
-			} else {
-				raft = r
-			}
+		fsm = newRestoreFsm(p.pid, p.log.NoContext(), p.dataClient, p.db)
+
+		if r, err := shared.CreateRaft(p.multiraft, partConfig.Name, p.localReplica, fsm); err != nil {
+			p.log.WithError(err).Error(ctx, "Failed to create Raft group.")
+		} else {
+			raft = r
 		}
 	}
 
@@ -87,8 +81,6 @@ func (p *Joining) mainLoop(ctx context.Context) {
 		select {
 		case x := <-dataServerConfigSub.Items():
 			partConfig = x.Partitions[p.pid]
-			createRaft()
-		case dataServers = <-dataServersSub.Items():
 			createRaft()
 		case statusCh := <-p.getStatusCh:
 			if raft == nil {

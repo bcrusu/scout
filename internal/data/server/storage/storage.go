@@ -98,3 +98,14 @@ func (b *TxnBatch) MaxTimestamp() uint64 {
 
 	return ts
 }
+
+func (b *TxnBatch) ActionCount() int {
+	result := 0
+	for _, a := range b.Autocommit {
+		result += len(a.Txn.Actions)
+	}
+	for _, a := range b.Prepare {
+		result += len(a.Txn.Actions)
+	}
+	return result
+}

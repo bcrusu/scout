@@ -8,7 +8,7 @@ import (
 
 type Bytes string
 
-func (b Bytes) MustParse() uint32 {
+func (b Bytes) MustParse() uint64 {
 	v, err := b.Parse()
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse Bytes value %q", b))
@@ -16,10 +16,10 @@ func (b Bytes) MustParse() uint32 {
 	return v
 }
 
-func (b Bytes) Parse() (uint32, error) {
+func (b Bytes) Parse() (uint64, error) {
 	v, err := humanize.ParseBytes(string(b))
 	if err != nil {
 		return 0, err
 	}
-	return uint32(v), nil
+	return uint64(v), nil
 }

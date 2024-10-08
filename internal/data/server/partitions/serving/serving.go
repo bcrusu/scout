@@ -11,6 +11,7 @@ import (
 	"github.com/bcrusu/graph/internal/data/server/partitions/leader"
 	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
 	"github.com/bcrusu/graph/internal/data/server/storage"
+	"github.com/bcrusu/graph/internal/data/server/storage/kv"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
@@ -30,14 +31,14 @@ type Serving struct {
 	localReplica string
 	multiraft    *multiraft.MultiRaft
 	dataClient   data.ServiceClient
-	db           storage.DB
+	db           kv.DB
 	log          logging.Logger
 	getStatusCh  chan chan<- *control.DataServerStatus_Replica
 	partition    atomic.Pointer[partitionDrainer]
 	cancelFunc   context.CancelFunc
 }
 
-func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db storage.DB) *Serving {
+func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *Serving {
 	return &Serving{
 		pid:          pid,
 		localReplica: localReplica,
@@ -80,7 +81,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 		} else if raft == nil {
 			fsm := storage.NewFSM(p.pid, p.db)
 
-			if r, err := shared.CreateRaft(p.multiraft, partConfig.Name, p.localReplica, fsm, servers); err != nil {
+			if r, err := shared.CreateRaft(p.multiraft, partConfig.Name, p.localReplica, fsm, servers...); err != nil {
 				p.log.WithError(err).Error(ctx, "Failed to create Raft group.")
 			} else {
 				raft = r

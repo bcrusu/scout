@@ -6,6 +6,8 @@ replace github.com/Jille/raft-grpc-transport => ../multiraft-grpc-transport
 
 replace github.com/bcrusu/multiraft => ../multiraft
 
+replace github.com/linxGnu/grocksdb => ../grocksdb
+
 require (
 	github.com/Jille/raft-grpc-transport v1.6.1
 	github.com/bcrusu/multiraft v0.0.0-00010101000000-000000000000
@@ -14,6 +16,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/hashicorp/raft v1.7.1
+	github.com/linxGnu/grocksdb v1.9.5
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
 	github.com/spf13/cobra v1.8.1

@@ -11,7 +11,7 @@ import (
 	"github.com/bcrusu/graph/internal/data/server/partitions/leaving"
 	"github.com/bcrusu/graph/internal/data/server/partitions/serving"
 	"github.com/bcrusu/graph/internal/data/server/partitions/shared"
-	"github.com/bcrusu/graph/internal/data/server/storage"
+	"github.com/bcrusu/graph/internal/data/server/storage/kv"
 	"github.com/bcrusu/graph/internal/eventbus"
 	"github.com/bcrusu/graph/internal/logging"
 	"github.com/bcrusu/graph/internal/multiraft"
@@ -23,7 +23,7 @@ type replica struct {
 	name       string
 	multiraft  *multiraft.MultiRaft
 	dataClient data.ServiceClient
-	db         storage.DB
+	db         kv.DB
 	log        logging.LoggerNoContext
 	holder     atomic.Pointer[holder]
 	cancelFunc context.CancelFunc
@@ -34,7 +34,7 @@ type holder struct {
 	instance shared.Replica
 }
 
-func newReplica(pid uint32, name string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db storage.DB) *replica {
+func newReplica(pid uint32, name string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *replica {
 	return &replica{
 		pid:        pid,
 		name:       name,

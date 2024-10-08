@@ -1,9 +1,12 @@
 package config
 
 import (
+	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/bcrusu/graph/internal/discovery"
+	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/rpc"
 	"github.com/bcrusu/graph/internal/utils"
 	"github.com/bcrusu/graph/internal/validation"
@@ -25,7 +28,10 @@ func Set(config Config) error {
 		panic("config already set")
 	} else if err := validation.Validate(config); err != nil {
 		return err
+	} else if err := config.prepare(); err != nil {
+		return err
 	}
+
 	global = &config
 	return nil
 }
@@ -36,6 +42,7 @@ type Config struct {
 	Discovery     discovery.Discovery `yaml:"discovery"`
 	Transactions  TxnConfig           `yaml:"transactions"`
 	DBRetryPolicy utils.RetryPolicy   `yaml:"dbRetryPolicy"`
+	RocksDB       RocksDBConfig       `yaml:"rocksDB"`
 }
 
 type TxnConfig struct {
@@ -45,4 +52,23 @@ type TxnConfig struct {
 	RetryBreakerLimit int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
 	BatchMaxSize      int               `yaml:"batchMaxSize" default:"128" validate:"min:1"`
 	BatchMaxDelay     time.Duration     `yaml:"batchMaxDelay" default:"100ms" validate:"min:1ms"`
+}
+
+type RocksDBConfig struct {
+	DataDir   string
+	CacheSize utils.Bytes   `yaml:"cacheSize" default:"1GB" validate:"min:1MB"`
+	TTL       time.Duration `yaml:"ttl" default:"24h" validate:"min:1m"` // TODO
+}
+
+func (c *Config) prepare() error {
+	dataDir, err := filepath.Abs(c.DataDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to determine data dir ")
+	}
+
+	c.RocksDB.DataDir = path.Join(dataDir, "rocksdb")
+
+	return utils.MkdirsAll(
+		c.RocksDB.DataDir,
+	)
 }

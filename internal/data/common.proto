@@ -49,30 +49,30 @@ message TxnStatus  {
 }
 
 message Insert {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
     bytes value = 3;
 }
 
 message Update {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
     bytes value = 3;
 }
 
 message Upsert {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
     bytes value = 3;
 }
 
 message Delete {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
 }
 
 message Read {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
     uint64 timestamp = 3; // optional; if not specified, it represents the latest value
 }
@@ -100,13 +100,13 @@ message LockRange {
 }
 
 message KeyLock {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
     bool exclusive = 3;
 }
 
 message RangeLock {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes start_key = 2; // inclusive
     bytes end_key = 3;   // exclusive
     bool exclusive = 4;
@@ -133,7 +133,7 @@ message Value {
 }
 
 message ValueRef {
-    uint64 keyspace = 1;
+    uint32 keyspace = 1;
     bytes key = 2;
     uint64 timestamp = 3;
 }

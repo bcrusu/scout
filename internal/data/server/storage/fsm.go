@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/graph/internal/data"
+	"github.com/bcrusu/graph/internal/data/server/storage/kv"
 	"github.com/bcrusu/graph/internal/errors"
 	"github.com/bcrusu/graph/internal/hlc"
 	"github.com/bcrusu/graph/internal/logging"
@@ -19,15 +20,17 @@ var (
 
 type FSM struct {
 	partitionID  uint32
+	db           kv.DB
 	txnProcessor *txnProcessor
 	lock         sync.RWMutex // guards all below
 	index        uint64       // last applied raft index
 }
 
-func NewFSM(partitionID uint32, db DB) *FSM {
+func NewFSM(partitionID uint32, db kv.DB) *FSM {
 	return &FSM{
-		txnProcessor: newTxnProcessor(partitionID, db),
 		partitionID:  partitionID,
+		db:           db,
+		txnProcessor: newTxnProcessor(partitionID, db),
 	}
 }
 
@@ -43,14 +46,14 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 		log.WithError(err).Debug("UnmarshalProto failed")
 		result = err
 	} else {
-		result = f.applyCommand(appendedAt, cmd, log)
+		result = f.applyCommand(index, appendedAt, cmd, log)
 	}
 
 	f.index = index
 	return result
 }
 
-func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContext) any {
+func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.LoggerNoContext) any {
 	payload := getPayload(cmd)
 	var result any
 	var timestamp uint64
@@ -60,7 +63,7 @@ func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContex
 	switch x := payload.(type) {
 	case *TxnBatch:
 		timestamp = x.MaxTimestamp()
-		result = f.txnProcessor.applyBatch(x)
+		result = f.txnProcessor.applyBatch(index, x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
@@ -72,6 +75,8 @@ func (f *FSM) applyCommand(_ time.Time, cmd *Command, log logging.LoggerNoContex
 }
 
 func (f *FSM) Snapshot() ([]byte, error) {
+	// TODO: call db.Sync()
+
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
