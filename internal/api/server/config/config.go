@@ -32,9 +32,9 @@ type Config struct {
 	Server       rpc.ServerConfig    `yaml:"server"`
 	DataDir      string              `yaml:"dataDir" validate:"required"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
-	Transactions TxnConfig           `yaml:"transactions"`
+	Transactions Transactions        `yaml:"transactions"`
 }
 
-type TxnConfig struct {
+type Transactions struct {
 	RetryPolicy utils.RetryPolicy `yaml:"retryPolicy"`
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 
 	transport "github.com/Jille/raft-grpc-transport"
+	"github.com/Jille/raft-grpc-transport/proto"
 	"github.com/bcrusu/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
 	"google.golang.org/grpc"
@@ -21,15 +23,20 @@ type TransportService struct {
 	manager *transport.Manager
 }
 
-func NewTransportService(localAddress string, dialOpts ...grpc.DialOption) *TransportService {
+func NewTransportService(config Config, localAddress string, dialOpts ...grpc.DialOption) *TransportService {
 	opts := []transport.Option{
 		transport.WithErrorLogger(func(err error, msg string, args ...any) {
 			log.WithError(err).Error("Transport: "+msg, args...)
 		}),
-		// TODO: transport.WithHeartbeatTimeout()
+		transport.WithHeartbeatTimeout(config.HeartbeatTimeout),
 	}
 
-	// TODO: add serviceconfig to dialOpts
+	scj := config.TransportClient.GetServiceConfigJson(serviceconfig.LBNameRoundRobin, proto.RaftTransport_ServiceDesc)
+
+	dialOpts = append(dialOpts,
+		grpc.WithDefaultServiceConfig(scj),
+	)
+
 	address := raft.ServerAddress(localAddress)
 	manager := transport.New(address, dialOpts, opts...)
 

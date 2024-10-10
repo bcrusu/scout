@@ -17,12 +17,12 @@ type MultiRaft struct {
 }
 
 // NewMultiRaft returns a new MultiRaft instance which allows working with multiple Raft groups.
-func NewMultiRaft(baseConfig Config) *MultiRaft {
+func NewMultiRaft(baseConfig Config, transport multiraft.Transport) *MultiRaft {
 	logs := multiraft.NewLogStore(newLogAdapter("raft_log_store"))
 	stable := multiraft.NewStableStore(newLogAdapter("raft_stable_store"))
 	snapshot := multiraft.NewSnapshotStore(newLogAdapter("raft_snapshot_store"))
 
-	multi := multiraft.NewRaft(logs, stable, snapshot, baseConfig.Transport)
+	multi := multiraft.NewRaft(logs, stable, snapshot, transport)
 
 	return &MultiRaft{
 		baseConfig: baseConfig,
@@ -42,7 +42,6 @@ func (r *MultiRaft) New(groupID string, fsm FSM, localID raft.ServerID) (*Raft, 
 
 	return &Raft{
 		localID:        localID,
-		bindAddress:    raft.ServerAddress(r.baseConfig.BindAddress),
 		requestTimeout: r.baseConfig.RequestTimeout,
 		raft:           group,
 	}, nil

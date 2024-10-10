@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/bcrusu/scout/internal/validation"
@@ -34,6 +35,7 @@ type Config struct {
 	Server    rpc.ServerConfig `yaml:"server"`
 	Service   Service          `yaml:"service"`
 	DataDir   string           `yaml:"dataDir" validate:"required"`
+	Raft      multiraft.Config `yaml:"raft"`
 	Register  *Register        `yaml:"register"`
 	Bootstrap *Bootstrap       `yaml:"bootstrap"`
 }

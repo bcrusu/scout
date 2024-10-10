@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
@@ -40,6 +41,7 @@ type Config struct {
 	Server       rpc.ServerConfig    `yaml:"server"`
 	DataDir      string              `yaml:"dataDir" validate:"required"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
+	Raft         multiraft.Config    `yaml:"raft"`
 	DB           DB                  `yaml:"db"`
 	Transactions Transactions        `yaml:"transactions"`
 }

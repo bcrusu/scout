@@ -21,7 +21,6 @@ var (
 // Raft represents a single Raft group.
 type Raft struct {
 	localID        raft.ServerID
-	bindAddress    raft.ServerAddress
 	requestTimeout time.Duration
 	raft           *raft.Raft
 }
@@ -67,7 +66,7 @@ func (r *Raft) Stop() {
 // Bootstrap is called only once, in the beggining, when the cluster is created.
 // It configures the initial list of servers which must also include the local server.
 func (r *Raft) Bootstrap(initialServers ...raft.Server) error {
-	if _, ok := findServerForIdAndAddress(initialServers, r.localID, r.bindAddress); !ok {
+	if _, ok := findServerForId(initialServers, r.localID); !ok {
 		return errors.Error("initial server list does not contain the local server.")
 	}
 

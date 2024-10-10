@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"time"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/client"
@@ -139,16 +138,9 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (
 func (n *Server) buildRaft(id identity.Identity) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {
 	fsm := storage.NewFSM()
 	dialOpts := rpc.DefaultDialOptions(id.ClusterName)
-	transportService := multiraft.NewTransportService(n.config.Server.BindAddress, dialOpts...)
+	transportService := multiraft.NewTransportService(n.config.Raft, n.config.Server.BindAddress, dialOpts...)
 
-	// TODO: make configurable
-	config := multiraft.Config{
-		BindAddress:    n.config.Server.BindAddress,
-		RequestTimeout: 2 * time.Second,
-		Transport:      transportService,
-	}
-
-	mraft := multiraft.NewMultiRaft(config)
+	mraft := multiraft.NewMultiRaft(n.config.Raft, transportService)
 
 	raft, err := mraft.New(raftGroupName, fsm, raft.ServerID(id.ServerName))
 	if err != nil {
