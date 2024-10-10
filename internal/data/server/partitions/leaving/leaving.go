@@ -47,8 +47,8 @@ func (p *Leaving) mainLoop(ctx context.Context) {
 		select {
 		case statusCh := <-p.getStatusCh:
 			statusCh <- &control.DataServerStatus_Replica{
-				Name:        p.localReplica,
-				DoneLeaving: false, // TODO
+				Name:          p.localReplica,
+				LeavingStatus: nil, // TODO
 			}
 		case <-ctx.Done():
 			return

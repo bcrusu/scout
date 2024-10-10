@@ -1,52 +1,85 @@
 package joining
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"sync/atomic"
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/client"
+	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/keyspace"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (
-	_ multiraft.FSM = (*restoreFsm)(nil)
+	_                       multiraft.FSM = (*restoreFsm)(nil)
+	streamPartitionThrottle               = utils.AddJitter(5*time.Second, 0.15)
+
+	// Used to save progress and resume from last ingested address during restore.
+	// The value is stored next to the data to ensure atomicity: iif data was persisted
+	// successfully then the checkpoint is also persisted.
+	addressCheckpoint = kv.Address{Keyspace: keyspace.ReservedReplica, Key: []byte("checkpoint"), Timestamp: 0}
 )
 
 // restoreFsm helps the joining replica seed its initial state by streaming
-// the partition key-value db contents from a up-to-date sponsor replica. It
-// blocks forever inside the Restore method so no raft log entries are apllied.
-// Once the operation is complete, it notifies the replica to update its status
-// to joining==done. This eventually leads the control plane to transition the
-// replica from joining to serving state.
+// the partition key-value db contents from a up-to-date sponsor replica.
+// After the restore completes successfuly, it waits forever inside the Apply
+// method so no Raft log entries are applied. Once the operation is complete,
+// it notifies the replica to update its status to joining==done. This eventually
+// leads the control plane to transition the replica from joining to serving state.
 type restoreFsm struct {
-	pid        uint32
-	localName  string
-	dataClient data.ServiceClient
-	db         kv.DB
-	log        logging.LoggerNoContext
-	index      atomic.Uint64
+	ctx          context.Context
+	pid          uint32
+	localReplica string
+	config       config.DB
+	dataClient   data.ServiceClient
+	db           *kv.DBBreaker
+	log          logging.Logger
+	candidates   atomic.Pointer[candidates]                             // updated by the joining replica
+	index        atomic.Uint64                                          // updated during restore
+	status       atomic.Pointer[control.DataServerStatus_JoiningStatus] // updated during restore
 }
 
-func newRestoreFsm(pid uint32, log logging.LoggerNoContext, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
-	return &restoreFsm{
-		pid:        pid,
-		dataClient: dataClient,
-		db:         db,
-		log:        log,
+type checkpoint struct {
+	MinIndex    uint64 `json:"minIndex"`
+	LastAddress []byte `json:"lastAddress"`
+	Completed   bool   `json:"completed"`
+}
+
+func newRestoreFsm(pid uint32, ctx context.Context, localReplica string, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
+	f := &restoreFsm{
+		ctx:          ctx,
+		pid:          pid,
+		localReplica: localReplica,
+		config:       config.Get().DB,
+		dataClient:   dataClient,
+		db:           kv.NewDBBreaker(db),
+		log:          logging.WithComponent("replica_joining").With("partition", pid, "replica", localReplica),
 	}
+
+	f.setStatus(false)
+	return f
 }
 
-func (f *restoreFsm) Apply(index uint64, _ time.Time, _ []byte) any {
-	panic(fmt.Sprintf("unexpected Apply while restoring partition %d replica %s at index %d.", f.pid, f.localName, index))
+func (f *restoreFsm) Apply(_ uint64, _ time.Time, _ []byte) any {
+	f.log.Info(f.ctx, "Restore partition completed. Waiting for transition to serving state...")
+
+	// wait forever as noted above
+	<-f.ctx.Done()
+	return nil
 }
 
 func (f *restoreFsm) Snapshot() ([]byte, error) {
-	panic(fmt.Sprintf("unexpected Snapshot while restoring partition %d replica %s.", f.pid, f.localName))
+	panic(fmt.Sprintf("unexpected Snapshot while restoring partition %d replica %s.", f.pid, f.localReplica))
 }
 
 func (f *restoreFsm) Restore(snapshot []byte) error {
@@ -57,7 +90,155 @@ func (f *restoreFsm) Restore(snapshot []byte) error {
 
 	f.index.Store(snap.Index)
 
-	// TODO
+	f.db.InitPartition(f.pid)
 
+	lastAddr, completed := f.loadCheckpoint(snap.Index)
+
+	if !completed {
+		if err := f.streamPartition(snap.Index, lastAddr); err != nil {
+			return err
+		}
+	}
+
+	f.setStatus(true)
+	f.log.Info(f.ctx, "Restore partition completed.")
 	return nil
+}
+
+func (f *restoreFsm) loadCheckpoint(minIndex uint64) (*data.KVAddress, bool) {
+	entry := f.db.Get(f.pid, addressCheckpoint)
+	if entry == nil {
+		return nil, false
+	}
+
+	var chk checkpoint
+	errors.Assert(json.Unmarshal(entry.Data, &chk))
+
+	if chk.MinIndex < minIndex {
+		// Past progress needs to be discarded because we received a newer Raft snapshot.
+		// This signals that the previous restore was halted and before it was resumed
+		// a new Raft snapshot happened. For now will handle this scenario by adjusting
+		// the shapshot interval config, but later might need to have existing replicas
+		// pause snapshotting while the new replica is joining.
+
+		f.log.Warn(f.ctx, "Received newer snapshot. Dropping past progress...")
+		f.db.DropPartition(f.pid)
+		return nil, false
+	}
+
+	if chk.Completed {
+		return nil, true
+	}
+
+	addr := kv.DecodeAddress(chk.LastAddress)
+	addr = addr.Next() // continue from next
+
+	return newKVAddress(addr), false
+}
+
+func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) error {
+	for {
+		c := f.candidates.Load()
+		if c == nil || len(c.replicas) == 0 {
+			time.Sleep(time.Second)
+			continue
+		}
+
+		r := c.nextReplica()
+		f.log.Debug(f.ctx, "Replica selected for streaming.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
+
+		lastAddr = f.tryStreamPartition(minIndex, lastAddr, r.replica.ServerId)
+		if lastAddr != nil {
+			f.log.Debug(f.ctx, "Streaming halted.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
+		} else {
+			// stream completed
+			return nil
+		}
+
+		select {
+		case <-f.ctx.Done():
+			return errors.Error("stream partition halted")
+		case <-time.After(streamPartitionThrottle):
+		}
+	}
+}
+
+func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddress, serverId uint64) *data.KVAddress {
+	req := &data.StreamRequest{
+		PartitionId:  f.pid,
+		MinIndex:     minIndex,
+		StartAddress: lastAddr,
+	}
+
+	ctx := client.WithPreferredServer(f.ctx, serverId, true)
+	stream, err := f.dataClient.StreamPartition(ctx, req)
+	if err != nil {
+		f.log.WithError(err).Error(f.ctx, "StreamPartition call failed.")
+		return lastAddr
+	}
+
+	entries := make([]kv.Entry, 0, f.config.MaxStreamingSize+1)
+
+	for {
+		res, err := stream.Recv()
+		if err != nil {
+			f.log.WithError(err).Error(f.ctx, "Stream.Recv failed.")
+			return lastAddr
+		}
+
+		for _, e := range res.Entries {
+			entries = append(entries, e.Entry())
+		}
+
+		if len(entries) > 0 {
+			last := utils.SliceLast(entries)
+			lastAddr = newKVAddress(last.Address)
+		} else {
+			lastAddr = nil
+		}
+
+		// checkpoint is persisted in the same batch
+		entries = append(entries, kv.Entry{
+			Address: addressCheckpoint,
+			Data:    f.newCheckpoint(minIndex, lastAddr, res.Completed),
+		})
+
+		if res.Completed {
+			f.db.Put(minIndex, f.pid, entries...)
+			return nil
+		} else {
+			f.db.Put(0, f.pid, entries...)
+		}
+
+		entries = entries[:0]
+	}
+}
+
+func (f *restoreFsm) newCheckpoint(minIndex uint64, lastAddress *data.KVAddress, completed bool) []byte {
+	chk := checkpoint{
+		MinIndex:  minIndex,
+		Completed: completed,
+	}
+
+	if lastAddress != nil {
+		chk.LastAddress = lastAddress.Address().Encode()
+	}
+
+	data, err := json.Marshal(chk)
+	errors.Assert(err)
+	return data
+}
+
+func (f *restoreFsm) setStatus(completed bool) {
+	f.status.Store(&control.DataServerStatus_JoiningStatus{
+		Completed: completed,
+	})
+}
+
+func newKVAddress(addr kv.Address) *data.KVAddress {
+	return &data.KVAddress{
+		Keyspace:  addr.Keyspace,
+		Key:       addr.Key,
+		Timestamp: addr.Timestamp,
+	}
 }

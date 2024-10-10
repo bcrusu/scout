@@ -44,7 +44,7 @@ var (
 // querying their status first as all the 2pc txn operations are implemented to be idempotent,
 // returning the previous state on duplicate requests.
 type watchdog2PC struct {
-	config      config.TxnConfig
+	config      config.Transactions
 	partitionID uint32
 	store       storage.Store
 	client      data.ServiceClient

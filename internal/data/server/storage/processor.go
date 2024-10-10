@@ -2,7 +2,6 @@ package storage
 
 import (
 	"github.com/bcrusu/scout/internal/data"
-	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
@@ -25,13 +24,13 @@ type txnLocks struct {
 func newTxnProcessor(partitionID uint32, db kv.DB) *txnProcessor {
 	return &txnProcessor{
 		partitionID: partitionID,
-		db:          mvcc.NewDBBreaker(mvcc.New(partitionID, db), config.Get().DBRetryPolicy),
+		db:          mvcc.NewDBBreaker(mvcc.New(partitionID, db)),
 		status:      map[TxnId]*data.TxnStatus{},
 		prepared:    map[TxnId]*txnLocks{},
 	}
 }
 
-func (p *txnProcessor) applyAutocommit(cmd *TxnAutocommit) (*data.TxnStatus, []kv.Entry, error) {
+func (p *txnProcessor) applyAutocommit(cmd *TxnAutocommit) (*data.TxnStatus, []mvcc.Entry, error) {
 	id := NewTxnId(cmd.Txn.Id)
 	status, ok := p.status[id]
 	if ok {
@@ -97,7 +96,7 @@ func (p *txnProcessor) applyPrepare(cmd *TxnPrepare) (*data.TxnStatus, error) {
 	return status, nil
 }
 
-func (p *txnProcessor) applyCommit(cmd *TxnCommit) (*data.TxnStatus, []kv.Entry, error) {
+func (p *txnProcessor) applyCommit(cmd *TxnCommit) (*data.TxnStatus, []mvcc.Entry, error) {
 	id := NewTxnId(cmd.Id)
 	status, ok := p.status[id]
 	if !ok {
@@ -229,7 +228,7 @@ func (p *txnProcessor) applyBatch(index uint64, batch *TxnBatch) *TxnBatchResult
 		MarkTimedout:  make([]TxnStatus, len(batch.MarkTimedout)),
 	}
 
-	allWrites := make([]kv.Entry, 0, batch.ActionCount())
+	allWrites := make([]mvcc.Entry, 0, batch.ActionCount())
 
 	for i, cmd := range batch.Autocommit {
 		status, writes, err := p.applyAutocommit(cmd)
@@ -263,6 +262,7 @@ func (p *txnProcessor) applyBatch(index uint64, batch *TxnBatch) *TxnBatchResult
 		result.MarkTimedout[i] = TxnStatus{status, err}
 	}
 
+	// Call Put even when allWrites is empty to update the stored Raft index.
 	p.db.Put(index, allWrites...)
 	return result
 }
@@ -355,33 +355,33 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 	return nil
 }
 
-func (p *txnProcessor) buildWriteEntries(timestamp uint64, txn *data.Txn) []kv.Entry {
-	writes := make([]kv.Entry, 0, len(txn.Actions))
+func (p *txnProcessor) buildWriteEntries(timestamp uint64, txn *data.Txn) []mvcc.Entry {
+	writes := make([]mvcc.Entry, 0, len(txn.Actions))
 
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
 		case *data.Action_Insert:
-			writes = append(writes, kv.Entry{
+			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Insert.Keyspace, x.Insert.Key, timestamp),
 				Value:   mustEncodeValue(x.Insert.Value),
-				Flags:   kv.FlagEmpty,
+				Flags:   mvcc.FlagEmpty,
 			})
 		case *data.Action_Update:
-			writes = append(writes, kv.Entry{
+			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Update.Keyspace, x.Update.Key, timestamp),
 				Value:   mustEncodeValue(x.Update.Value),
-				Flags:   kv.FlagEmpty,
+				Flags:   mvcc.FlagEmpty,
 			})
 		case *data.Action_Upsert:
-			writes = append(writes, kv.Entry{
+			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Upsert.Keyspace, x.Upsert.Key, timestamp),
 				Value:   mustEncodeValue(x.Upsert.Value),
-				Flags:   kv.FlagEmpty,
+				Flags:   mvcc.FlagEmpty,
 			})
 		case *data.Action_Delete:
-			writes = append(writes, kv.Entry{
+			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Delete.Keyspace, x.Delete.Key, timestamp),
-				Flags:   kv.FlagTombstone,
+				Flags:   mvcc.FlagTombstone,
 			})
 		}
 	}

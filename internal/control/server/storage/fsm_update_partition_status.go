@@ -27,8 +27,8 @@ func (f *FSM) applyUpdatePartitionStatus(_ time.Time, cmd *UpdatePartitionStatus
 			status.LastUpdate = replicaUpdate.LastUpdate
 			status.LeaderLastContact = replicaUpdate.LeaderLastContact
 			status.AppliedIndex = replicaUpdate.AppliedIndex
-			status.DoneJoining = replicaUpdate.DoneJoining
-			status.DoneLeaving = replicaUpdate.DoneLeaving
+			status.JoiningStatus = replicaUpdate.JoiningStatus
+			status.LeavingStatus = replicaUpdate.LeavingStatus
 		}
 	}
 

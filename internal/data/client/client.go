@@ -106,3 +106,12 @@ func (c *dataClient) StoreDecision(ctx context.Context, dec *data.TxnDecision, o
 
 	return c.client.StoreDecision(ctx, dec, opts...)
 }
+
+func (c *dataClient) StreamPartition(ctx context.Context, req *data.StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[data.StreamResponse], error) {
+	ctx = withRouting(ctx, routing{
+		partitionID: req.PartitionId,
+		replicaRead: true,
+	})
+
+	return c.client.StreamPartition(ctx, req, opts...)
+}

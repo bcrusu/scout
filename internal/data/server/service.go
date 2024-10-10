@@ -71,3 +71,11 @@ func (s *DataService) StoreDecision(ctx context.Context, dec *data.TxnDecision) 
 		return partition.StoreDecision(ctx, dec)
 	}
 }
+
+func (s *DataService) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
+	if partition, ok := s.controller.GetService(req.PartitionId); !ok {
+		return errors.Unavailable
+	} else {
+		return partition.StreamPartition(req, stream)
+	}
+}

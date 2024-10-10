@@ -37,27 +37,34 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	Server        rpc.ServerConfig    `yaml:"server"`
-	DataDir       string              `yaml:"dataDir" validate:"required"`
-	Discovery     discovery.Discovery `yaml:"discovery"`
-	Transactions  TxnConfig           `yaml:"transactions"`
-	DBRetryPolicy utils.RetryPolicy   `yaml:"dbRetryPolicy"`
-	RocksDB       RocksDBConfig       `yaml:"rocksDB"`
+	Server       rpc.ServerConfig    `yaml:"server"`
+	DataDir      string              `yaml:"dataDir" validate:"required"`
+	Discovery    discovery.Discovery `yaml:"discovery"`
+	DB           DB                  `yaml:"db"`
+	Transactions Transactions        `yaml:"transactions"`
 }
 
-type TxnConfig struct {
+type Transactions struct {
 	Phase1Timeout     time.Duration     `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
 	Phase2Timeout     time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
 	RetryPolicy       utils.RetryPolicy `yaml:"retryPolicy"`
 	RetryBreakerLimit int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
-	BatchMaxSize      int               `yaml:"batchMaxSize" default:"128" validate:"min:1"`
-	BatchMaxDelay     time.Duration     `yaml:"batchMaxDelay" default:"100ms" validate:"min:1ms"`
+	MaxBatchSize      int               `yaml:"maxBatchSize" default:"128" validate:"min:1"`
+	MaxBatchDelay     time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
 }
 
-type RocksDBConfig struct {
-	DataDir   string
-	CacheSize utils.Bytes   `yaml:"cacheSize" default:"1GB" validate:"min:1MB"`
-	TTL       time.Duration `yaml:"ttl" default:"24h" validate:"min:1m"` // TODO
+type DB struct {
+	RetryPolicy      utils.RetryPolicy `yaml:"retryPolicy"`
+	MaxStreamingSize int               `yaml:"maxStreamingSize" default:"10000" validate:"min:100"`
+	RocksDB          RocksDB           `yaml:"rocksDB"`
+}
+
+type RocksDB struct {
+	DataDir          string
+	WriteBufferSize  utils.Bytes   `yaml:"writeBufferSize" default:"128MB" validate:"min:32MB"`
+	CacheSize        utils.Bytes   `yaml:"cacheSize" default:"1GB" validate:"min:1MB"`
+	TTL              time.Duration `yaml:"ttl" default:"24h" validate:"min:1m"` // TODO
+	MaxReadaheadSize utils.Bytes   `yaml:"maxReadaheadSize" default:"32MB" validate:"min:1KB"`
 }
 
 func (c *Config) prepare() error {
@@ -66,9 +73,9 @@ func (c *Config) prepare() error {
 		return errors.Wrap(err, "failed to determine data dir ")
 	}
 
-	c.RocksDB.DataDir = path.Join(dataDir, "rocksdb")
+	c.DB.RocksDB.DataDir = path.Join(dataDir, "rocksdb")
 
 	return utils.MkdirsAll(
-		c.RocksDB.DataDir,
+		c.DB.RocksDB.DataDir,
 	)
 }

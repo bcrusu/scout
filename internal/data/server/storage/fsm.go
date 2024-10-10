@@ -11,17 +11,18 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
+	"github.com/hashicorp/raft"
 )
 
 var (
-	_    multiraft.FSM = (*FSM)(nil)
-	logF               = logging.WithComponent("storage_fsm").NoContext()
+	_ multiraft.FSM = (*FSM)(nil)
 )
 
 type FSM struct {
 	partitionID  uint32
 	db           kv.DB
 	txnProcessor *txnProcessor
+	log          logging.LoggerNoContext
 	lock         sync.RWMutex // guards all below
 	index        uint64       // last applied raft index
 }
@@ -31,11 +32,12 @@ func NewFSM(partitionID uint32, db kv.DB) *FSM {
 		partitionID:  partitionID,
 		db:           db,
 		txnProcessor: newTxnProcessor(partitionID, db),
+		log:          logging.WithComponent("storage_fsm").With("parttition", partitionID).NoContext(),
 	}
 }
 
 func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
-	log := logF.With("index", index, "appendedAt", appendedAt)
+	log := f.log.With("index", index, "appendedAt", appendedAt)
 
 	f.lock.Lock()
 	defer f.lock.Unlock()
@@ -70,12 +72,26 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 
 	hlc.Update(timestamp)
 
-	logF.Debugf("Applying command %T success", payload)
+	log.Debugf("Applying command %T success", payload)
 	return result
 }
 
 func (f *FSM) Snapshot() ([]byte, error) {
-	// TODO: call db.Sync()
+	f.lock.RLock()
+	expectedIndex := f.index
+	f.lock.RUnlock()
+
+	// Sync partition to disk first then read the persisted index and ensure it matches before
+	// taking the snapshot. The backing key-value store is configured to run in a WAL-disabled
+	// mode which relies on Raft log to provide the safety guarantees to avoid data loss.
+	if err := f.db.SyncPartition(f.partitionID); err != nil {
+		return nil, errors.Wrapf(err, "failed to sync partition=%d", f.partitionID)
+	} else if index, err := f.db.GetIndex(f.partitionID, true); err != nil {
+		return nil, errors.Wrapf(err, "failed to read persisted index=%d", f.partitionID)
+	} else if index != expectedIndex {
+		f.log.Warn("FSM Snapshot failed. Partition sync returned unexpected index.", "expected", expectedIndex, "actual", index)
+		return nil, raft.ErrNothingNewToSnapshot // retry later
+	}
 
 	f.lock.RLock()
 	defer f.lock.RUnlock()

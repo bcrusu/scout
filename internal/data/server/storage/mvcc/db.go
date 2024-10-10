@@ -3,17 +3,24 @@ package mvcc
 import (
 	"bytes"
 	"fmt"
+	"iter"
 	"math"
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 )
 
 type DB interface {
-	Get(kv.Address) (*kv.Entry, error)
-	GetRange(Range) (kv.Iterator, error)
+	Get(kv.Address) (*Entry, error)
+	GetRange(Range) (Iterator, error)
 	Exists(kv.Address) (bool, error)
 	ExistsInRange(Range) (bool, error)
-	Put(index uint64, entries ...kv.Entry) error
+	Put(index uint64, entries ...Entry) error
+}
+
+type Entry struct {
+	Address kv.Address
+	Value   []byte
+	Flags   Flags
 }
 
 type Range struct {
@@ -22,6 +29,8 @@ type Range struct {
 	EndKey    []byte // exclusive
 	Timestamp uint64 // optional; if not specified, it represents the latest value
 }
+
+type Iterator = iter.Seq2[Entry, error]
 
 type db struct {
 	pid uint32
@@ -35,7 +44,7 @@ func New(pid uint32, kvdb kv.DB) DB {
 	}
 }
 
-func (d *db) Get(addr kv.Address) (*kv.Entry, error) {
+func (d *db) Get(addr kv.Address) (*Entry, error) {
 	p, err := d.getFirst(addr)
 	if err != nil || p == nil {
 		return nil, err
@@ -48,7 +57,7 @@ func (d *db) Get(addr kv.Address) (*kv.Entry, error) {
 	return p, nil
 }
 
-func (d *db) GetRange(rang Range) (kv.Iterator, error) {
+func (d *db) GetRange(rang Range) (Iterator, error) {
 	if rang.Timestamp == 0 {
 		rang.Timestamp = math.MaxUint64
 	}
@@ -59,26 +68,28 @@ func (d *db) GetRange(rang Range) (kv.Iterator, error) {
 		Timestamp: rang.Timestamp,
 	}
 
-	iter, err := d.db.Get(d.pid, start)
+	iter, err := d.db.GetFrom(d.pid, start)
 	if err != nil {
 		return nil, err
 	}
 
-	return func(yield func(kv.Entry, error) bool) {
+	return func(yield func(Entry, error) bool) {
 		var skipKey []byte
 
 		for p, err := range iter {
 			if err != nil {
-				yield(kv.Entry{}, err)
+				yield(Entry{}, err)
 				return
 			}
+
+			value, flags := DecodeData(p.Data)
 
 			switch {
 			case p.Address.Keyspace != rang.Keyspace:
 				return
 			case len(rang.EndKey) > 0 && bytes.Compare(p.Address.Key, rang.EndKey) >= 0:
 				return
-			case p.Flags.Tombstone():
+			case flags.Tombstone():
 				if p.Address.Timestamp <= rang.Timestamp {
 					skipKey = p.Address.Key
 				}
@@ -86,7 +97,13 @@ func (d *db) GetRange(rang Range) (kv.Iterator, error) {
 			case bytes.Equal(p.Address.Key, skipKey):
 				continue
 			case p.Address.Timestamp <= rang.Timestamp:
-				if !yield(p, nil) {
+				entry := Entry{
+					Address: p.Address,
+					Value:   value,
+					Flags:   flags,
+				}
+
+				if !yield(entry, nil) {
 					return
 				}
 
@@ -117,22 +134,26 @@ func (d *db) ExistsInRange(rang Range) (bool, error) {
 	return false, nil
 }
 
-func (d *db) Put(index uint64, entries ...kv.Entry) error {
-	for _, p := range entries {
-		if p.Address.Timestamp == 0 {
-			panic(fmt.Sprintf("trying to set key with missing timestamp at %s", p.Address))
+func (d *db) Put(index uint64, entries ...Entry) error {
+	kvEntries := make([]kv.Entry, len(entries))
+
+	for i, e := range entries {
+		if e.Address.Timestamp == 0 {
+			panic(fmt.Sprintf("trying to set key with missing timestamp at %s", e.Address))
 		}
+
+		kvEntries[i] = kv.Entry{Address: e.Address, Data: EncodeData(e.Value, e.Flags)}
 	}
 
-	return d.db.Put(index, d.pid, entries...)
+	return d.db.Put(d.pid, index, kvEntries...)
 }
 
-func (d *db) getFirst(addr kv.Address) (*kv.Entry, error) {
+func (d *db) getFirst(addr kv.Address) (*Entry, error) {
 	if addr.Timestamp == 0 {
 		addr.Timestamp = math.MaxUint64
 	}
 
-	iter, err := d.db.Get(d.pid, addr)
+	iter, err := d.db.GetFrom(d.pid, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +166,15 @@ func (d *db) getFirst(addr kv.Address) (*kv.Entry, error) {
 		if p.Address.Keyspace != addr.Keyspace || !bytes.Equal(p.Address.Key, addr.Key) {
 			return nil, nil
 		} else if p.Address.Timestamp <= addr.Timestamp {
-			return &p, nil
+			value, flags := DecodeData(p.Data)
+
+			entry := Entry{
+				Address: p.Address,
+				Value:   value,
+				Flags:   flags,
+			}
+
+			return &entry, nil
 		}
 	}
 

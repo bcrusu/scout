@@ -1,6 +1,7 @@
 package mvcc
 
 import (
+	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/utils"
 )
@@ -11,32 +12,32 @@ type DBBreaker struct {
 	retryPolicy utils.RetryPolicy
 }
 
-func NewDBBreaker(db DB, retryPolicy utils.RetryPolicy) *DBBreaker {
+func NewDBBreaker(db DB) *DBBreaker {
 	return &DBBreaker{
 		db:          db,
-		retryPolicy: retryPolicy,
+		retryPolicy: config.Get().DB.RetryPolicy,
 	}
 }
 
-func (d *DBBreaker) Get(addr kv.Address) *kv.Entry {
-	value, err := utils.RetryR(d.retryPolicy, func() (*kv.Entry, error) {
+func (d *DBBreaker) Get(addr kv.Address) *Entry {
+	value, err := utils.RetryR(d.retryPolicy, func() (*Entry, error) {
 		return d.db.Get(addr)
 	})
 
 	if err != nil {
-		utils.ShutdownNow("DBBreaker.Get failed")
+		utils.ShutdownNowf("DBBreaker.Get failed with error=%s", err)
 	}
 
 	return value
 }
 
-func (d *DBBreaker) GetRange(rang Range) kv.Iterator {
-	iter, err := utils.RetryR(d.retryPolicy, func() (kv.Iterator, error) {
+func (d *DBBreaker) GetRange(rang Range) Iterator {
+	iter, err := utils.RetryR(d.retryPolicy, func() (Iterator, error) {
 		return d.db.GetRange(rang)
 	})
 
 	if err != nil {
-		utils.ShutdownNow("DBBreaker.GetRange failed")
+		utils.ShutdownNowf("DBBreaker.GetRange failed with error=%s", err)
 	}
 
 	return iter
@@ -48,7 +49,7 @@ func (d *DBBreaker) Exists(addr kv.Address) bool {
 	})
 
 	if err != nil {
-		utils.ShutdownNow("DBBreaker.Exists failed")
+		utils.ShutdownNowf("DBBreaker.Exists failed with error=%s", err)
 	}
 
 	return result
@@ -60,18 +61,18 @@ func (d *DBBreaker) ExistsInRange(rang Range) bool {
 	})
 
 	if err != nil {
-		utils.ShutdownNow("DBBreaker.ExistsInRange failed")
+		utils.ShutdownNowf("DBBreaker.ExistsInRange failed with error=%s", err)
 	}
 
 	return result
 }
 
-func (d *DBBreaker) Put(index uint64, entries ...kv.Entry) {
+func (d *DBBreaker) Put(index uint64, entries ...Entry) {
 	err := utils.RetryE(d.retryPolicy, func() error {
 		return d.db.Put(index, entries...)
 	})
 
 	if err != nil {
-		utils.ShutdownNow("DBBreaker.Set failed")
+		utils.ShutdownNowf("DBBreaker.Put failed with error=%s", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/keyspace"
 	"github.com/linxGnu/grocksdb"
 )
 
@@ -16,9 +17,9 @@ const (
 
 var (
 	// each column family is tagged with the partition identifier during init
-	keyPartition = kv.EncodeKey(kv.Address{Keyspace: kv.InternalKeyspace, Key: []byte("pid"), Timestamp: 0}, 0)
-	// each column family stores the last applied raft index
-	keyIndex = kv.EncodeKey(kv.Address{Keyspace: kv.InternalKeyspace, Key: []byte("index"), Timestamp: 0}, 0)
+	keyPartition = kv.Address{Keyspace: keyspace.ReservedDB, Key: []byte("pid"), Timestamp: 0}.Encode()
+	// each column family stores the last applied raft index for its partition
+	keyIndex = kv.Address{Keyspace: keyspace.ReservedDB, Key: []byte("index"), Timestamp: 0}.Encode()
 )
 
 type cfMap = map[uint32]*grocksdb.ColumnFamilyHandle
@@ -29,12 +30,15 @@ func getCFName(pid uint32) string {
 }
 
 func initCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, pid uint32) error {
-	wo := makeWriteOptions()
+	wo := grocksdb.NewDefaultWriteOptions()
 	defer wo.Destroy()
 
-	data := encodeUint32(pid)
+	if err := db.PutCF(wo, cf, keyPartition, encodeUint32(pid)); err != nil {
+		return errors.Wrap(err, "failed to put pid key")
+	}
 
-	return db.PutCF(wo, cf, keyPartition, data)
+	// ensures that the pid key is persisted
+	return flushCF(db, cf)
 }
 
 func probeCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle) (uint32, error) {
@@ -101,4 +105,16 @@ func readCFIndex(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, tier grocksdb
 	}
 
 	return decodeUint64(data)
+}
+
+func flushCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle) error {
+	opts := grocksdb.NewDefaultFlushOptions()
+	opts.SetWait(true)
+	defer opts.Destroy()
+
+	if err := db.FlushCF(cf, opts); err != nil {
+		return errors.Wrapf(err, "failed to flush column family")
+	}
+
+	return nil
 }

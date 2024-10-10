@@ -341,6 +341,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 		}
 
 		new.Partitions[id] = &control.DataServers_Partition{
+			ETag:             makeETag(fmt.Sprintf("%d:%v", leaderServerId, replicaServerIDs)),
 			Id:               id,
 			LeaderServerId:   leaderServerId,
 			ReplicaServerIds: replicaServerIDs,
@@ -352,7 +353,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 		etags = append(etags, fmt.Sprintf("srv %d:%s", id, server.Address))
 	}
 	for id, part := range new.Partitions {
-		etags = append(etags, fmt.Sprintf("part %d:%d:%v", id, part.LeaderServerId, part.ReplicaServerIds))
+		etags = append(etags, fmt.Sprintf("part %d:%s", id, part.ETag))
 	}
 
 	new.ETag = makeETag(etags...)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/server/convert"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -123,8 +124,8 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 		replica.LastUpdate = timestamppb.New(time.Now().UTC())
 		replica.LeaderLastContact = update.LeaderLastContact
 		replica.AppliedIndex = update.AppliedIndex
-		replica.DoneJoining = update.DoneJoining
-		replica.DoneLeaving = update.DoneLeaving
+		replica.JoiningStatus = convert.ToPartitionJoiningStatus(update.JoiningStatus)
+		replica.LeavingStatus = convert.ToPartitionLeavingStatus(update.LeavingStatus)
 
 		leaderChanged := update.IsLeader && update.LeaderTerm > status.LeaderTerm
 		if leaderChanged {

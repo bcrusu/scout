@@ -49,27 +49,27 @@ var _ = Describe("db tests", func() {
 		return bytes(fmt.Sprintf("data_%d_%s_%d", ks, key, ts))
 	}
 
-	makeEntry := func(ks uint32, key string, ts uint64, flags kv.Flags) kv.Entry {
-		return kv.Entry{
+	makeEntry := func(ks uint32, key string, ts uint64, flags mvcc.Flags) mvcc.Entry {
+		return mvcc.Entry{
 			Address: makeAddress(ks, key, ts),
 			Value:   makeValue(ks, key, ts),
 			Flags:   flags,
 		}
 	}
 
-	makeEntryPtr := func(ks uint32, key string, ts uint64, flags kv.Flags) *kv.Entry {
+	makeEntryPtr := func(ks uint32, key string, ts uint64, flags mvcc.Flags) *mvcc.Entry {
 		return utils.PointerOf(makeEntry(ks, key, ts, flags))
 	}
 
-	isEmpty := func(iter kv.Iterator) bool {
+	isEmpty := func(iter mvcc.Iterator) bool {
 		for range iter {
 			return false
 		}
 		return true
 	}
 
-	expectIter := func(iter kv.Iterator, description string, expected ...kv.Entry) {
-		all := []kv.Entry{}
+	expectIter := func(iter mvcc.Iterator, description string, expected ...mvcc.Entry) {
+		all := []mvcc.Entry{}
 
 		for p, err := range iter {
 			Expect(err).To(BeNil(), description)
@@ -102,7 +102,7 @@ var _ = Describe("db tests", func() {
 		})
 
 		It("Put should be successful", func() {
-			entries := []kv.Entry{
+			entries := []mvcc.Entry{
 				makeEntry(1, "key1", 1000, 0),
 				makeEntry(1, "key1", 2000, 0),
 				makeEntry(1, "key1", 3000, 0),
@@ -125,9 +125,9 @@ var _ = Describe("db tests", func() {
 		initKeyspace := func(keyspace uint32) {
 			for _, key := range keys {
 				for i, t := range ts {
-					flags := kv.FlagEmpty
+					flags := mvcc.FlagEmpty
 					if deleted[i] {
-						flags = kv.FlagTombstone
+						flags = mvcc.FlagTombstone
 					}
 
 					entry := makeEntry(keyspace, key, t, flags)
@@ -155,21 +155,21 @@ var _ = Describe("db tests", func() {
 		It("Get/Exists should return correct value", func() {
 			cases := []struct {
 				addr     kv.Address
-				expected *kv.Entry
+				expected *mvcc.Entry
 			}{
-				{makeAddress(999, keys[0], ts[0]), nil},                                                   // unknown keyspace
-				{makeAddress(ks[0], "999", ts[0]), nil},                                                   // unknown key
-				{makeAddress(ks[0], keys[0], 999), nil},                                                   // unknown timestamp
-				{makeAddress(ks[0], keys[0], 0), makeEntryPtr(ks[0], keys[0], lastTs, kv.FlagEmpty)},      // latest
-				{makeAddress(ks[1], keys[2], ts[0]+1), makeEntryPtr(ks[1], keys[2], ts[0], kv.FlagEmpty)}, // last
-				{makeAddress(ks[1], keys[2], ts[0]), makeEntryPtr(ks[1], keys[2], ts[0], kv.FlagEmpty)},   // last
-				{makeAddress(ks[1], keys[2], ts[0]-1), nil},                                               // deleted
-				{makeAddress(ks[1], keys[2], ts[1]+1), nil},                                               // deleted
-				{makeAddress(ks[1], keys[2], ts[1]), nil},                                                 // deleted
-				{makeAddress(ks[1], keys[2], ts[1]-1), makeEntryPtr(ks[1], keys[2], ts[2], kv.FlagEmpty)}, // not deleted
-				{makeAddress(ks[1], keys[2], ts[2]+1), makeEntryPtr(ks[1], keys[2], ts[2], kv.FlagEmpty)}, // not deleted
-				{makeAddress(ks[1], keys[2], ts[2]), makeEntryPtr(ks[1], keys[2], ts[2], kv.FlagEmpty)},   // not deleted
-				{makeAddress(ks[1], keys[2], ts[2]-1), nil},                                               // deleted
+				{makeAddress(999, keys[0], ts[0]), nil},                                                     // unknown keyspace
+				{makeAddress(ks[0], "999", ts[0]), nil},                                                     // unknown key
+				{makeAddress(ks[0], keys[0], 999), nil},                                                     // unknown timestamp
+				{makeAddress(ks[0], keys[0], 0), makeEntryPtr(ks[0], keys[0], lastTs, mvcc.FlagEmpty)},      // latest
+				{makeAddress(ks[1], keys[2], ts[0]+1), makeEntryPtr(ks[1], keys[2], ts[0], mvcc.FlagEmpty)}, // last
+				{makeAddress(ks[1], keys[2], ts[0]), makeEntryPtr(ks[1], keys[2], ts[0], mvcc.FlagEmpty)},   // last
+				{makeAddress(ks[1], keys[2], ts[0]-1), nil},                                                 // deleted
+				{makeAddress(ks[1], keys[2], ts[1]+1), nil},                                                 // deleted
+				{makeAddress(ks[1], keys[2], ts[1]), nil},                                                   // deleted
+				{makeAddress(ks[1], keys[2], ts[1]-1), makeEntryPtr(ks[1], keys[2], ts[2], mvcc.FlagEmpty)}, // not deleted
+				{makeAddress(ks[1], keys[2], ts[2]+1), makeEntryPtr(ks[1], keys[2], ts[2], mvcc.FlagEmpty)}, // not deleted
+				{makeAddress(ks[1], keys[2], ts[2]), makeEntryPtr(ks[1], keys[2], ts[2], mvcc.FlagEmpty)},   // not deleted
+				{makeAddress(ks[1], keys[2], ts[2]-1), nil},                                                 // deleted
 			}
 
 			for i, c := range cases {
@@ -182,50 +182,50 @@ var _ = Describe("db tests", func() {
 		It("GetRange/ExistsInRange should return correct values", func() {
 			cases := []struct {
 				rang     mvcc.Range
-				expected []kv.Entry
+				expected []mvcc.Entry
 			}{
 				{
 					rang: makeRange(ks[0], keys[0], keys[1], lastTs), // does not include the end key
-					expected: []kv.Entry{
-						makeEntry(ks[0], keys[0], ts[0], kv.FlagEmpty),
+					expected: []mvcc.Entry{
+						makeEntry(ks[0], keys[0], ts[0], mvcc.FlagEmpty),
 					},
 				},
 				{
 					rang:     makeRange(ks[0], keys[0], keys[0], lastTs), // start==end key will not be included
-					expected: []kv.Entry{},
+					expected: []mvcc.Entry{},
 				},
 				{
 					rang: makeRange(ks[0], "", "", 0), // latest value for all
-					expected: []kv.Entry{
-						makeEntry(ks[0], keys[0], ts[0], kv.FlagEmpty),
-						makeEntry(ks[0], keys[1], ts[0], kv.FlagEmpty),
-						makeEntry(ks[0], keys[2], ts[0], kv.FlagEmpty),
-						makeEntry(ks[0], keys[3], ts[0], kv.FlagEmpty),
+					expected: []mvcc.Entry{
+						makeEntry(ks[0], keys[0], ts[0], mvcc.FlagEmpty),
+						makeEntry(ks[0], keys[1], ts[0], mvcc.FlagEmpty),
+						makeEntry(ks[0], keys[2], ts[0], mvcc.FlagEmpty),
+						makeEntry(ks[0], keys[3], ts[0], mvcc.FlagEmpty),
 					},
 				},
 				{
 					rang: makeRange(ks[2], keys[0], keys[3], ts[2]), // snapshot read for multiple keys
-					expected: []kv.Entry{
-						makeEntry(ks[2], keys[0], ts[2], kv.FlagEmpty),
-						makeEntry(ks[2], keys[1], ts[2], kv.FlagEmpty),
-						makeEntry(ks[2], keys[2], ts[2], kv.FlagEmpty),
+					expected: []mvcc.Entry{
+						makeEntry(ks[2], keys[0], ts[2], mvcc.FlagEmpty),
+						makeEntry(ks[2], keys[1], ts[2], mvcc.FlagEmpty),
+						makeEntry(ks[2], keys[2], ts[2], mvcc.FlagEmpty),
 					},
 				},
 				{
 					rang: makeRange(ks[2], keys[0], keys[3], ts[2]+1), // snapshot read for multiple keys
-					expected: []kv.Entry{
-						makeEntry(ks[2], keys[0], ts[2], kv.FlagEmpty),
-						makeEntry(ks[2], keys[1], ts[2], kv.FlagEmpty),
-						makeEntry(ks[2], keys[2], ts[2], kv.FlagEmpty),
+					expected: []mvcc.Entry{
+						makeEntry(ks[2], keys[0], ts[2], mvcc.FlagEmpty),
+						makeEntry(ks[2], keys[1], ts[2], mvcc.FlagEmpty),
+						makeEntry(ks[2], keys[2], ts[2], mvcc.FlagEmpty),
 					},
 				},
 				{
 					rang:     makeRange(ks[1], "0", "z", ts[2]-1), // snapshot read for deleted keys
-					expected: []kv.Entry{},
+					expected: []mvcc.Entry{},
 				},
 				{
 					rang:     makeRange(ks[1], "0", "z", ts[1]), // snapshot read for deleted keys
-					expected: []kv.Entry{},
+					expected: []mvcc.Entry{},
 				},
 			}
 
@@ -245,7 +245,7 @@ var _ = Describe("db tests", func() {
 
 		It("Put should insert value at timestamp", func() {
 			timestamp := ts[1] + 10
-			entry := makeEntry(ks[1], keys[1], timestamp, kv.FlagEmpty)
+			entry := makeEntry(ks[1], keys[1], timestamp, mvcc.FlagEmpty)
 			Expect(db.Put(1, entry)).To(BeNil())
 			Expect(db.Get(entry.Address)).To(Equal(&entry))
 		})

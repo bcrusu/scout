@@ -22,8 +22,8 @@ type partition struct {
 }
 
 type item struct {
-	key   []byte
-	value []byte
+	key  []byte
+	data []byte
 }
 
 func New() *DB {
@@ -40,25 +40,43 @@ func (d *DB) DropPartition(pid uint32) error {
 	return nil
 }
 
-func (d *DB) SyncPartition(pid uint32) (uint64, error) {
+func (d *DB) SyncPartition(pid uint32) error {
+	return nil
+}
+
+func (d *DB) GetIndex(pid uint32, _ bool) (uint64, error) {
 	part := d.getPartition(pid)
 	return part.index, nil
 }
 
-func (d *DB) Get(pid uint32, start kv.Address) (kv.Iterator, error) {
+func (d *DB) Get(pid uint32, address kv.Address) (*kv.Entry, error) {
 	part := d.getPartition(pid)
-	startKey := kv.EncodeKey(start, 0)
-	startIdx := part.findFirst(startKey)
+	key := address.Encode()
+	i, found := part.findFirst(key)
+	if !found {
+		return nil, nil
+	}
+
+	a := part.items[i]
+
+	return &kv.Entry{
+		Address: address,
+		Data:    a.data,
+	}, nil
+}
+
+func (d *DB) GetFrom(pid uint32, start kv.Address) (kv.Iterator, error) {
+	part := d.getPartition(pid)
+	startKey := start.Encode()
+	startIdx, _ := part.findFirst(startKey)
 
 	return func(yield func(kv.Entry, error) bool) {
 		for i := startIdx; i < part.Len(); i++ {
 			a := part.items[i]
-			addr, flags := kv.DecodeKey(a.key)
 
 			x := kv.Entry{
-				Address: addr,
-				Value:   a.value,
-				Flags:   flags,
+				Address: kv.DecodeAddress(a.key),
+				Data:    a.data,
 			}
 
 			if !yield(x, nil) {
@@ -68,7 +86,11 @@ func (d *DB) Get(pid uint32, start kv.Address) (kv.Iterator, error) {
 	}, nil
 }
 
-func (d *DB) Put(index uint64, pid uint32, entries ...kv.Entry) error {
+func (d *DB) GetStream(pid uint32, start kv.Address) (kv.Iterator, error) {
+	return d.GetFrom(pid, start)
+}
+
+func (d *DB) Put(pid uint32, index uint64, entries ...kv.Entry) error {
 	part := d.getPartition(pid)
 
 	for _, p := range entries {
@@ -87,18 +109,18 @@ func (d *DB) Put(index uint64, pid uint32, entries ...kv.Entry) error {
 }
 
 func (d *DB) putOne(part *partition, entry kv.Entry) error {
-	key := kv.EncodeKey(entry.Address, entry.Flags)
+	key := entry.Address.Encode()
 
-	i := part.findFirst(key)
-	if i < part.Len() && bytes.Equal(part.items[i].key, key) {
+	i, found := part.findFirst(key)
+	if found {
 		// allow only idempotent operations to keep the MVCC entries immutable.
-		if !bytes.Equal(entry.Value, part.items[i].value) {
+		if !bytes.Equal(entry.Data, part.items[i].data) {
 			panic("key overwrite detected")
 		}
 		return nil
 	}
 
-	part.items = append(part.items, item{key, entry.Value})
+	part.items = append(part.items, item{key, entry.Data})
 	return nil
 }
 
@@ -126,10 +148,9 @@ func (p *partition) Swap(i, j int) {
 	p.items[i], p.items[j] = p.items[j], p.items[i]
 }
 
-func (p *partition) findFirst(key []byte) int {
-	i, _ := sort.Find(len(p.items), func(i int) int {
+func (p *partition) findFirst(key []byte) (int, bool) {
+	return sort.Find(len(p.items), func(i int) int {
 		a := p.items[i]
 		return kv.CompareKeys(key, a.key)
 	})
-	return i
 }

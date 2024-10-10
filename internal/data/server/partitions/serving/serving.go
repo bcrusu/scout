@@ -113,9 +113,9 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			var new service
 
 			if isLeader {
-				new = leader.New(p.pid, store, p.dataClient)
+				new = leader.New(p.pid, store, p.db, p.dataClient)
 			} else {
-				new = follower.New(p.pid, store)
+				new = follower.New(p.pid, store, p.db)
 			}
 
 			drainer := newPartitionDrainer(new)

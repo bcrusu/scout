@@ -160,9 +160,10 @@ message DataServers {
     }
 
     message Partition {
-        uint32 id = 1;
+        string e_tag = 1;
+        uint32 id = 2;
         uint64 leader_server_id = 3;
-        repeated uint64 replica_server_ids = 2;
+        repeated uint64 replica_server_ids = 4;
     }
 
     string e_tag = 1;
@@ -188,6 +189,14 @@ message ApiServers {
 }
 
 message DataServerStatus {
+    message JoiningStatus {
+        bool completed = 1;
+    }
+
+    message LeavingStatus {
+        bool completed = 1;
+    }
+
     message Replica {
         string name = 1;
         bool is_leader = 2;
@@ -195,8 +204,8 @@ message DataServerStatus {
         google.protobuf.Duration leader_last_contact = 4;
 		uint64 commited_index = 5;
 		uint64 applied_index = 6;
-        bool done_joining = 7;
-        bool done_leaving = 8;
+        JoiningStatus joining_status = 7;
+        LeavingStatus leaving_status = 8;
     }
 
     map<uint32, Replica> replicas = 1;

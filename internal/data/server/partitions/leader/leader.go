@@ -4,10 +4,13 @@ import (
 	"context"
 
 	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -22,14 +25,16 @@ type Leader struct {
 	log         logging.Logger
 	store       storage.Store
 	watchdog2pc *watchdog2PC
+	streamer    *shared.PartitionStreamer
 }
 
-func New(pid uint32, store storage.Store, dataClient data.ServiceClient) *Leader {
+func New(pid uint32, store storage.Store, db kv.DB, dataClient data.ServiceClient) *Leader {
 	return &Leader{
 		pid:         pid,
 		log:         logging.WithComponent("leader").With("partition", pid),
 		store:       store,
 		watchdog2pc: newWatchdog2PC(pid, store, dataClient),
+		streamer:    shared.NewPartitionStreamer(db),
 	}
 }
 
@@ -100,4 +105,8 @@ func (n *Leader) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*dat
 	}
 
 	return status, err
+}
+
+func (n *Leader) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
+	return n.streamer.StreamPartition(req, stream)
 }

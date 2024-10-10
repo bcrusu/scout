@@ -6,6 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/utils"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -76,4 +77,21 @@ func (d *partitionDrainer) StoreDecision(ctx context.Context, dec *data.TxnDecis
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
 	return d.inner.StoreDecision(cctx, dec)
+}
+
+func (d *partitionDrainer) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
+	cctx, cancel := d.drainer.WithDrain(stream.Context())
+	defer cancel()
+
+	sw := &streamWrapper{stream, cctx}
+	return d.inner.StreamPartition(req, sw)
+}
+
+type streamWrapper struct {
+	grpc.ServerStreamingServer[data.StreamResponse]
+	ctx context.Context
+}
+
+func (s *streamWrapper) Context() context.Context {
+	return s.ctx
 }

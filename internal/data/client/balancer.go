@@ -16,7 +16,8 @@ import (
 )
 
 var (
-	logLB = logging.WithComponent("data_balancer").NoContext()
+	errPreferredUnavailable = status.Error(codes.Unavailable, "Preferred server is unavailable")
+	logLB                   = logging.WithComponent("data_balancer").NoContext()
 )
 
 type balancerBuilder struct{}
@@ -43,10 +44,13 @@ type picker struct {
 }
 
 type partition struct {
-	id         uint32
-	leader     *subConn
-	replicas   []*subConn
-	replicasRR atomic.Int32
+	etag         string
+	id           uint32
+	leader       *subConn
+	replicaCount int
+	replicaSlice []*subConn
+	replicaMap   map[uint64]*subConn // map[server_id]subConn
+	replicasRR   atomic.Int32
 }
 
 func (b *balancerBuilder) Build(clientConn balancer.ClientConn, opt balancer.BuildOptions) balancer.Balancer {
@@ -115,8 +119,15 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 		log.Debug("Connection created")
 	}
 
+	b.updatePartitions(ds)
+
+	b.picker = &picker{
+		balancer:       b,
+		partitionCount: ds.PartitionCount,
+		partitions:     b.partitions,
+	}
+
 	b.etag = ds.ETag
-	b.picker = b.makePicker(ds)
 	b.updateState()
 	return nil
 }
@@ -160,35 +171,45 @@ func (b *balancerImpl) makeStateListener(serverID uint64, address string, log lo
 	}
 }
 
-func (b *balancerImpl) makePicker(ds *control.DataServers) *picker {
+func (b *balancerImpl) updatePartitions(ds *control.DataServers) {
 	// arrange conns per partitions for easy lookup during pick
 	partitions := map[uint32]*partition{}
 
-	for partID := range ds.PartitionCount {
-		part := ds.Partitions[partID]
+	for pid := range ds.PartitionCount {
+		part := ds.Partitions[pid]
+
+		if b.partitions != nil {
+			if oldPart := b.partitions[pid]; oldPart.etag == part.ETag {
+				partitions[pid] = oldPart
+				continue
+			}
+		}
 
 		var leader *subConn
 		if part.LeaderServerId != 0 {
 			leader = b.subConns[part.LeaderServerId]
 		}
 
-		replicas := make([]*subConn, len(part.ReplicaServerIds))
+		replicaSlice := make([]*subConn, len(part.ReplicaServerIds))
+		replicaMap := map[uint64]*subConn{}
+
 		for i, serverID := range part.ReplicaServerIds {
-			replicas[i] = b.subConns[serverID]
+			subConn := b.subConns[serverID]
+			replicaSlice[i] = subConn
+			replicaMap[serverID] = subConn
 		}
 
-		partitions[partID] = &partition{
-			id:       partID,
-			leader:   leader,
-			replicas: utils.ShuffleSlice(replicas),
+		partitions[pid] = &partition{
+			etag:         part.ETag,
+			id:           pid,
+			leader:       leader,
+			replicaCount: len(replicaSlice),
+			replicaSlice: utils.ShuffleSlice(replicaSlice),
+			replicaMap:   replicaMap,
 		}
 	}
 
-	return &picker{
-		balancer:       b,
-		partitionCount: ds.PartitionCount,
-		partitions:     partitions,
-	}
+	b.partitions = partitions
 }
 
 func (b *balancerImpl) getLBConnectivityState() connectivity.State {
@@ -253,17 +274,26 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		return balancer.PickResult{}, status.Error(codes.Internal, "Invalid partition ID.")
 	}
 
+	preferred, hasPreferred := getPreferredServer(info.Ctx)
 	part := p.partitions[routing.partitionID]
 
-	if !routing.replicaRead {
-		if part.leader == nil {
-			logLB.Debug("Leader connection not available.", "partition", part.id)
-			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
+	unavailableErr := func() error {
+		if hasPreferred && preferred.enforce {
+			return errPreferredUnavailable
 		}
+		return balancer.ErrNoSubConnAvailable
+	}
 
-		if part.leader.state != connectivity.Ready {
+	if !routing.replicaRead {
+		switch {
+		case part.leader == nil:
+			logLB.Debug("Leader connection not available.", "partition", part.id)
+			return balancer.PickResult{}, unavailableErr()
+		case part.leader.state != connectivity.Ready:
 			logLB.Debug("Leader connection not ready.", "partition", part.id)
-			return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
+			return balancer.PickResult{}, unavailableErr()
+		case hasPreferred && preferred.enforce && preferred.serverID != part.leader.serverID:
+			return balancer.PickResult{}, errPreferredUnavailable
 		}
 
 		return balancer.PickResult{
@@ -272,17 +302,32 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		}, nil
 	}
 
-	if len(part.replicas) == 0 {
-		return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
+	switch {
+	case part.replicaCount == 0:
+		return balancer.PickResult{}, unavailableErr()
+	case hasPreferred:
+		subConn := part.replicaMap[preferred.serverID]
+
+		switch {
+		case subConn != nil:
+			return balancer.PickResult{
+				SubConn: subConn,
+				Done:    p.rpcDone,
+			}, nil
+		case preferred.enforce:
+			return balancer.PickResult{}, errPreferredUnavailable
+		default:
+			// continue to round-robin server selection below
+		}
 	}
 
-	curr := int(part.replicasRR.Add(1)) % len(part.replicas)
+	curr := int(part.replicasRR.Add(1)) % part.replicaCount
 
-	for range len(part.replicas) {
-		conn := part.replicas[curr]
+	for range part.replicaCount {
+		conn := part.replicaSlice[curr]
 
 		if conn.state != connectivity.Ready {
-			curr = (curr + 1) % len(part.replicas)
+			curr = (curr + 1) % part.replicaCount
 			continue
 		}
 

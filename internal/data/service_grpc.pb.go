@@ -19,11 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Service_Autocommit_FullMethodName    = "/data.Service/Autocommit"
-	Service_Prepare_FullMethodName       = "/data.Service/Prepare"
-	Service_Commit_FullMethodName        = "/data.Service/Commit"
-	Service_Abort_FullMethodName         = "/data.Service/Abort"
-	Service_StoreDecision_FullMethodName = "/data.Service/StoreDecision"
+	Service_Autocommit_FullMethodName      = "/data.Service/Autocommit"
+	Service_Prepare_FullMethodName         = "/data.Service/Prepare"
+	Service_Commit_FullMethodName          = "/data.Service/Commit"
+	Service_Abort_FullMethodName           = "/data.Service/Abort"
+	Service_StoreDecision_FullMethodName   = "/data.Service/StoreDecision"
+	Service_StreamPartition_FullMethodName = "/data.Service/StreamPartition"
 )
 
 // ServiceClient is the client API for Service service.
@@ -37,6 +38,7 @@ type ServiceClient interface {
 	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*TxnStatus, error)
 	Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*TxnStatus, error)
 	StoreDecision(ctx context.Context, in *TxnDecision, opts ...grpc.CallOption) (*TxnStatus, error)
+	StreamPartition(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamResponse], error)
 }
 
 type serviceClient struct {
@@ -97,6 +99,25 @@ func (c *serviceClient) StoreDecision(ctx context.Context, in *TxnDecision, opts
 	return out, nil
 }
 
+func (c *serviceClient) StreamPartition(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Service_ServiceDesc.Streams[0], Service_StreamPartition_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[StreamRequest, StreamResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Service_StreamPartitionClient = grpc.ServerStreamingClient[StreamResponse]
+
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
@@ -108,6 +129,7 @@ type ServiceServer interface {
 	Commit(context.Context, *CommitRequest) (*TxnStatus, error)
 	Abort(context.Context, *AbortRequest) (*TxnStatus, error)
 	StoreDecision(context.Context, *TxnDecision) (*TxnStatus, error)
+	StreamPartition(*StreamRequest, grpc.ServerStreamingServer[StreamResponse]) error
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -132,6 +154,9 @@ func (UnimplementedServiceServer) Abort(context.Context, *AbortRequest) (*TxnSta
 }
 func (UnimplementedServiceServer) StoreDecision(context.Context, *TxnDecision) (*TxnStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StoreDecision not implemented")
+}
+func (UnimplementedServiceServer) StreamPartition(*StreamRequest, grpc.ServerStreamingServer[StreamResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamPartition not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -244,6 +269,17 @@ func _Service_StoreDecision_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_StreamPartition_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ServiceServer).StreamPartition(m, &grpc.GenericServerStream[StreamRequest, StreamResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Service_StreamPartitionServer = grpc.ServerStreamingServer[StreamResponse]
+
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -272,6 +308,12 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Service_StoreDecision_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamPartition",
+			Handler:       _Service_StreamPartition_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "internal/data/service.proto",
 }

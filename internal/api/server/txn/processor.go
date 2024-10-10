@@ -27,8 +27,8 @@ type Processor struct {
 
 func NewProcessor(id identity.Identity, client data.ServiceClient) *Processor {
 	client = &clientRetrier{
-		policy: config.Get().Transactions.RetryPolicy,
-		inner:  client,
+		ServiceClient: client,
+		policy:        config.Get().Transactions.RetryPolicy,
 	}
 
 	return &Processor{

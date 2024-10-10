@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/data/server/storage/inmem"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/utils/tests"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,19 +47,17 @@ var _ = Describe("inmem tests", func() {
 
 	Context("When is empty", func() {
 		addr := kv.Address{Keyspace: 1, Key: bytes("abc"), Timestamp: 1000}
-		entry := kv.Entry{Address: addr, Value: bytes("value1")}
+		entry := kv.Entry{Address: addr, Data: bytes("value1")}
 
-		It("Get should return empty iter", func() {
-			iter, err := db.Get(1, addr)
+		It("GetFrom should return empty iter", func() {
+			iter, err := db.GetFrom(1, addr)
 			Expect(err).To(BeNil())
 			expectEmptyIter(iter)
 		})
 
 		It("Put should be successful", func() {
 			Expect(db.Put(1, 1, entry)).To(BeNil())
-			iter, err := db.Get(1, addr)
-			Expect(err).To(BeNil())
-			expectIter(iter, "", entry)
+			Expect(db.Get(1, addr)).To(Equal(&entry))
 		})
 	})
 
@@ -70,7 +69,7 @@ var _ = Describe("inmem tests", func() {
 		makeEntry := func(pid uint32, key string, timestamp uint64) kv.Entry {
 			return kv.Entry{
 				Address: makeAddress(key, timestamp),
-				Value:   bytes(fmt.Sprintf("data_%d_%s_%d", pid, key, timestamp)),
+				Data:    bytes(fmt.Sprintf("data_%d_%s_%d", pid, key, timestamp)),
 			}
 		}
 
@@ -95,7 +94,7 @@ var _ = Describe("inmem tests", func() {
 
 		initPartitions := func() {
 			for pid, entries := range part {
-				Expect(db.Put(1, pid, entries...)).To(BeNil())
+				Expect(db.Put(pid, 1, entries...)).To(BeNil())
 			}
 		}
 
@@ -103,7 +102,36 @@ var _ = Describe("inmem tests", func() {
 			initPartitions()
 		})
 
-		It("Get should return correct values", func() {
+		It("Get should return correct value", func() {
+			cases := []struct {
+				pid      uint32
+				addr     kv.Address
+				expected *kv.Entry
+			}{
+				{
+					pid:      10,
+					addr:     makeAddress("777", 2000),
+					expected: utils.PointerOf(makeEntry(10, "777", 2000)),
+				},
+				{
+					pid:      10,
+					addr:     makeAddress("777", 2001),
+					expected: nil,
+				},
+				{
+					pid:      99,
+					addr:     makeAddress("zzz", 1000),
+					expected: nil,
+				},
+			}
+
+			for i, c := range cases {
+				caseLabel := fmt.Sprintf("test case %d", i)
+				Expect(db.Get(c.pid, c.addr)).To(Equal(c.expected), caseLabel)
+			}
+		})
+
+		It("GetFrom/GetStream should return correct values", func() {
 			cases := []struct {
 				pid      uint32
 				start    kv.Address
@@ -111,7 +139,7 @@ var _ = Describe("inmem tests", func() {
 			}{
 				{
 					pid:   10,
-					start: kv.FirstAddress(),
+					start: kv.FirstAddress(0),
 					expected: []kv.Entry{
 						makeEntry(10, "777", 3000),
 						makeEntry(10, "777", 2000),
@@ -181,7 +209,14 @@ var _ = Describe("inmem tests", func() {
 			for i, c := range cases {
 				caseLabel := fmt.Sprintf("test case %d", i)
 
-				iter, err := db.Get(c.pid, c.start)
+				// GetFrom
+				iter, err := db.GetFrom(c.pid, c.start)
+				Expect(iter).NotTo(BeNil(), caseLabel)
+				Expect(err).To(BeNil(), caseLabel)
+				expectIter(iter, caseLabel, c.expected...)
+
+				// GetStream
+				iter, err = db.GetStream(c.pid, c.start)
 				Expect(iter).NotTo(BeNil(), caseLabel)
 				Expect(err).To(BeNil(), caseLabel)
 				expectIter(iter, caseLabel, c.expected...)
@@ -223,9 +258,9 @@ var _ = Describe("inmem tests", func() {
 
 			for i, c := range cases {
 				caseLabel := fmt.Sprintf("test case %d", i)
-				Expect(db.Put(1, c.pid, c.put...)).To(BeNil())
+				Expect(db.Put(c.pid, 1, c.put...)).To(BeNil())
 
-				iter, err := db.Get(c.pid, kv.FirstAddress())
+				iter, err := db.GetFrom(c.pid, kv.FirstAddress(0))
 				Expect(iter).NotTo(BeNil(), caseLabel)
 				Expect(err).To(BeNil(), caseLabel)
 				expectIter(iter, caseLabel, c.expected...)

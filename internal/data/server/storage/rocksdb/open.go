@@ -13,7 +13,7 @@ const (
 	currentFileName = "CURRENT" // defined in rocksdb/file/filename.cc
 )
 
-func openDB(config config.RocksDBConfig) (*grocksdb.DB, cfMap, error) {
+func openDB(config config.RocksDB) (*grocksdb.DB, cfMap, error) {
 	currentFilePath := path.Join(config.DataDir, currentFileName)
 	exists, err := utils.PathExists(currentFilePath)
 	if err != nil {

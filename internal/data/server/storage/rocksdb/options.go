@@ -13,7 +13,7 @@ var (
 	mergeOperatorName = "scout"
 )
 
-func makeDBOptions(config config.RocksDBConfig) *grocksdb.Options {
+func makeDBOptions(config config.RocksDB) *grocksdb.Options {
 	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
 	bbto.SetBlockCache(grocksdb.NewLRUCache(config.CacheSize.MustParse()))
 
@@ -27,10 +27,11 @@ func makeDBOptions(config config.RocksDBConfig) *grocksdb.Options {
 	return opts
 }
 
-func makeCFOptions(config config.RocksDBConfig, name string) *grocksdb.Options {
+func makeCFOptions(config config.RocksDB, name string) *grocksdb.Options {
 	opts := grocksdb.NewDefaultOptions()
 	opts.SetComparator(grocksdb.NewComparator(comparatorName, kv.CompareKeys))
 	opts.SetMergeOperator(&mergeOperator{})
+	opts.SetWriteBufferSize(config.WriteBufferSize.MustParse())
 	// opts.SetPrefixExtractor() // todo
 
 	if name == cfDefaultName {
@@ -48,7 +49,7 @@ func makeCFOptions(config config.RocksDBConfig, name string) *grocksdb.Options {
 	return opts
 }
 
-func makeCFsOptions(config config.RocksDBConfig, names ...string) []*grocksdb.Options {
+func makeCFsOptions(config config.RocksDB, names ...string) []*grocksdb.Options {
 	result := make([]*grocksdb.Options, len(names))
 	for i, name := range names {
 		result[i] = makeCFOptions(config, name)
@@ -70,7 +71,16 @@ func makeWriteOptions() *grocksdb.WriteOptions {
 
 func makeReadOptions() *grocksdb.ReadOptions {
 	opts := grocksdb.NewDefaultReadOptions()
-	//SetFillCache TODO
+
+	return opts
+}
+
+func makeStreamOptions(config config.RocksDB) *grocksdb.ReadOptions {
+	opts := grocksdb.NewDefaultReadOptions()
+	opts.SetFillCache(false)
+	opts.SetTotalOrderSeek(true)
+	opts.SetAsyncIO(true)
+	opts.SetReadaheadSize(config.MaxReadaheadSize.MustParse())
 
 	return opts
 }

@@ -44,3 +44,10 @@ func IsAny(err error, others ...error) bool {
 	}
 	return false
 }
+
+// Assert stops the show right quick when err != nil.
+func Assert(err error) {
+	if err != nil {
+		panic(Wrap(err, "assert failed."))
+	}
+}

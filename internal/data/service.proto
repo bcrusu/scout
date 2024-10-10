@@ -13,6 +13,8 @@ service Service {
     rpc Commit(CommitRequest) returns (TxnStatus);
     rpc Abort(AbortRequest) returns (TxnStatus);
     rpc StoreDecision(TxnDecision) returns (TxnStatus);
+
+    rpc StreamPartition(StreamRequest) returns (stream StreamResponse);
 }
 
 message PrepareRequest {
@@ -30,4 +32,26 @@ message CommitRequest {
 message AbortRequest {
     uint32 participant_pid = 1;
     TxnId id = 2;
+}
+
+message KVAddress {
+    uint32 keyspace = 1;
+    bytes key = 2;
+    uint64 timestamp = 3;
+}
+
+message KVEntry {
+    KVAddress address = 1;
+    bytes data = 2;
+}
+
+message StreamRequest {
+    uint32 partition_id = 1;
+    uint64 min_index = 2;
+    KVAddress start_address = 3;
+}
+
+message StreamResponse {
+    repeated KVEntry entries = 1;
+    bool completed = 2;
 }

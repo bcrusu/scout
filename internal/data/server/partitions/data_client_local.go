@@ -51,3 +51,7 @@ func (c *dataClientLocal) StoreDecision(ctx context.Context, dec *data.TxnDecisi
 	}
 	return c.client.StoreDecision(ctx, dec, opts...)
 }
+
+func (c *dataClientLocal) StreamPartition(ctx context.Context, req *data.StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[data.StreamResponse], error) {
+	return c.client.StreamPartition(ctx, req, opts...)
+}

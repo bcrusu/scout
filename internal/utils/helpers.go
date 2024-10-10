@@ -15,6 +15,13 @@ func ContainsDuplicates[T comparable](slice []T) bool {
 	return false
 }
 
+func SliceLast[T any](slice []T) T {
+	if len(slice) == 0 {
+		panic("slice is empty")
+	}
+	return slice[len(slice)-1]
+}
+
 // MakeSet returns a new set for the input slice.
 func MakeSet[T comparable](slice []T) map[T]bool {
 	result := map[T]bool{}

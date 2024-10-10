@@ -46,7 +46,7 @@ type TxnRunning struct {
 }
 
 type store struct {
-	config     config.TxnConfig
+	config     config.Transactions
 	raft       *multiraft.Raft
 	fsm        *FSM
 	applyCh    chan applyCmd
@@ -151,11 +151,11 @@ func (s *store) mainLoop(ctx context.Context) {
 			batchSize++
 			if batchSize == 1 {
 				if timer == nil {
-					timer = time.NewTimer(s.config.BatchMaxDelay)
+					timer = time.NewTimer(s.config.MaxBatchDelay)
 				} else {
-					timer.Reset(s.config.BatchMaxDelay)
+					timer.Reset(s.config.MaxBatchDelay)
 				}
-			} else if batchSize == s.config.BatchMaxSize {
+			} else if batchSize == s.config.MaxBatchSize {
 				nextBatch()
 			}
 		case <-ctx.Done():

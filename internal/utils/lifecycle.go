@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -110,4 +111,8 @@ func ShutdownNow(message string) {
 
 	logging.NoContext().Error("ShutdownNow: %s", message)
 	panic(message)
+}
+
+func ShutdownNowf(format string, args ...any) {
+	ShutdownNow(fmt.Sprintf(format, args...))
 }
