@@ -2,31 +2,42 @@ package leaving
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
+	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (
-	_ shared.Replica = (*Leaving)(nil)
+	_               shared.Replica = (*Leaving)(nil)
+	cleanupThrottle                = utils.AddJitter(5*time.Second, 0.15)
 )
 
 type Leaving struct {
 	pid          uint32
+	partName     string
 	localReplica string
+	multiraft    *multiraft.MultiRaft
+	db           *kv.DBBreaker
 	log          logging.Logger
-	getStatusCh  chan chan<- *control.DataServerStatus_Replica
 	cancelFunc   context.CancelFunc
+	status       atomic.Pointer[control.DataServerStatus_LeavingStatus]
 }
 
-func New(pid uint32, localReplica string) *Leaving {
+func New(pid uint32, partName, localReplica string, multiraft *multiraft.MultiRaft, db kv.DB) *Leaving {
 	return &Leaving{
 		pid:          pid,
+		partName:     partName,
 		localReplica: localReplica,
+		multiraft:    multiraft,
+		db:           kv.NewDBBreaker(db),
 		log:          logging.WithComponent("replica_leaving").With("partition", pid, "replica", localReplica),
-		getStatusCh:  make(chan chan<- *control.DataServerStatus_Replica),
 	}
 }
 
@@ -43,17 +54,24 @@ func (p *Leaving) Stop() {
 }
 
 func (p *Leaving) mainLoop(ctx context.Context) {
+	p.setStatus(false)
+
 	for {
+		if err := p.cleanup(); err != nil {
+			p.log.WithError(err).Error(ctx, "Cleanup failed. Retrying...")
+		} else {
+			p.setStatus(true)
+			break
+		}
+
 		select {
-		case statusCh := <-p.getStatusCh:
-			statusCh <- &control.DataServerStatus_Replica{
-				Name:          p.localReplica,
-				LeavingStatus: nil, // TODO
-			}
 		case <-ctx.Done():
 			return
+		case <-time.After(cleanupThrottle):
 		}
 	}
+
+	<-ctx.Done()
 }
 
 func (p *Leaving) GetService() shared.Service {
@@ -61,7 +79,28 @@ func (p *Leaving) GetService() shared.Service {
 }
 
 func (p *Leaving) GetStatus() *control.DataServerStatus_Replica {
-	statusCh := make(chan *control.DataServerStatus_Replica, 1)
-	p.getStatusCh <- statusCh
-	return <-statusCh
+	status := p.status.Load()
+	if status == nil {
+		return nil
+	}
+
+	return &control.DataServerStatus_Replica{
+		Name:          p.localReplica,
+		LeavingStatus: status,
+	}
+}
+
+func (p *Leaving) setStatus(completed bool) {
+	p.status.Store(&control.DataServerStatus_LeavingStatus{
+		Completed: completed,
+	})
+}
+
+func (p *Leaving) cleanup() error {
+	if err := p.multiraft.Remove(p.partName); err != nil {
+		return errors.Wrap(err, "failed to remove Raft group.")
+	}
+
+	p.db.DropPartition(p.pid)
+	return nil
 }

@@ -60,7 +60,7 @@ func (r *Raft) Start(ctx context.Context) error {
 // Stop stops the Raft group.
 func (r *Raft) Stop() {
 	if err := r.raft.Shutdown().Error(); err != nil {
-		log.WithError(err).Warn("Shutdown call returned error")
+		log.WithError(err).Warn("Shutdown call returned error.")
 	}
 }
 
@@ -68,14 +68,14 @@ func (r *Raft) Stop() {
 // It configures the initial list of servers which must also include the local server.
 func (r *Raft) Bootstrap(initialServers ...raft.Server) error {
 	if _, ok := findServerForIdAndAddress(initialServers, r.localID, r.bindAddress); !ok {
-		return errors.Error("initial server list does not contain the local server")
+		return errors.Error("initial server list does not contain the local server.")
 	}
 
 	cfg := raft.Configuration{Servers: initialServers}
 
 	err := r.raft.BootstrapCluster(cfg).Error()
 	if err != nil && err != raft.ErrCantBootstrap {
-		return errors.Wrap(err, "Raft bootstrap failed")
+		return errors.Wrap(err, "Raft bootstrap failed.")
 	}
 
 	return nil
@@ -85,7 +85,7 @@ func (r *Raft) Bootstrap(initialServers ...raft.Server) error {
 func (r *Raft) GetServers() ([]raft.Server, error) {
 	future := r.raft.GetConfiguration()
 	if err := future.Error(); err != nil {
-		return nil, errors.Wrap(err, "failed to get Raft configuration")
+		return nil, errors.Wrap(err, "failed to get Raft configuration.")
 	}
 
 	config := future.Configuration()

@@ -110,7 +110,7 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 			replicaConfig = c.getLocalReplicaConfig(config)
 		}
 
-		if replicaConfig == nil || replica.name != replicaConfig.Name {
+		if replicaConfig == nil || replica.replicaName != replicaConfig.Name {
 			go replica.Stop()
 			delete(c.replicas, pid)
 		}
@@ -123,7 +123,7 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 			continue
 		}
 
-		replica := newReplica(pid, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
+		replica := newReplica(pid, config.Name, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
 
 		go replica.Start(ctx, config)
 		c.replicas[pid] = replica

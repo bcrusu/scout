@@ -48,6 +48,10 @@ func (r *MultiRaft) New(groupID string, fsm FSM, localID raft.ServerID) (*Raft, 
 	}, nil
 }
 
+func (r *MultiRaft) Remove(groupID string) error {
+	return r.multi.Remove(groupID)
+}
+
 func (r *MultiRaft) HasExistingState(groupID string) (bool, error) {
 	return r.multi.HasExistingState(groupID)
 }

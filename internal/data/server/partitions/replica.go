@@ -19,14 +19,15 @@ import (
 )
 
 type replica struct {
-	pid        uint32
-	name       string
-	multiraft  *multiraft.MultiRaft
-	dataClient data.ServiceClient
-	db         kv.DB
-	log        logging.LoggerNoContext
-	holder     atomic.Pointer[holder]
-	cancelFunc context.CancelFunc
+	pid         uint32
+	partName    string
+	replicaName string
+	multiraft   *multiraft.MultiRaft
+	dataClient  data.ServiceClient
+	db          kv.DB
+	log         logging.LoggerNoContext
+	holder      atomic.Pointer[holder]
+	cancelFunc  context.CancelFunc
 }
 
 type holder struct {
@@ -34,14 +35,15 @@ type holder struct {
 	instance shared.Replica
 }
 
-func newReplica(pid uint32, name string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *replica {
+func newReplica(pid uint32, partName, replicaName string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *replica {
 	return &replica{
-		pid:        pid,
-		name:       name,
-		multiraft:  multiraft,
-		dataClient: dataClient,
-		db:         db,
-		log:        logging.WithComponent("partition").With("id", pid, "replica", name).NoContext(),
+		pid:         pid,
+		partName:    partName,
+		replicaName: replicaName,
+		multiraft:   multiraft,
+		dataClient:  dataClient,
+		db:          db,
+		log:         logging.WithComponent("partition").With("id", pid, "replica", replicaName).NoContext(),
 	}
 }
 
@@ -69,15 +71,15 @@ func (p *replica) mainLoop(ctx context.Context) {
 
 			if config != nil && config.ETag == newConfig.ETag {
 				continue
-			} else if replica := x.GetReplica(p.pid, p.name); replica != nil {
+			} else if replica := x.GetReplica(p.pid, p.replicaName); replica != nil {
 				p.updateReplicaState(ctx, replica.State)
 			} else {
-				p.updateReplicaState(ctx, control.DataServerConfig_Unknown)
+				p.updateReplicaState(ctx, control.DataServerConfig_Stopped)
 			}
 
 			config = newConfig
 		case <-ctx.Done():
-			p.updateReplicaState(ctx, control.DataServerConfig_Unknown)
+			p.updateReplicaState(ctx, control.DataServerConfig_Stopped)
 			return
 		}
 	}
@@ -89,7 +91,7 @@ func (p *replica) mainLoop(ctx context.Context) {
 //   - serving -> leaving
 //   - leaving -> STOP.
 func (p *replica) updateReplicaState(ctx context.Context, newState control.DataServerConfig_ReplicaState) {
-	oldState := control.DataServerConfig_Unknown
+	oldState := control.DataServerConfig_Stopped
 	var old shared.Replica
 	var new shared.Replica
 
@@ -99,19 +101,19 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	}
 
 	switch newState {
-	case control.DataServerConfig_Unknown:
+	case control.DataServerConfig_Stopped:
 		// stop signal
 	case control.DataServerConfig_Joining:
 		switch oldState {
-		case control.DataServerConfig_Unknown:
-			new = joining.New(p.pid, p.name, p.multiraft, p.dataClient, p.db)
+		case control.DataServerConfig_Stopped:
+			new = joining.New(p.pid, p.replicaName, p.multiraft, p.dataClient, p.db)
 		case control.DataServerConfig_Joining:
 			new = old
 		}
 	case control.DataServerConfig_NonVoter, control.DataServerConfig_Voter:
 		switch oldState {
-		case control.DataServerConfig_Unknown, control.DataServerConfig_Joining:
-			new = serving.New(p.pid, p.name, p.multiraft, p.dataClient, p.db)
+		case control.DataServerConfig_Stopped, control.DataServerConfig_Joining:
+			new = serving.New(p.pid, p.replicaName, p.multiraft, p.dataClient, p.db)
 		case control.DataServerConfig_Voter, control.DataServerConfig_NonVoter:
 			new = old
 		}
@@ -120,7 +122,7 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 		case control.DataServerConfig_Leaving:
 			new = old
 		default:
-			new = leaving.New(p.pid, p.name)
+			new = leaving.New(p.pid, p.partName, p.replicaName, p.multiraft, p.db)
 		}
 	default:
 		panic(fmt.Sprintf("unhandled replica state %s", newState))
@@ -132,7 +134,7 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	}
 
 	if new == nil {
-		if newState != control.DataServerConfig_Unknown {
+		if newState != control.DataServerConfig_Stopped {
 			p.log.Errorf("Replica failed to transition state from %s to %s.", oldState, newState)
 		}
 		return

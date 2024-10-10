@@ -52,10 +52,10 @@ func (t *TransportService) RegisterToServer(server *grpc.Server) {
 	t.manager.Register(server)
 }
 
-func (t *TransportService) CreateGroup(groupID string) (raft.Transport, error) {
+func (t *TransportService) NewGroup(groupID string) (raft.Transport, error) {
 	return t.manager.Transport(groupID), nil
 }
 
-func (t *TransportService) DeleteGroup(groupID string) error {
+func (t *TransportService) RemoveGroup(groupID string) error {
 	return nil // TODO
 }

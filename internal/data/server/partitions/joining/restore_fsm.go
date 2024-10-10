@@ -204,10 +204,10 @@ func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddres
 		})
 
 		if res.Completed {
-			f.db.Put(minIndex, f.pid, entries...)
+			f.db.Put(f.pid, minIndex, entries...)
 			return nil
 		} else {
-			f.db.Put(0, f.pid, entries...)
+			f.db.Put(f.pid, 0, entries...)
 		}
 
 		entries = entries[:0]
