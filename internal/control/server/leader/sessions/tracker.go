@@ -30,16 +30,16 @@ const (
 var (
 	logS                                       = logging.WithComponent("session_tracker")
 	_                          utils.Lifecycle = (*Tracker)(nil)
-	recvBurst                                  = 5
-	recvMaxOffenses                            = 16 // after this the session will be closed
 	updateServerListDebounce                   = 200 * time.Millisecond
 	updateServerConfigDebounce                 = 200 * time.Millisecond
 )
 
 type Tracker struct {
+	config                config.Sessions
 	store                 storage.Store
 	startSessionCh        chan startSession
 	sessionCh             chan sessionMessage
+	globalTimeOffset      *globalTimeOffset
 	cancelFunc            context.CancelFunc
 	dataServiceConfigJson string
 	apiServiceConfigJson  string
@@ -57,6 +57,7 @@ type session struct {
 	ctx           context.Context
 	log           logging.Logger
 	waitCh        chan error
+	timeOffset    *sessionTimeOffset
 	dsConfig      *control.DataServerConfig // only for data servers
 	asConfig      *control.ApiServerConfig  // only for api servers
 	recvLimiter   *rate.Limiter             // dedicated for recv loop
@@ -69,14 +70,16 @@ type sessions map[sessionID]*session
 type sessionsByServer map[uint64]*session
 
 func NewTracker(store storage.Store) *Tracker {
-	config := config.Get().Service
+	c := config.Get()
 
 	return &Tracker{
+		config:                c.Sessions,
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
-		dataServiceConfigJson: config.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
-		apiServiceConfigJson:  config.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
+		globalTimeOffset:      newGlobalTimeOffset(c.Sessions.MaxTimeOffset),
+		dataServiceConfigJson: c.Service.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
+		apiServiceConfigJson:  c.Service.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
 }
 
@@ -188,9 +191,10 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				sendBufferCh:  make(chan *control.SessionOut, sessionSendBufferChSize),
 				ctx:           x.stream.Context(),
 				waitCh:        x.waitCh,
+				timeOffset:    newSessionTimeOffset(t.globalTimeOffset, t.config.MaxTimeOffset),
 				dsConfig:      dsConfigs[x.serverID],
 				asConfig:      asConfigs[x.serverID],
-				recvLimiter:   utils.NewRateLimiter(recvBurst, time.Second),
+				recvLimiter:   utils.NewRateLimiter(t.config.ReceiveBurst, time.Second),
 			}
 
 			new.log = logS.With("server", server.Id, "session_id", new.id, "address", new.serverAddress)

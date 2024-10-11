@@ -3,30 +3,47 @@ package sessions
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/utils"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
+	timestampTicker := time.NewTicker(utils.AddJitter(t.config.TimeOffsetCheckInterval, 0.10))
+	defer timestampTicker.Stop()
+
 	// enqueue server hello
 	if out := t.makeServerHello(sess); out != nil {
 		sess.sendBufferCh <- out
 	}
 
-	for out := range sess.sendBufferCh {
-		err := stream.Send(out)
-		if err == nil {
-			continue
-		}
+	for {
+		select {
+		case out := <-sess.sendBufferCh:
+			err := stream.Send(out)
+			if err == nil {
+				continue
+			}
 
-		if err != io.EOF {
-			sess.log.WithError(err).Error(sess.ctx, "Session send failed.")
-		} else {
-			sess.log.Debug(sess.ctx, "Session send loop done.")
-		}
+			if !errors.Is(err, io.EOF) {
+				sess.log.WithError(err).Error(sess.ctx, "Session send failed.")
+			} else {
+				sess.log.Debug(sess.ctx, "Session send loop done.")
+			}
 
-		t.sessionCh <- sessionLoopDone{id: sess.id, err: nil}
-		return
+			t.sessionCh <- sessionLoopDone{id: sess.id, err: nil}
+			return
+		case <-timestampTicker.C:
+			out := newSessionOut(&control.TimestampRequest{
+				RequestTimestamp: timestamppb.Now(),
+			})
+
+			// enqueue the message to use the same error handling code above
+			sess.sendBufferCh <- out
+		}
 	}
 }
 
@@ -92,6 +109,8 @@ func newSessionOut(payload any) *control.SessionOut {
 		return &control.SessionOut{Payload: &control.SessionOut_DataServers{DataServers: p}}
 	case *control.ApiServers:
 		return &control.SessionOut{Payload: &control.SessionOut_ApiServers{ApiServers: p}}
+	case *control.TimestampRequest:
+		return &control.SessionOut{Payload: &control.SessionOut_TimestampRequest{TimestampRequest: p}}
 	default:
 		panic(fmt.Sprintf("unhandled SessionOut payload type %T", payload))
 	}

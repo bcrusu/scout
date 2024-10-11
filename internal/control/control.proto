@@ -4,6 +4,7 @@ package control;
 
 option go_package = "github.com/bcrusu/scout/internal/control";
 
+import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
 // Service represents the control plane service.
@@ -84,6 +85,7 @@ message SessionIn {
         GetApiServers get_api_servers = 4;
         DataServerStatus data_server_status = 5;
         ApiServerStatus api_server_status = 6;
+        TimestampResponse timestamp_response = 7;
     }
 }
 
@@ -95,6 +97,7 @@ message SessionOut {
         ApiServerConfig api_server_config = 4;
         DataServers data_servers = 5;
         ApiServers api_servers = 6;
+        TimestampRequest timestamp_request = 7;
     }
 }
 
@@ -212,3 +215,18 @@ message DataServerStatus {
 }
 
 message ApiServerStatus {}
+
+// TimestampRequest and TimestampResponse are used to determine the wall
+// clock offset between servers. The exchange is initiated  by the control
+// plane and works in a similar way as the ICMP Timestamp control message,
+// but with the asumption that receive/t2 and transmit/t3 timestamps are
+// the same. The offset is computed using the NTP clock synchronization
+// algorithm formula: θ = 1/2 * [(t2 − t1) + (t3 − t4)], where t2==t3.
+message TimestampRequest {
+    google.protobuf.Timestamp request_timestamp = 1;
+}
+
+message TimestampResponse {
+    google.protobuf.Timestamp request_timestamp = 1;
+    google.protobuf.Timestamp response_timestamp = 2;
+}

@@ -2,6 +2,7 @@ package rocksdb
 
 import (
 	"context"
+	"os"
 	"sync/atomic"
 
 	"github.com/bcrusu/scout/internal/data/server/config"
@@ -94,15 +95,23 @@ func (r *RocksDB) DropPartition(pid uint32) error {
 		return errors.NotFound
 	}
 
-	if err := r.db.DropColumnFamily(cf); err != nil {
-		return errors.Wrapf(err, "failed to drop column family for partition=%d", pid)
-	}
-
 	new := cfMap(utils.CloneMap(r.getCFMap()))
 	delete(new, pid)
 	r.cfs.Store(&new)
 
+	if err := r.db.DropColumnFamily(cf); err != nil {
+		return errors.Wrapf(err, "failed to drop column family for partition=%d", pid)
+	}
+
 	cf.Destroy()
+
+	name := getCFName(pid)
+	path := getCFPath(r.config.DataDir, name)
+
+	if err := os.Remove(path); err != nil {
+		log.WithError(err).Error("Failed to remove column family directory.", "dir", path)
+	}
+
 	return nil
 }
 

@@ -73,7 +73,7 @@ func (r *Raft) Bootstrap(initialServers ...raft.Server) error {
 	cfg := raft.Configuration{Servers: initialServers}
 
 	err := r.raft.BootstrapCluster(cfg).Error()
-	if err != nil && err != raft.ErrCantBootstrap {
+	if err != nil && !errors.Is(err, raft.ErrCantBootstrap) {
 		return errors.Wrap(err, "Raft bootstrap failed.")
 	}
 

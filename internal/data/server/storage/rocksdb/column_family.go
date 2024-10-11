@@ -2,6 +2,7 @@ package rocksdb
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
@@ -27,6 +28,10 @@ type cfSlice = []*grocksdb.ColumnFamilyHandle
 
 func getCFName(pid uint32) string {
 	return fmt.Sprintf("%s%d", cfNamePrefix, pid)
+}
+
+func getCFPath(dataDir, name string) string {
+	return path.Join(dataDir, name)
 }
 
 func initCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, pid uint32) error {
@@ -71,7 +76,7 @@ func probeCFs(db *grocksdb.DB, cfHandles cfSlice) (cfMap, cfSlice, error) {
 			if !errors.Is(err, errors.NotFound) {
 				return nil, nil, err
 			} else if strings.HasPrefix(name, cfNamePrefix) {
-				log.Warn("Probe failed for column family.", "name", name)
+				log.WithError(err).Warn("Probe failed for column family.", "name", name)
 			}
 
 			unknown = append(unknown, cf)

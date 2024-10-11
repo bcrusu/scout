@@ -9,6 +9,7 @@ replace github.com/bcrusu/multiraft => ../multiraft
 replace github.com/linxGnu/grocksdb => ../grocksdb
 
 require (
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2
 	github.com/Jille/raft-grpc-transport v1.6.1
 	github.com/bcrusu/multiraft v0.0.0-00010101000000-000000000000
 	github.com/cespare/xxhash/v2 v2.3.0

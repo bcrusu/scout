@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -31,8 +33,14 @@ func Set(config Config) error {
 type Config struct {
 	Server       rpc.ServerConfig    `yaml:"server"`
 	DataDir      string              `yaml:"dataDir" validate:"required"`
+	Session      Session             `yaml:"session"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	Transactions Transactions        `yaml:"transactions"`
+}
+
+type Session struct {
+	HeartbeatInterval time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
+	StatusInterval    time.Duration `yaml:"statusInterval" default:"15s" validate:"min:100ms"`
 }
 
 type Transactions struct {

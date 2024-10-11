@@ -8,6 +8,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/client"
+	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/events"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
@@ -15,12 +16,11 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
 	_                          utils.Lifecycle = (*Session)(nil)
-	heartbeatInterval                          = utils.AddJitter(5*time.Second, 0.15)
-	statusInterval                             = utils.AddJitter(30*time.Second, 0.15)
 	sendChSize                                 = 32
 	refreshDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
 	newSessionThrottle                         = utils.AddJitter(5*time.Second, 0.15)
@@ -33,6 +33,7 @@ var (
 )
 
 type Session struct {
+	config     config.Session
 	id         identity.Identity
 	address    string
 	client     client.ControlClient
@@ -43,6 +44,7 @@ type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
 
 func New(id identity.Identity, address string, client client.ControlClient) *Session {
 	return &Session{
+		config:  config.Get().Session,
 		id:      id,
 		address: address,
 		client:  client,
@@ -63,7 +65,19 @@ func (m *Session) Stop() {
 
 func (m *Session) mainLoop(ctx context.Context) {
 	for {
-		m.runSessionStream(ctx)
+		err := m.runSessionStream(ctx)
+
+		switch {
+		case err != nil && !errors.Is(err, io.EOF):
+			log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
+		case errors.Is(err, context.Canceled):
+			return
+		case errors.Is(err, errors.TimeOffsetOutOfRange):
+			utils.GracefulShutdown("Time offset is out of allowed range.")
+			return
+		default:
+			log.Debug("Session stream ended. Reconnecting...")
+		}
 
 		select {
 		case <-ctx.Done():
@@ -73,11 +87,11 @@ func (m *Session) mainLoop(ctx context.Context) {
 	}
 }
 
-func (m *Session) runSessionStream(ctx context.Context) {
+func (m *Session) runSessionStream(ctx context.Context) error {
 	replicaStatusSub := eventbus.Subscribe[events.ReplicaStatus]()
 	refreshDataServersSub := eventbus.SubscribeThrottled[eventbus.RefreshDataServers](ctx, refreshDataServersThrottle)
-	heartbeatTicker := time.NewTicker(heartbeatInterval)
-	statusTicker := time.NewTicker(statusInterval)
+	heartbeatTicker := time.NewTicker(utils.AddJitter(m.config.HeartbeatInterval, 0.15))
+	statusTicker := time.NewTicker(utils.AddJitter(m.config.StatusInterval, 0.15))
 	defer replicaStatusSub.Unsubscribe()
 	defer refreshDataServersSub.Unsubscribe()
 	defer heartbeatTicker.Stop()
@@ -87,7 +101,7 @@ func (m *Session) runSessionStream(ctx context.Context) {
 	stream, err := m.newSessionWithRetry(streamCtx)
 	if err != nil {
 		streamCancel()
-		return
+		return err
 	}
 
 	loopDoneCh := make(chan error)
@@ -116,13 +130,7 @@ func (m *Session) runSessionStream(ctx context.Context) {
 			log.WithError(err).Trace("Session loop done.")
 			log.WithError(<-loopDoneCh).Trace("Session loop done.") // wait for partner
 
-			if err != nil && !errors.Is(err, io.EOF) {
-				log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
-			} else {
-				log.Debug("Session stream ended. Reconnecting...")
-			}
-
-			return
+			return err
 		case <-heartbeatTicker.C:
 			if gotHello {
 				sendCh <- m.newSessionIn(&control.Heartbeat{
@@ -156,6 +164,11 @@ func (m *Session) runSessionStream(ctx context.Context) {
 			case *control.DataServers:
 				dataServers = x
 				eventbus.TryPublish(dataServers)
+			case *control.TimestampRequest:
+				sendCh <- m.newSessionIn(&control.TimestampResponse{
+					RequestTimestamp:  x.RequestTimestamp,
+					ResponseTimestamp: timestamppb.Now(),
+				})
 			default:
 				log.Warnf("Unhandled receive message type %T.", msg)
 			}
@@ -164,7 +177,7 @@ func (m *Session) runSessionStream(ctx context.Context) {
 			streamCancel()
 			log.WithError(<-loopDoneCh).Trace("Session loop done.")
 			log.WithError(<-loopDoneCh).Trace("Session loop done.")
-			return
+			return ctx.Err()
 		}
 	}
 }
@@ -230,6 +243,12 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 				return
 			}
 			recvCh <- x.DataServers
+		case *control.SessionOut_TimestampRequest:
+			if err := x.TimestampRequest.Validate(); err != nil {
+				doneCh <- err
+				return
+			}
+			recvCh <- x.TimestampRequest
 		default:
 			log.Warnf("Unknown session payload type %T", out.Payload)
 		}
@@ -253,6 +272,8 @@ func (m *Session) newSessionIn(payload any) *control.SessionIn {
 		return &control.SessionIn{Payload: &control.SessionIn_GetDataServers{GetDataServers: p}}
 	case *control.DataServerStatus:
 		return &control.SessionIn{Payload: &control.SessionIn_DataServerStatus{DataServerStatus: p}}
+	case *control.TimestampResponse:
+		return &control.SessionIn{Payload: &control.SessionIn_TimestampResponse{TimestampResponse: p}}
 	default:
 		panic(fmt.Sprintf("unhandled SessionIn payload type %T", payload))
 	}

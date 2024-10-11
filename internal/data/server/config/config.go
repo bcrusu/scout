@@ -40,10 +40,16 @@ func Set(config Config) error {
 type Config struct {
 	Server       rpc.ServerConfig    `yaml:"server"`
 	DataDir      string              `yaml:"dataDir" validate:"required"`
+	Session      Session             `yaml:"session"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	Raft         multiraft.Config    `yaml:"raft"`
 	DB           DB                  `yaml:"db"`
 	Transactions Transactions        `yaml:"transactions"`
+}
+
+type Session struct {
+	HeartbeatInterval time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
+	StatusInterval    time.Duration `yaml:"statusInterval" default:"15s" validate:"min:100ms"`
 }
 
 type Transactions struct {

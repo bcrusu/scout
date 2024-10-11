@@ -296,3 +296,27 @@ func (x *GetApiServers) Validate() error {
 
 	return nil
 }
+
+func (x *TimestampResponse) Validate() error {
+	if x == nil {
+		return errors.Error("TimestampResponse is nil")
+	}
+
+	if !x.RequestTimestamp.IsValid() || !x.ResponseTimestamp.IsValid() {
+		return errors.Error("TimestampResponse has missing fields")
+	}
+
+	return nil
+}
+
+func (x *TimestampRequest) Validate() error {
+	if x == nil {
+		return errors.Error("TimestampRequest is nil")
+	}
+
+	if !x.RequestTimestamp.IsValid() {
+		return errors.Error("TimestampRequest has missing fields")
+	}
+
+	return nil
+}

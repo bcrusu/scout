@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/multiraft"
@@ -36,6 +38,7 @@ type Config struct {
 	Service   Service          `yaml:"service"`
 	DataDir   string           `yaml:"dataDir" validate:"required"`
 	Raft      multiraft.Config `yaml:"raft"`
+	Sessions  Sessions         `yaml:"sessions"`
 	Register  *Register        `yaml:"register"`
 	Bootstrap *Bootstrap       `yaml:"bootstrap"`
 }
@@ -53,6 +56,13 @@ type Service struct {
 	ControlClient serviceconfig.Config `yaml:"controlClient"`
 	DataClient    serviceconfig.Config `yaml:"dataClient"`
 	ApiClient     serviceconfig.Config `yaml:"apiClient"`
+}
+
+type Sessions struct {
+	ReceiveBurst            int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
+	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
+	TimeOffsetCheckInterval time.Duration `yaml:"timeOffsetCheckInterval" default:"5s" validate:"min:100ms"`
+	MaxTimeOffset           time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
 }
 
 func (c Config) Validate() error {

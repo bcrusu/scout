@@ -15,7 +15,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 	for {
 		in, err := stream.Recv()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				sess.log.WithError(err).Error(sess.ctx, "Session receive failed.")
 			} else {
 				sess.log.Debug(sess.ctx, "Session receive loop done.")
@@ -26,7 +26,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 
 		if !sess.recvLimiter.Allow() {
 			sess.recvOffenses++
-			if sess.recvOffenses == recvMaxOffenses {
+			if sess.recvOffenses == t.config.ReceiveMaxOffenses {
 				sess.log.Error(sess.ctx, "Session triggered too many offenses. Closing session.")
 				endSession(errors.ResourceExhausted)
 				return
@@ -66,6 +66,11 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 				endSession(err)
 				return
 			}
+		case *control.SessionIn_TimestampResponse:
+			if err := t.handleTimestampResponse(sess, x.TimestampResponse); err != nil {
+				endSession(err)
+				return
+			}
 		default:
 			sess.log.Warnf(sess.ctx, "Unknown session payload type %T", in.Payload)
 		}
@@ -90,6 +95,15 @@ func (t *Tracker) handleHeartbeat(sess *session, msg *control.Heartbeat) error {
 	}
 
 	return nil
+}
+
+func (t *Tracker) handleTimestampResponse(sess *session, msg *control.TimestampResponse) error {
+	if err := msg.Validate(); err != nil {
+		sess.log.WithError(err).Error(sess.ctx, "Invalid TimestampResponse.")
+		return errors.InvalidRequest
+	}
+
+	return sess.timeOffset.recordAndCheck(msg)
 }
 
 func (t *Tracker) handleGetDataServers(sess *session, msg *control.GetDataServers) error {
