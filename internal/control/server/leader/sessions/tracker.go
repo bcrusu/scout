@@ -35,7 +35,7 @@ var (
 )
 
 type Tracker struct {
-	config                config.Sessions
+	config                config.Config
 	store                 storage.Store
 	startSessionCh        chan startSession
 	sessionCh             chan sessionMessage
@@ -73,11 +73,11 @@ func NewTracker(store storage.Store) *Tracker {
 	c := config.Get()
 
 	return &Tracker{
-		config:                c.Sessions,
+		config:                c,
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
-		globalTimeOffset:      newGlobalTimeOffset(c.Sessions.MaxTimeOffset),
+		globalTimeOffset:      newGlobalTimeOffset(c.MaxTimeOffset),
 		dataServiceConfigJson: c.Service.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
 		apiServiceConfigJson:  c.Service.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
@@ -194,7 +194,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				timeOffset:    newSessionTimeOffset(t.globalTimeOffset, t.config.MaxTimeOffset),
 				dsConfig:      dsConfigs[x.serverID],
 				asConfig:      asConfigs[x.serverID],
-				recvLimiter:   utils.NewRateLimiter(t.config.ReceiveBurst, time.Second),
+				recvLimiter:   utils.NewRateLimiter(t.config.Sessions.ReceiveBurst, time.Second),
 			}
 
 			new.log = logS.With("server", server.Id, "session_id", new.id, "address", new.serverAddress)

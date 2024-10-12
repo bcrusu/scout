@@ -36,7 +36,7 @@ var (
 	// CorruptedData indicates that the stored data is unreadable/corrupted.
 	CorruptedData = Error("corrupted data")
 
-	// TimeOffsetOutOfRange signals that the time offset between two servers is out of allowed range.
+	// TimeOffsetOutOfRange signals that the time offset between two servers is out of the allowed range.
 	TimeOffsetOutOfRange = Error("time offset out of range")
 )
 

@@ -26,7 +26,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 
 		if !sess.recvLimiter.Allow() {
 			sess.recvOffenses++
-			if sess.recvOffenses == t.config.ReceiveMaxOffenses {
+			if sess.recvOffenses == t.config.Sessions.ReceiveMaxOffenses {
 				sess.log.Error(sess.ctx, "Session triggered too many offenses. Closing session.")
 				endSession(errors.ResourceExhausted)
 				return

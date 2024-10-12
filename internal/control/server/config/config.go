@@ -34,13 +34,14 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	Server    rpc.ServerConfig `yaml:"server"`
-	Service   Service          `yaml:"service"`
-	DataDir   string           `yaml:"dataDir" validate:"required"`
-	Raft      multiraft.Config `yaml:"raft"`
-	Sessions  Sessions         `yaml:"sessions"`
-	Register  *Register        `yaml:"register"`
-	Bootstrap *Bootstrap       `yaml:"bootstrap"`
+	Server        rpc.ServerConfig `yaml:"server"`
+	Service       Service          `yaml:"service"`
+	DataDir       string           `yaml:"dataDir" validate:"required"`
+	MaxTimeOffset time.Duration    `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
+	Raft          multiraft.Config `yaml:"raft"`
+	Sessions      Sessions         `yaml:"sessions"`
+	Register      *Register        `yaml:"register"`
+	Bootstrap     *Bootstrap       `yaml:"bootstrap"`
 }
 
 type Register struct {
@@ -62,7 +63,6 @@ type Sessions struct {
 	ReceiveBurst            int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
 	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
 	TimeOffsetCheckInterval time.Duration `yaml:"timeOffsetCheckInterval" default:"5s" validate:"min:100ms"`
-	MaxTimeOffset           time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
 }
 
 func (c Config) Validate() error {

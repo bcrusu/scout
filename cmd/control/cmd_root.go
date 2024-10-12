@@ -6,6 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/cmd"
 	"github.com/bcrusu/scout/internal/control/server/config"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -22,8 +23,12 @@ func newRootCmd() *cobra.Command {
 			cfg, err := getConfig(c)
 			if err != nil {
 				return err
+			} else if err := config.Set(cfg); err != nil {
+				return err
 			}
-			return config.Set(cfg)
+
+			hlc.Set(hlc.New(cfg.MaxTimeOffset))
+			return nil
 		},
 	}
 

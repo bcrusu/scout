@@ -53,12 +53,15 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 			interceptors.UnaryMetadataServerInterceptor(),
 			interceptors.UnaryLoggerServerInterceptor(),
 			interceptors.UnaryErrorsServerInterceptor(),
-			interceptors.UnaryRecoveryServerInterceptor()),
+			interceptors.UnaryHlcServerInterceptor(),
+			interceptors.UnaryRecoveryServerInterceptor(),
+		),
 		grpc.ChainStreamInterceptor(
 			interceptors.StreamAuthServerInterceptor(config.ClusterName),
 			interceptors.StreamMetadataServerInterceptor(),
 			interceptors.StreamLoggerServerInterceptor(),
 			interceptors.StreamErrorsServerInterceptor(),
+			interceptors.StreamHlcServerInterceptor(),
 			interceptors.StreamRecoveryServerInterceptor(),
 		),
 	}

@@ -7,12 +7,13 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
-	timestampTicker := time.NewTicker(utils.AddJitter(t.config.TimeOffsetCheckInterval, 0.10))
+	timestampTicker := time.NewTicker(utils.AddJitter(t.config.Sessions.TimeOffsetCheckInterval, 0.10))
 	defer timestampTicker.Stop()
 
 	// enqueue server hello
@@ -53,11 +54,13 @@ func (t *Tracker) makeServerHello(sess *session) *control.SessionOut {
 	switch sess.serverType {
 	case control.ServerType_Data:
 		out = newSessionOut(&control.HelloDataServer{
+			Timestamp:   hlc.Now(),
 			Config:      sess.dsConfig,
 			DataServers: t.dataServers.Load(),
 		})
 	case control.ServerType_Api:
 		out = newSessionOut(&control.HelloApiServer{
+			Timestamp:   hlc.Now(),
 			Config:      sess.asConfig,
 			DataServers: t.dataServers.Load(),
 			ApiServers:  t.apiServers.Load(),

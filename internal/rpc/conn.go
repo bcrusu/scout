@@ -44,14 +44,18 @@ func DefaultDialOptions(clusterName string) []grpc.DialOption {
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // TODO
 		grpc.WithChainUnaryInterceptor(
 			interceptors.UnaryAuthClientInterceptor(clusterName),
+			interceptors.UnaryHlcClientInterceptor(),
 			interceptors.UnaryMetadataClientInterceptor(),
 			interceptors.UnaryLoggerClientInterceptor(),
-			interceptors.UnaryErrorsClientInterceptor()),
+			interceptors.UnaryErrorsClientInterceptor(),
+		),
 		grpc.WithChainStreamInterceptor(
 			interceptors.StreamAuthClientInterceptor(clusterName),
+			interceptors.StreamHlcClientInterceptor(),
 			interceptors.StreamMetadataClientInterceptor(),
 			interceptors.StreamLoggerClientInterceptor(),
-			interceptors.StreamErrorsClientInterceptor()),
+			interceptors.StreamErrorsClientInterceptor(),
+		),
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoff.DefaultConfig,

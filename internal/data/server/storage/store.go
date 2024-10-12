@@ -121,27 +121,21 @@ func (s *store) mainLoop(ctx context.Context) {
 		case cmd := <-s.applyCh:
 			switch x := cmd.payload.(type) {
 			case *TxnAutocommit:
-				x.Timestamp = hlc.Now()
 				batch.Autocommit = append(batch.Autocommit, x)
 				waiting.Autocommit = append(waiting.Autocommit, cmd.resultCh)
 			case *TxnPrepare:
-				x.Timestamp = hlc.Now()
 				batch.Prepare = append(batch.Prepare, x)
 				waiting.Prepare = append(waiting.Prepare, cmd.resultCh)
 			case *TxnCommit:
-				hlc.Update(x.Timestamp) // the commit timestamp is decided by txn participants
 				batch.Commit = append(batch.Commit, x)
 				waiting.Commit = append(waiting.Commit, cmd.resultCh)
 			case *TxnAbort:
-				x.Timestamp = hlc.Now()
 				batch.Abort = append(batch.Abort, x)
 				waiting.Abort = append(waiting.Abort, cmd.resultCh)
 			case *StoreTxnDecision:
-				x.Timestamp = hlc.Now()
 				batch.StoreDecision = append(batch.StoreDecision, x)
 				waiting.StoreDecision = append(waiting.StoreDecision, cmd.resultCh)
 			case *MarkTxnTimedout:
-				x.Timestamp = hlc.Now()
 				batch.MarkTimedout = append(batch.MarkTimedout, x)
 				waiting.MarkTimedout = append(waiting.MarkTimedout, cmd.resultCh)
 			default:
@@ -211,27 +205,28 @@ func (s *store) GetRunning() []TxnRunning {
 }
 
 func (s *store) Autocommit(txn *data.Txn) (*data.TxnStatus, error) {
-	return s.apply(&TxnAutocommit{Txn: txn})
+	return s.apply(&TxnAutocommit{Txn: txn, Timestamp: hlc.Now()})
 }
 
 func (s *store) Prepare(txn *data.Txn) (*data.TxnStatus, error) {
-	return s.apply(&TxnPrepare{Txn: txn})
+	return s.apply(&TxnPrepare{Txn: txn, Timestamp: hlc.Now()})
 }
 
 func (s *store) Commit(id *data.TxnId, commitTimestamp uint64) (*data.TxnStatus, error) {
+	// the commit timestamp is decided by txn participants
 	return s.apply(&TxnCommit{Id: id, Timestamp: commitTimestamp})
 }
 
 func (s *store) Abort(id *data.TxnId) (*data.TxnStatus, error) {
-	return s.apply(&TxnAbort{Id: id})
+	return s.apply(&TxnAbort{Id: id, Timestamp: hlc.Now()})
 }
 
 func (s *store) StoreDecision(dec *data.TxnDecision) (*data.TxnStatus, error) {
-	return s.apply(&StoreTxnDecision{Decision: dec})
+	return s.apply(&StoreTxnDecision{Decision: dec, Timestamp: hlc.Now()})
 }
 
 func (s *store) MarkTimedout(id *data.TxnId, releaseLocks bool) (*data.TxnStatus, error) {
-	return s.apply(&MarkTxnTimedout{Id: id, ReleaseLocks: releaseLocks})
+	return s.apply(&MarkTxnTimedout{Id: id, Timestamp: hlc.Now(), ReleaseLocks: releaseLocks})
 }
 
 func (s *store) apply(payload any) (*data.TxnStatus, error) {

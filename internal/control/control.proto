@@ -107,14 +107,16 @@ message Hello {
 }
 
 message HelloDataServer {
-    DataServerConfig config = 1;
-    DataServers data_servers = 2;
+    uint64 timestamp = 1; // HLC timestamp 
+    DataServerConfig config = 2;
+    DataServers data_servers = 3;
 }
 
 message HelloApiServer {
-    ApiServerConfig config = 1;
-    DataServers data_servers = 2;
-    ApiServers api_servers = 3;
+    uint64 timestamp = 1; // HLC timestamp
+    ApiServerConfig config = 2;
+    DataServers data_servers = 3;
+    ApiServers api_servers = 4;
 }
 
 message Heartbeat {
@@ -217,7 +219,7 @@ message DataServerStatus {
 message ApiServerStatus {}
 
 // TimestampRequest and TimestampResponse are used to determine the wall
-// clock offset between servers. The exchange is initiated  by the control
+// clock offset between servers. The exchange is initiated by the control
 // plane and works in a similar way as the ICMP Timestamp control message,
 // but with the asumption that receive/t2 and transmit/t3 timestamps are
 // the same. The offset is computed using the NTP clock synchronization

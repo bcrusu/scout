@@ -7,7 +7,6 @@ import (
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
@@ -25,6 +24,7 @@ type FSM struct {
 	log          logging.LoggerNoContext
 	lock         sync.RWMutex // guards all below
 	index        uint64       // last applied raft index
+	maxTimestamp uint64       // max HCL timestamp
 }
 
 func NewFSM(partitionID uint32, db kv.DB) *FSM {
@@ -70,7 +70,7 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}
 
-	hlc.Update(timestamp)
+	f.maxTimestamp = max(f.maxTimestamp, timestamp)
 
 	log.Debugf("Applying command %T success", payload)
 	return result
@@ -107,9 +107,10 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	}
 
 	snap := &Snapshot{
-		Index:    f.index,
-		Status:   status,
-		Prepared: prepared,
+		Index:        f.index,
+		Status:       status,
+		Prepared:     prepared,
+		MaxTimestamp: f.maxTimestamp,
 	}
 
 	data, err := utils.MarshalProto(snap)
@@ -141,6 +142,7 @@ func (f *FSM) Restore(snapshot []byte) error {
 	f.index = snap.Index
 	f.txnProcessor.status = status
 	f.txnProcessor.prepared = prepared
+	f.maxTimestamp = snap.MaxTimestamp
 
 	return nil
 }

@@ -31,11 +31,12 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	Server       rpc.ServerConfig    `yaml:"server"`
-	DataDir      string              `yaml:"dataDir" validate:"required"`
-	Session      Session             `yaml:"session"`
-	Discovery    discovery.Discovery `yaml:"discovery"`
-	Transactions Transactions        `yaml:"transactions"`
+	Server        rpc.ServerConfig    `yaml:"server"`
+	DataDir       string              `yaml:"dataDir" validate:"required"`
+	MaxTimeOffset time.Duration       `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
+	Session       Session             `yaml:"session"`
+	Discovery     discovery.Discovery `yaml:"discovery"`
+	Transactions  Transactions        `yaml:"transactions"`
 }
 
 type Session struct {

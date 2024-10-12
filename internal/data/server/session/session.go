@@ -12,6 +12,7 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/events"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
+	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
@@ -25,11 +26,6 @@ var (
 	refreshDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
 	newSessionThrottle                         = utils.AddJitter(5*time.Second, 0.15)
 	log                                        = logging.WithComponent("data_session").NoContext()
-
-	retryBackoff = &utils.Backoff{
-		MinDelay: 3 * time.Second,
-		MaxDelay: 10 * time.Second,
-	}
 )
 
 type Session struct {
@@ -98,7 +94,7 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 	defer statusTicker.Stop()
 
 	streamCtx, streamCancel := context.WithCancel(ctx)
-	stream, err := m.newSessionWithRetry(streamCtx)
+	stream, err := m.client.NewSession(streamCtx)
 	if err != nil {
 		streamCancel()
 		return err
@@ -121,15 +117,23 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 		}
 	}
 
+	closeSession := func(firstErr error) {
+		go drainLoop()
+		streamCancel()
+
+		if firstErr != nil {
+			log.WithError(firstErr).Trace("Session loop done.")
+		} else {
+			log.WithError(<-loopDoneCh).Trace("Session loop done.")
+		}
+		log.WithError(<-loopDoneCh).Trace("Session loop done.") // wait for partner
+		close(recvCh)
+	}
+
 	for {
 		select {
 		case err := <-loopDoneCh:
-			go drainLoop()
-			streamCancel()
-
-			log.WithError(err).Trace("Session loop done.")
-			log.WithError(<-loopDoneCh).Trace("Session loop done.") // wait for partner
-
+			closeSession(err)
 			return err
 		case <-heartbeatTicker.C:
 			if gotHello {
@@ -152,6 +156,12 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 		case msg := <-recvCh:
 			switch x := msg.(type) {
 			case *control.HelloDataServer:
+				if err := hlc.Update(x.Timestamp); err != nil {
+					log.WithError(err).Error("Failed to update HLC with hello timestamp.")
+					closeSession(nil)
+					return err
+				}
+
 				config = x.Config
 				dataServers = x.DataServers
 				gotHello = true
@@ -173,10 +183,7 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 				log.Warnf("Unhandled receive message type %T.", msg)
 			}
 		case <-ctx.Done():
-			go drainLoop()
-			streamCancel()
-			log.WithError(<-loopDoneCh).Trace("Session loop done.")
-			log.WithError(<-loopDoneCh).Trace("Session loop done.")
+			closeSession(nil)
 			return ctx.Err()
 		}
 	}
@@ -277,18 +284,4 @@ func (m *Session) newSessionIn(payload any) *control.SessionIn {
 	default:
 		panic(fmt.Sprintf("unhandled SessionIn payload type %T", payload))
 	}
-}
-
-func (m *Session) newSessionWithRetry(ctx context.Context) (stream, error) {
-	return utils.RetryForeverR(ctx, retryBackoff, func() (stream, error) {
-		stream, err := m.client.NewSession(ctx)
-		if err != nil {
-			log.WithError(err).Error("NewSession call failed. Retrying...")
-			return nil, err
-		} else {
-			log.Debug("NewSession call success.")
-		}
-
-		return stream, err
-	})
 }

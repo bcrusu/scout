@@ -13,13 +13,18 @@ const (
 	minTimeOffset        = time.Millisecond
 	globalTimeOffsetPct  = float64(80)
 	sessionTimeOffsetPct = float64(95)
+	histoWarmupCount     = 100
 )
 
+// globalTimeOffset tracks the global, across all sessions, time offset.
 type globalTimeOffset struct {
 	lock  sync.Mutex
 	histo *hdrhistogram.Histogram
 }
 
+// sessionTimeOffset tracks the time offset between the control plane leader and
+// the connected server. If the offset exceeds the configured limit the session
+// is terminated with TimeOffsetOutOfRange.
 type sessionTimeOffset struct {
 	maxTimeOffset time.Duration
 	global        *globalTimeOffset
@@ -42,12 +47,15 @@ func newSessionTimeOffset(global *globalTimeOffset, maxTimeOffset time.Duration)
 
 func (t *globalTimeOffset) record(offset time.Duration) time.Duration {
 	t.lock.Lock()
+	defer t.lock.Unlock()
 
 	t.histo.RecordValue(int64(offset))
-	offsetPct := time.Duration(t.histo.ValueAtPercentile(globalTimeOffsetPct))
 
-	t.lock.Unlock()
-	return offsetPct
+	if t.histo.TotalCount() < histoWarmupCount {
+		return time.Duration(t.histo.Max())
+	} else {
+		return time.Duration(t.histo.ValueAtPercentile(globalTimeOffsetPct))
+	}
 }
 
 func (t *sessionTimeOffset) recordAndCheck(msg *control.TimestampResponse) error {
@@ -55,7 +63,7 @@ func (t *sessionTimeOffset) recordAndCheck(msg *control.TimestampResponse) error
 
 	switch {
 	case offset < minTimeOffset:
-		return nil
+		offset = minTimeOffset
 	case offset > 2*t.maxTimeOffset:
 		// don't even bother...
 		return errors.TimeOffsetOutOfRange

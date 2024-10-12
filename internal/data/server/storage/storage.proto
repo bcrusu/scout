@@ -58,6 +58,7 @@ message Snapshot {
     uint64 index = 1;
     repeated TxnStatus status = 2;
     repeated Txn prepared = 3;
+    uint64 max_timestamp = 4;
 }
 
 message Lock {
