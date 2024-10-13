@@ -54,6 +54,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 			interceptors.UnaryLoggerServerInterceptor(),
 			interceptors.UnaryErrorsServerInterceptor(),
 			interceptors.UnaryHlcServerInterceptor(),
+			interceptors.UnaryValidatorServerInterceptor(),
 			interceptors.UnaryRecoveryServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
@@ -62,6 +63,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 			interceptors.StreamLoggerServerInterceptor(),
 			interceptors.StreamErrorsServerInterceptor(),
 			interceptors.StreamHlcServerInterceptor(),
+			interceptors.StreamValidatorServerInterceptor(),
 			interceptors.StreamRecoveryServerInterceptor(),
 		),
 	}

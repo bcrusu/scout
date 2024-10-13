@@ -15,12 +15,12 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 	for {
 		in, err := stream.Recv()
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				sess.log.WithError(err).Error(sess.ctx, "Session receive failed.")
-			} else {
+			if errors.Is(err, io.EOF) {
 				sess.log.Debug(sess.ctx, "Session receive loop done.")
+				endSession(nil)
+			} else {
+				endSession(err)
 			}
-			endSession(nil)
 			return
 		}
 
@@ -78,11 +78,6 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 }
 
 func (t *Tracker) handleHeartbeat(sess *session, msg *control.Heartbeat) error {
-	if err := msg.Validate(); err != nil {
-		sess.log.WithError(err).Error(sess.ctx, "Invalid Heartbeat.")
-		return errors.InvalidRequest
-	}
-
 	switch sess.serverType {
 	case control.ServerType_Data:
 		if msg.ConfigETag != sess.dsConfig.ETag {
@@ -98,19 +93,11 @@ func (t *Tracker) handleHeartbeat(sess *session, msg *control.Heartbeat) error {
 }
 
 func (t *Tracker) handleTimestampResponse(sess *session, msg *control.TimestampResponse) error {
-	if err := msg.Validate(); err != nil {
-		sess.log.WithError(err).Error(sess.ctx, "Invalid TimestampResponse.")
-		return errors.InvalidRequest
-	}
-
 	return sess.timeOffset.recordAndCheck(msg)
 }
 
 func (t *Tracker) handleGetDataServers(sess *session, msg *control.GetDataServers) error {
-	if err := msg.Validate(); err != nil {
-		sess.log.WithError(err).Error(sess.ctx, "Invalid GetDataServers request.")
-		return errors.InvalidRequest
-	} else if msg.IfNoMatch != "" && msg.IfNoMatch == t.dataServers.Load().ETag {
+	if msg.IfNoMatch != "" && msg.IfNoMatch == t.dataServers.Load().ETag {
 		return nil
 	}
 
@@ -120,10 +107,7 @@ func (t *Tracker) handleGetDataServers(sess *session, msg *control.GetDataServer
 }
 
 func (t *Tracker) handleGetApiServers(sess *session, msg *control.GetApiServers) error {
-	if err := msg.Validate(); err != nil {
-		sess.log.WithError(err).Error(sess.ctx, "Invalid GetApiServers request.")
-		return errors.InvalidRequest
-	} else if msg.IfNoMatch != "" && msg.IfNoMatch == t.apiServers.Load().ETag {
+	if msg.IfNoMatch != "" && msg.IfNoMatch == t.apiServers.Load().ETag {
 		return nil
 	}
 
@@ -133,10 +117,7 @@ func (t *Tracker) handleGetApiServers(sess *session, msg *control.GetApiServers)
 }
 
 func (t *Tracker) handleDataServerStatus(sess *session, msg *control.DataServerStatus) error {
-	if err := msg.Validate(); err != nil {
-		sess.log.WithError(err).Error(sess.ctx, "Invalid DataServerStatus request.")
-		return errors.InvalidRequest
-	} else if sess.serverType != control.ServerType_Data {
+	if sess.serverType != control.ServerType_Data {
 		return errors.PermissionDenied
 	} else if len(msg.Replicas) == 0 {
 		return nil
@@ -158,10 +139,7 @@ func (t *Tracker) handleDataServerStatus(sess *session, msg *control.DataServerS
 }
 
 func (t *Tracker) handleApiServerStatus(sess *session, msg *control.ApiServerStatus) error {
-	if err := msg.Validate(); err != nil {
-		sess.log.WithError(err).Error(sess.ctx, "Invalid ApiServerStatus request.")
-		return errors.InvalidRequest
-	} else if sess.serverType != control.ServerType_Api {
+	if sess.serverType != control.ServerType_Api {
 		return errors.PermissionDenied
 	}
 

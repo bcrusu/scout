@@ -68,7 +68,7 @@ func (r *RocksDB) Stop() {
 
 func (r *RocksDB) InitPartition(pid uint32) error {
 	if r.getCF(pid) != nil {
-		return errors.AlreadyExists
+		return nil
 	}
 
 	name := getCFName(pid)

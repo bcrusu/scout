@@ -26,7 +26,6 @@ func NewStore(processor *txn.Processor) *Store {
 	}
 }
 
-// TODO: request validation
 func (s *Store) Get(ctx context.Context, req *api.KeyAt) (*api.ValueAt, error) {
 	var action *data.Action
 

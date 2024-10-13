@@ -56,7 +56,6 @@ func (n *Leader) IsLeader() bool {
 	return true
 }
 
-// TODO: request validation
 func (n *Leader) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
 	return n.store.Autocommit(txn)
 }

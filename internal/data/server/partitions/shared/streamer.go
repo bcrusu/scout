@@ -73,7 +73,7 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 			Completed: false,
 		}
 
-		if err := stream.SendMsg(resp); err != nil {
+		if err := stream.Send(resp); err != nil {
 			s.log.WithError(err).Error(stream.Context(), "Failed to send entries.")
 			return nil // client will reconnect and request from last received address
 		}
@@ -86,7 +86,7 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 		Completed: true,
 	}
 
-	if err := stream.SendMsg(resp); err != nil {
+	if err := stream.Send(resp); err != nil {
 		s.log.WithError(err).Error(stream.Context(), "Failed to send entries.")
 	}
 

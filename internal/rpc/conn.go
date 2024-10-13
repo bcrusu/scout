@@ -47,6 +47,7 @@ func DefaultDialOptions(clusterName string) []grpc.DialOption {
 			interceptors.UnaryHlcClientInterceptor(),
 			interceptors.UnaryMetadataClientInterceptor(),
 			interceptors.UnaryLoggerClientInterceptor(),
+			interceptors.UnaryValidatorClientInterceptor(),
 			interceptors.UnaryErrorsClientInterceptor(),
 		),
 		grpc.WithChainStreamInterceptor(
@@ -54,6 +55,7 @@ func DefaultDialOptions(clusterName string) []grpc.DialOption {
 			interceptors.StreamHlcClientInterceptor(),
 			interceptors.StreamMetadataClientInterceptor(),
 			interceptors.StreamLoggerClientInterceptor(),
+			interceptors.StreamValidatorClientInterceptor(),
 			interceptors.StreamErrorsClientInterceptor(),
 		),
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),

@@ -225,9 +225,6 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 	if !ok {
 		doneCh <- errors.Error("server did not send hello.")
 		return
-	} else if err := payload.HelloApiServer.Validate(); err != nil {
-		doneCh <- errors.Wrap(err, "server sent invalid hello.")
-		return
 	}
 
 	recvCh <- payload.HelloApiServer
@@ -243,28 +240,12 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 		case *control.SessionOut_HelloApiServer:
 			log.Warn("Received duplicate server hello.")
 		case *control.SessionOut_ApiServerConfig:
-			if err := x.ApiServerConfig.Validate(); err != nil {
-				doneCh <- err
-				return
-			}
 			recvCh <- x.ApiServerConfig
 		case *control.SessionOut_DataServers:
-			if err := x.DataServers.Validate(); err != nil {
-				doneCh <- err
-				return
-			}
 			recvCh <- x.DataServers
 		case *control.SessionOut_ApiServers:
-			if err := x.ApiServers.Validate(); err != nil {
-				doneCh <- err
-				return
-			}
 			recvCh <- x.ApiServers
 		case *control.SessionOut_TimestampRequest:
-			if err := x.TimestampRequest.Validate(); err != nil {
-				doneCh <- err
-				return
-			}
 			recvCh <- x.TimestampRequest
 		default:
 			log.Warnf("Unknown session payload type %T", out.Payload)

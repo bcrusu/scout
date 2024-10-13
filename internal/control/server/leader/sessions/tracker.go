@@ -98,7 +98,7 @@ func (t *Tracker) Stop() {
 func (t *Tracker) NewSession(stream sessionStream) error {
 	in, err := stream.Recv()
 	if err != nil {
-		return errors.Wrap(err, "new session failed before hello")
+		return err
 	}
 
 	if in == nil || in.Payload == nil {
@@ -108,8 +108,6 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 	payload, ok := in.Payload.(*control.SessionIn_Hello)
 	if !ok {
 		return errors.ValidationError{Message: "Please don't be rude."}
-	} else if err := payload.Hello.Validate(); err != nil {
-		return errors.InvalidRequest
 	}
 
 	cmd := startSession{
