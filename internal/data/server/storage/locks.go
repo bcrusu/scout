@@ -49,6 +49,15 @@ func buildActionLock(a *data.Action) *Lock {
 				Key:       x.Read.Key,
 				Exclusive: false,
 			}}}
+	case *data.Action_ReadRange:
+		return &Lock{
+			ActionId: a.Id,
+			Payload: &Lock_RangeLock{&data.RangeLock{
+				Keyspace:  x.ReadRange.Keyspace,
+				StartKey:  x.ReadRange.StartKey,
+				EndKey:    x.ReadRange.EndKey,
+				Exclusive: false,
+			}}}
 	case *data.Action_Insert:
 		return &Lock{
 			ActionId: a.Id,

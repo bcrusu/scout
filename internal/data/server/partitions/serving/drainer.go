@@ -49,10 +49,10 @@ func (d *partitionDrainer) IsLeader() bool {
 	return d.inner.IsLeader()
 }
 
-func (d *partitionDrainer) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
+func (d *partitionDrainer) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
-	return d.inner.Autocommit(cctx, txn)
+	return d.inner.Autocommit(cctx, req)
 }
 
 func (d *partitionDrainer) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {

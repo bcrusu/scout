@@ -32,11 +32,11 @@ func (s *DataService) RegisterToServer(server *grpc.Server) {
 	data.RegisterServiceServer(server, s)
 }
 
-func (s *DataService) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetService(txn.Id.PrincipalPid); !ok {
+func (s *DataService) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
+	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
-		return partition.Autocommit(ctx, txn)
+		return partition.Autocommit(ctx, req)
 	}
 }
 

@@ -47,12 +47,12 @@ func (n *Follower) IsLeader() bool {
 	return false
 }
 
-func (n *Follower) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
-	if !txn.IsReplicaRead() {
+func (n *Follower) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
+	if !req.IsSnapshotRead() {
 		return nil, errors.NotLeader
 	}
 
-	return n.store.Autocommit(txn)
+	return n.store.Autocommit(req.Txn, req.ReadTimestamp)
 }
 
 func (n *Follower) Prepare(context.Context, *data.PrepareRequest) (*data.TxnStatus, error) {

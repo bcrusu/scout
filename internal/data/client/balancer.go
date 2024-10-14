@@ -284,7 +284,7 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		return balancer.ErrNoSubConnAvailable
 	}
 
-	if !routing.replicaRead {
+	if !routing.snapshotRead {
 		switch {
 		case part.leader == nil:
 			logLB.Debug("Leader connection not available.", "partition", part.id)

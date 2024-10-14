@@ -5,7 +5,6 @@ import (
 
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 )
@@ -19,11 +18,8 @@ import (
 //   - last to be commited, and
 //   - last to be aborted, singaling the end of the process.
 type processor2PC struct {
-	id     identity.Identity
 	client data.ServiceClient
 }
-
-type statusMap map[uint32]*data.TxnStatus
 
 func (p *processor2PC) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
 	status, err := p.prepare(ctx, txn)
@@ -84,6 +80,7 @@ func (p *processor2PC) prepare(ctx context.Context, txn *Txn) (statusMap, error)
 	invokePrepare := func(pid uint32) {
 		req := &data.PrepareRequest{
 			ParticipantPid: pid,
+			ReadOnly:       false,
 			Txn: &data.Txn{
 				Id:      txn.id,
 				Actions: txn.participantActions[pid],
@@ -102,11 +99,13 @@ func (p *processor2PC) prepare(ctx context.Context, txn *Txn) (statusMap, error)
 	}
 
 	status := statusMap{}
-	errs := make([]error, 0, len(txn.participantActions)-1)
+	errs := make([]error, 0, txn.ParticipantCount()-1)
 
 	handleResult := func(r prepareResult) {
 		status[r.pid] = r.status
-		errs = append(errs, r.err)
+		if r.err != nil {
+			errs = append(errs, r.err)
+		}
 	}
 
 	// First prepare the principal partition which notifies its watchdog.
@@ -127,7 +126,7 @@ func (p *processor2PC) prepare(ctx context.Context, txn *Txn) (statusMap, error)
 		}
 	}
 
-	for range len(txn.participantActions) - 1 {
+	for range txn.ParticipantCount() - 1 {
 		handleResult(<-resultCh)
 	}
 
@@ -204,7 +203,7 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.TxnDecision, t
 		}
 	}
 
-	for range len(txn.participantActions) - 1 {
+	for range txn.ParticipantCount() - 1 {
 		handleResult(<-resultCh)
 	}
 

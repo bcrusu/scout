@@ -129,6 +129,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			p.partition.Store(drainer)
 
 			if isLeader {
+				// TODO: wait store.Appliedindex == raft.CommitedIndex
 				updateRaft()
 			}
 		case x := <-dataServerConfigSub.Items():

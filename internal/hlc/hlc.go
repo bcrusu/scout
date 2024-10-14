@@ -214,3 +214,7 @@ func AsTimestamp(timestamp uint64) *timestamppb.Timestamp {
 func FromTime(time time.Time) uint64 {
 	return uint64(time.UnixNano()) & physicalMask
 }
+
+func FromTimestamp(ts *timestamppb.Timestamp) uint64 {
+	return FromTime(ts.AsTime())
+}

@@ -62,19 +62,19 @@ func (c *dataClient) Stop() {
 	utils.LifecycleStop(logC.NoContext(), c.conn)
 }
 
-func (c *dataClient) Autocommit(ctx context.Context, txn *data.Txn, opts ...grpc.CallOption) (*data.TxnStatus, error) {
+func (c *dataClient) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: txn.Id.PrincipalPid,
-		replicaRead: txn.IsReplicaRead(),
+		partitionID:  req.ParticipantPid,
+		snapshotRead: req.IsSnapshotRead(),
 	})
 
-	return c.client.Autocommit(ctx, txn, opts...)
+	return c.client.Autocommit(ctx, req, opts...)
 }
 
 func (c *dataClient) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: req.ParticipantPid,
-		replicaRead: false,
+		partitionID:  req.ParticipantPid,
+		snapshotRead: false,
 	})
 
 	return c.client.Prepare(ctx, req, opts...)
@@ -82,8 +82,8 @@ func (c *dataClient) Prepare(ctx context.Context, req *data.PrepareRequest, opts
 
 func (c *dataClient) Commit(ctx context.Context, req *data.CommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: req.ParticipantPid,
-		replicaRead: false,
+		partitionID:  req.ParticipantPid,
+		snapshotRead: false,
 	})
 
 	return c.client.Commit(ctx, req, opts...)
@@ -91,8 +91,8 @@ func (c *dataClient) Commit(ctx context.Context, req *data.CommitRequest, opts .
 
 func (c *dataClient) Abort(ctx context.Context, req *data.AbortRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: req.ParticipantPid,
-		replicaRead: false,
+		partitionID:  req.ParticipantPid,
+		snapshotRead: false,
 	})
 
 	return c.client.Abort(ctx, req, opts...)
@@ -100,8 +100,8 @@ func (c *dataClient) Abort(ctx context.Context, req *data.AbortRequest, opts ...
 
 func (c *dataClient) StoreDecision(ctx context.Context, dec *data.TxnDecision, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: dec.Id.PrincipalPid,
-		replicaRead: false,
+		partitionID:  dec.Id.PrincipalPid,
+		snapshotRead: false,
 	})
 
 	return c.client.StoreDecision(ctx, dec, opts...)
@@ -109,8 +109,8 @@ func (c *dataClient) StoreDecision(ctx context.Context, dec *data.TxnDecision, o
 
 func (c *dataClient) StreamPartition(ctx context.Context, req *data.StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[data.StreamResponse], error) {
 	ctx = withRouting(ctx, routing{
-		partitionID: req.PartitionId,
-		replicaRead: true,
+		partitionID:  req.PartitionId,
+		snapshotRead: true,
 	})
 
 	return c.client.StreamPartition(ctx, req, opts...)

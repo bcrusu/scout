@@ -17,11 +17,11 @@ type dataClientLocal struct {
 	client     data.ServiceClient
 }
 
-func (c *dataClientLocal) Autocommit(ctx context.Context, txn *data.Txn, opts ...grpc.CallOption) (*data.TxnStatus, error) {
-	if s, ok := c.controller.GetService(txn.Id.PrincipalPid); ok && (s.IsLeader() || txn.IsReplicaRead()) {
-		return s.Autocommit(ctx, txn)
+func (c *dataClientLocal) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
+	if s, ok := c.controller.GetService(req.ParticipantPid); ok && (s.IsLeader() || req.IsSnapshotRead()) {
+		return s.Autocommit(ctx, req)
 	}
-	return c.client.Autocommit(ctx, txn, opts...)
+	return c.client.Autocommit(ctx, req, opts...)
 }
 
 func (c *dataClientLocal) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {

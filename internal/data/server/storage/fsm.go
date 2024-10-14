@@ -65,6 +65,7 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 	switch x := payload.(type) {
 	case *TxnBatch:
 		timestamp = x.MaxTimestamp()
+		// TODO: hlc.Update
 		result = f.txnProcessor.applyBatch(index, x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)

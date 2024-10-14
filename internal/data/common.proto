@@ -74,7 +74,13 @@ message Delete {
 message Read {
     uint32 keyspace = 1;
     bytes key = 2;
-    uint64 timestamp = 3; // optional; if not specified, it represents the latest value
+}
+
+message ReadRange {
+    uint32 keyspace = 1;
+    bytes start_key = 2; // inclusive
+    bytes end_key = 3;   // exclusive
+    uint32 max_results = 4;
 }
 
 message LockKey {
@@ -117,12 +123,13 @@ message Action {
 
     oneof payload {
         Read read = 2;
-        Insert insert = 3;
-        Update update = 4;
-        Upsert upsert = 5;
-        Delete delete = 6;
-        LockKey lock_key = 7;
-        LockRange lock_range = 8;
+        ReadRange read_range = 3;
+        Insert insert = 4;
+        Update update = 5;
+        Upsert upsert = 6;
+        Delete delete = 7;
+        LockKey lock_key = 8;
+        LockRange lock_range = 9;
     }
 }
 
@@ -130,12 +137,6 @@ message Value {
     oneof payload {
         bytes bytes = 1;
     }
-}
-
-message ValueRef {
-    uint32 keyspace = 1;
-    bytes key = 2;
-    uint64 timestamp = 3;
 }
 
 message ActionStatus {
@@ -150,8 +151,7 @@ message ActionStatus {
 
     uint32 id = 1;
     Code code = 2;
-    ValueRef value_ref = 3;
-    Value value = 4;
+    repeated Value results = 3;
 }
 
 message TxnDecision {

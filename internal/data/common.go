@@ -7,9 +7,9 @@ import (
 	"github.com/bcrusu/scout/internal/keyspace"
 )
 
-func (t *Txn) IsReplicaRead() bool {
+func (t *Txn) IsReadOnly() bool {
 	for _, a := range t.Actions {
-		if !a.IsReplicaRead() {
+		if !a.IsReadOnly() {
 			return false
 		}
 	}
@@ -27,24 +27,13 @@ func (s TxnState) IsFinal() bool {
 	}
 }
 
-func (a *Action) IsReplicaRead() bool {
-	switch x := a.Payload.(type) {
-	case *Action_Read:
-		// replicas can only handle snapshot/history reads where
-		// the timestamp is specified. All other reads must go
-		// through leader to ensure consistency.
-		if x.Read.Timestamp == 0 {
-			return false
-		}
+func (a *Action) IsReadOnly() bool {
+	switch a.Payload.(type) {
+	case *Action_Read, *Action_ReadRange:
+		return true
 	default:
 		return false
 	}
-
-	return true
-}
-
-func (r *ActionStatus) ToResult() (*Value, error) {
-	return r.Value, r.Code.ToError()
 }
 
 func (r *ActionStatus) ToError() error {
@@ -111,6 +100,13 @@ func (a *Action) Validate() error {
 		}
 		if p.Read.Keyspace < keyspace.FirstUserKeyspace || len(p.Read.Key) == 0 {
 			return errors.Error("Action.Read has invalid fields")
+		}
+	case *Action_ReadRange:
+		if p.ReadRange == nil {
+			return errors.Error("Action.ReadRange is nil")
+		}
+		if p.ReadRange.Keyspace < keyspace.FirstUserKeyspace || len(p.ReadRange.StartKey) == 0 || len(p.ReadRange.EndKey) == 0 {
+			return errors.Error("Action.ReadRange has invalid fields")
 		}
 	case *Action_Insert:
 		if p.Insert == nil {

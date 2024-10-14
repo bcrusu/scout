@@ -26,10 +26,9 @@ type Store interface {
 
 	HasData() bool
 	AppliedIndex() uint64
-	Get(keyspace uint64, key []byte) ([]byte, bool)
 
 	GetRunning() []TxnRunning
-	Autocommit(*data.Txn) (*data.TxnStatus, error)
+	Autocommit(txn *data.Txn, readTimestamp uint64) (*data.TxnStatus, error)
 	Prepare(*data.Txn) (*data.TxnStatus, error)
 	Commit(id *data.TxnId, commitTimestamp uint64) (*data.TxnStatus, error)
 	Abort(*data.TxnId) (*data.TxnStatus, error)
@@ -174,15 +173,6 @@ func (s *store) AppliedIndex() uint64 {
 	return index
 }
 
-func (s *store) Get(keyspace uint64, key []byte) ([]byte, bool) {
-	s.fsm.lock.RLock()
-	defer s.fsm.lock.RUnlock()
-
-	//TODO
-
-	return nil, true
-}
-
 func (s *store) GetRunning() []TxnRunning {
 	s.fsm.lock.RLock()
 	defer s.fsm.lock.RUnlock()
@@ -204,7 +194,8 @@ func (s *store) GetRunning() []TxnRunning {
 	return result
 }
 
-func (s *store) Autocommit(txn *data.Txn) (*data.TxnStatus, error) {
+func (s *store) Autocommit(txn *data.Txn, readTimestamp uint64) (*data.TxnStatus, error) {
+	// TODO
 	return s.apply(&TxnAutocommit{Txn: txn, Timestamp: hlc.Now()})
 }
 
@@ -213,6 +204,7 @@ func (s *store) Prepare(txn *data.Txn) (*data.TxnStatus, error) {
 }
 
 func (s *store) Commit(id *data.TxnId, commitTimestamp uint64) (*data.TxnStatus, error) {
+	// TODO: hlc.Update ?
 	// the commit timestamp is decided by txn participants
 	return s.apply(&TxnCommit{Id: id, Timestamp: commitTimestamp})
 }

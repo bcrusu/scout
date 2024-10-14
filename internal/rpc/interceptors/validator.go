@@ -2,6 +2,7 @@ package interceptors
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
@@ -78,7 +79,7 @@ func (s *csWrapperForValidator) RecvMsg(m any) error {
 }
 
 func validateMessage(ctx context.Context, value any) error {
-	if value == nil {
+	if reflect.ValueOf(value).IsNil() {
 		logging.Error(ctx, "Nil message %T.", value)
 		return errors.InvalidRequest
 	}

@@ -6,8 +6,8 @@ type ctxKeyRoutingInfo struct{}
 type ctxKeyPreferredServer struct{}
 
 type routing struct {
-	partitionID uint32
-	replicaRead bool
+	partitionID  uint32
+	snapshotRead bool
 }
 
 type preferredServer struct {

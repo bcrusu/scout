@@ -3,6 +3,7 @@ package mvcc
 const (
 	FlagEmpty     Flags = 0
 	FlagTombstone Flags = 1
+	FlagExtension Flags = 1 << 7
 )
 
 type Flags byte

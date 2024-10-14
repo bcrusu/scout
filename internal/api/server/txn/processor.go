@@ -19,11 +19,15 @@ var (
 )
 
 type Processor struct {
-	identity     identity.Identity
-	partitioner  *partitioner
-	client       data.ServiceClient
-	processor2pc *processor2PC
+	identity              identity.Identity
+	partitioner           *partitioner
+	client                data.ServiceClient
+	processor2pc          *processor2PC
+	processorReadOnly     *processorReadOnly
+	processorReadSnapshot *processorReadSnapshot
 }
+
+type statusMap map[uint32]*data.TxnStatus
 
 func NewProcessor(id identity.Identity, client data.ServiceClient) *Processor {
 	client = &clientRetrier{
@@ -32,12 +36,11 @@ func NewProcessor(id identity.Identity, client data.ServiceClient) *Processor {
 	}
 
 	return &Processor{
-		identity: id,
-		client:   client,
-		processor2pc: &processor2PC{
-			id:     id,
-			client: client,
-		},
+		identity:              id,
+		client:                client,
+		processor2pc:          &processor2PC{client: client},
+		processorReadOnly:     &processorReadOnly{client: client},
+		processorReadSnapshot: &processorReadSnapshot{client: client},
 	}
 }
 
@@ -59,6 +62,11 @@ func (p *Processor) Start(ctx context.Context) error {
 func (p *Processor) Stop() {}
 
 func (p *Processor) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
+	readOnly := txn.IsReadOnly()
+	if !readOnly && txn.readTimestamp != 0 {
+		return nil, errors.Errorf("snapshot read timestamp invalid for read-write txn=%s.", txn.id)
+	}
+
 	switch txn.ParticipantCount() {
 	case 0:
 		return nil, errors.Error("transaction is empty")
@@ -66,25 +74,28 @@ func (p *Processor) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
 		// transactions involving a single partition can avoid the 2PC dance
 		return p.autocommit(ctx, txn)
 	default:
-		return p.processor2pc.Process(ctx, txn)
-	}
-}
+		if !readOnly {
+			return p.processor2pc.Process(ctx, txn)
+		}
 
-func (p *Processor) Execute(ctx context.Context, routingKey []byte, actions ...*data.Action) (*TxnResult, error) {
-	if len(routingKey) == 0 || len(actions) == 0 {
-		return nil, errors.InvalidRequest
+		if txn.readTimestamp == 0 {
+			return p.processorReadOnly.Process(ctx, txn)
+		} else {
+			return p.processorReadSnapshot.Process(ctx, txn)
+		}
 	}
-
-	txn := p.New().Append(routingKey, actions...)
-	return p.autocommit(ctx, txn)
 }
 
 func (p *Processor) autocommit(ctx context.Context, txn *Txn) (*TxnResult, error) {
 	_, actions, _ := utils.GetSingleMapKey(txn.participantActions)
 
-	req := &data.Txn{
-		Id:      txn.id,
-		Actions: actions,
+	req := &data.AutocommitRequest{
+		PartitionId:   txn.id.PrincipalPid,
+		ReadTimestamp: txn.readTimestamp,
+		Txn: &data.Txn{
+			Id:      txn.id,
+			Actions: actions,
+		},
 	}
 
 	status, err := p.client.Autocommit(ctx, req)

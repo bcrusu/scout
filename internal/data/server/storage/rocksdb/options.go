@@ -61,7 +61,7 @@ func makeWriteOptions() *grocksdb.WriteOptions {
 
 	// Contents are already persisted in the raft log: will skip writing again
 	// to RocksDB wal, but it is paramout to first flush-and-check RocksDB
-	// before performing a Raft snapshot. Handled in the Raft FSM.
+	// before performing a Raft snapshot. This is handled in the Raft FSM.
 	opts.DisableWAL(true)
 
 	return opts

@@ -1,9 +1,12 @@
 package txn
 
 import (
+	"time"
+
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Txn struct {
@@ -11,6 +14,7 @@ type Txn struct {
 	participantActions map[uint32][]*data.Action
 	id                 *data.TxnId
 	nextActionId       uint32
+	readTimestamp      uint64
 }
 
 type TxnResult struct {
@@ -41,8 +45,33 @@ func (t *Txn) Append(routingKey []byte, actions ...*data.Action) *Txn {
 	return t
 }
 
+func (t *Txn) SnapshotReadAt(time time.Time) *Txn {
+	if !time.IsZero() {
+		t.readTimestamp = hlc.FromTime(time)
+	}
+	return t
+}
+
+func (t *Txn) SnapshotReadAtTimestamp(ts *timestamppb.Timestamp) *Txn {
+	if ts != nil {
+		t.readTimestamp = hlc.FromTimestamp(ts)
+	}
+	return t
+}
+
 func (t *Txn) ParticipantCount() int {
 	return len(t.participantActions)
+}
+
+func (t *Txn) IsReadOnly() bool {
+	for _, actions := range t.participantActions {
+		for _, a := range actions {
+			if !a.IsReadOnly() {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (t *TxnResult) GetError() error {

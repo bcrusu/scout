@@ -56,8 +56,8 @@ func (n *Leader) IsLeader() bool {
 	return true
 }
 
-func (n *Leader) Autocommit(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
-	return n.store.Autocommit(txn)
+func (n *Leader) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
+	return n.store.Autocommit(req.Txn, req.ReadTimestamp)
 }
 
 func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {

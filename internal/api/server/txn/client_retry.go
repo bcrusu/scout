@@ -9,17 +9,20 @@ import (
 	"google.golang.org/grpc"
 )
 
+// clientRetrier is used to retry only lock failure errors while all the
+// other connection-specific and response status-specific retries are
+// handled by the rpc connection layer.
 type clientRetrier struct {
 	data.ServiceClient
 	policy utils.RetryPolicy
 }
 
-func (c clientRetrier) Autocommit(ctx context.Context, txn *data.Txn, opts ...grpc.CallOption) (*data.TxnStatus, error) {
+func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	var last *data.TxnStatus
 	var err error
 
 	utils.RetryContextB(ctx, c.policy, func() error {
-		last, err = c.ServiceClient.Autocommit(ctx, txn, opts...)
+		last, err = c.ServiceClient.Autocommit(ctx, req, opts...)
 
 		// only retry txn status error
 		if err != nil || !c.needsRetry(last) {

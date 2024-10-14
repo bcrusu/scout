@@ -21,6 +21,23 @@ func (e *KVEntry) Entry() kv.Entry {
 	}
 }
 
+func (r *AutocommitRequest) IsSnapshotRead() bool {
+	return r.ReadTimestamp != 0 && r.Txn.IsReadOnly()
+}
+
+func (r *AutocommitRequest) Validate() error {
+	if r == nil {
+		return errors.Error("AutocommitRequest is nil")
+	}
+	if err := r.Txn.Validate(); err != nil {
+		return errors.Wrap(err, "AutocommitRequest.Txn is invalid")
+	}
+	if r.ReadTimestamp != 0 && !r.Txn.IsReadOnly() {
+		return errors.Error("AutocommitRequest.ReadTimestamp invalid for read-write txn.")
+	}
+	return nil
+}
+
 func (r *PrepareRequest) Validate() error {
 	if r == nil {
 		return errors.Error("PrepareRequest is nil")

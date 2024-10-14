@@ -27,20 +27,18 @@ func NewStore(processor *txn.Processor) *Store {
 }
 
 func (s *Store) Get(ctx context.Context, req *api.KeyAt) (*api.ValueAt, error) {
-	var action *data.Action
+	action := txn.Read(keyValueKeyspace, req.Key)
 
-	if req.AtTime == nil {
-		action = txn.Read(keyValueKeyspace, req.Key)
-	} else {
-		action = txn.ReadAt(keyValueKeyspace, req.Key, req.AtTime.AsTime())
-	}
+	txn := s.processor.New().
+		Append(req.Key, action).
+		SnapshotReadAtTimestamp(req.AtTime)
 
-	result, err := s.processor.Execute(ctx, req.Key, action)
+	result, err := s.processor.Process(ctx, txn)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.getSingleValue(result)
+	return s.getSingleValue(result, action.Id)
 }
 
 func (s *Store) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error) {
@@ -49,9 +47,9 @@ func (s *Store) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error)
 		return nil, err
 	}
 
-	action := txn.Upsert(keyValueKeyspace, req.Key, data)
+	txn := s.processor.New().Append(req.Key, txn.Upsert(keyValueKeyspace, req.Key, data))
 
-	result, err := s.processor.Execute(ctx, req.Key, action)
+	result, err := s.processor.Process(ctx, txn)
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +58,9 @@ func (s *Store) Set(ctx context.Context, req *api.KeyValue) (*api.Status, error)
 }
 
 func (s *Store) Delete(ctx context.Context, req *api.Key) (*api.Status, error) {
-	action := txn.Delete(keyValueKeyspace, req.Key)
+	txn := s.processor.New().Append(req.Key, txn.Delete(keyValueKeyspace, req.Key))
 
-	result, err := s.processor.Execute(ctx, req.Key, action)
+	result, err := s.processor.Process(ctx, txn)
 	if err != nil {
 		return nil, err
 	}
@@ -70,14 +68,19 @@ func (s *Store) Delete(ctx context.Context, req *api.Key) (*api.Status, error) {
 	return s.getStatus(result)
 }
 
-func (s *Store) getSingleValue(r *txn.TxnResult) (*api.ValueAt, error) {
+func (s *Store) getSingleValue(r *txn.TxnResult, actionID uint32) (*api.ValueAt, error) {
 	if err := r.GetError(); err != nil {
 		return nil, err
-	} else if l := len(r.ActionStatus); l != 1 {
-		return nil, errors.Errorf("txn%s expected sigle result, but got %d.", r.Id, l)
 	}
 
-	value := r.ActionStatus[0].Value
+	status, ok := r.ActionStatus[actionID]
+	if !ok {
+		return nil, errors.Errorf("txn %s action status not found.", r.Id)
+	} else if l := len(status.Results); l != 1 {
+		return nil, errors.Errorf("txn %s expected single action result, but got %d.", r.Id, l)
+	}
+
+	value := status.Results[0]
 
 	switch x := value.Payload.(type) {
 	case *data.Value_Bytes:

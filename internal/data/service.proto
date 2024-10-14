@@ -8,7 +8,7 @@ import "internal/data/common.proto";
 
 // Service represents the data storage service.
 service Service {
-    rpc Autocommit(Txn) returns (TxnStatus);
+    rpc Autocommit(AutocommitRequest) returns (TxnStatus);
     rpc Prepare(PrepareRequest) returns (TxnStatus);
     rpc Commit(CommitRequest) returns (TxnStatus);
     rpc Abort(AbortRequest) returns (TxnStatus);
@@ -17,9 +17,18 @@ service Service {
     rpc StreamPartition(StreamRequest) returns (stream StreamResponse);
 }
 
+message AutocommitRequest {
+    uint32 partition_id = 1;
+    Txn txn = 2;
+
+    // only for read-only snapshot txn
+    uint64 read_timestamp = 3;
+}
+
 message PrepareRequest {
     uint32 participant_pid = 1;
     Txn txn = 2;
+    bool read_only = 3;
 }
 
 message CommitRequest {

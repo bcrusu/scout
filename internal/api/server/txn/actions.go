@@ -1,10 +1,7 @@
 package txn
 
 import (
-	"time"
-
 	"github.com/bcrusu/scout/internal/data"
-	"github.com/bcrusu/scout/internal/hlc"
 )
 
 func Read(keyspace uint32, key []byte) *data.Action {
@@ -16,12 +13,13 @@ func Read(keyspace uint32, key []byte) *data.Action {
 	}}
 }
 
-func ReadAt(keyspace uint32, key []byte, time time.Time) *data.Action {
-	return &data.Action{Payload: &data.Action_Read{
-		Read: &data.Read{
-			Keyspace:  keyspace,
-			Key:       key,
-			Timestamp: hlc.FromTime(time),
+func ReadRange(keyspace uint32, startKey, endKey []byte, maxResults int) *data.Action {
+	return &data.Action{Payload: &data.Action_ReadRange{
+		ReadRange: &data.ReadRange{
+			Keyspace:   keyspace,
+			StartKey:   startKey,
+			EndKey:     endKey,
+			MaxResults: uint32(maxResults),
 		},
 	}}
 }

@@ -33,7 +33,7 @@ const (
 //
 // Service represents the data storage service.
 type ServiceClient interface {
-	Autocommit(ctx context.Context, in *Txn, opts ...grpc.CallOption) (*TxnStatus, error)
+	Autocommit(ctx context.Context, in *AutocommitRequest, opts ...grpc.CallOption) (*TxnStatus, error)
 	Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*TxnStatus, error)
 	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*TxnStatus, error)
 	Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*TxnStatus, error)
@@ -49,7 +49,7 @@ func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
 }
 
-func (c *serviceClient) Autocommit(ctx context.Context, in *Txn, opts ...grpc.CallOption) (*TxnStatus, error) {
+func (c *serviceClient) Autocommit(ctx context.Context, in *AutocommitRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TxnStatus)
 	err := c.cc.Invoke(ctx, Service_Autocommit_FullMethodName, in, out, cOpts...)
@@ -124,7 +124,7 @@ type Service_StreamPartitionClient = grpc.ServerStreamingClient[StreamResponse]
 //
 // Service represents the data storage service.
 type ServiceServer interface {
-	Autocommit(context.Context, *Txn) (*TxnStatus, error)
+	Autocommit(context.Context, *AutocommitRequest) (*TxnStatus, error)
 	Prepare(context.Context, *PrepareRequest) (*TxnStatus, error)
 	Commit(context.Context, *CommitRequest) (*TxnStatus, error)
 	Abort(context.Context, *AbortRequest) (*TxnStatus, error)
@@ -140,7 +140,7 @@ type ServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedServiceServer struct{}
 
-func (UnimplementedServiceServer) Autocommit(context.Context, *Txn) (*TxnStatus, error) {
+func (UnimplementedServiceServer) Autocommit(context.Context, *AutocommitRequest) (*TxnStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Autocommit not implemented")
 }
 func (UnimplementedServiceServer) Prepare(context.Context, *PrepareRequest) (*TxnStatus, error) {
@@ -180,7 +180,7 @@ func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 }
 
 func _Service_Autocommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Txn)
+	in := new(AutocommitRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -192,7 +192,7 @@ func _Service_Autocommit_Handler(srv interface{}, ctx context.Context, dec func(
 		FullMethod: Service_Autocommit_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Autocommit(ctx, req.(*Txn))
+		return srv.(ServiceServer).Autocommit(ctx, req.(*AutocommitRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
