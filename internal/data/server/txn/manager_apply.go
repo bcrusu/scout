@@ -1,41 +1,79 @@
-package storage
+package txn
 
 import (
-	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 )
 
-// TODO: prune status for old txn
-type txnProcessor struct {
-	partitionID uint32
-	db          *mvcc.DBBreaker
-	status      map[TxnId]*data.TxnStatus
-	prepared    map[TxnId]*txnLocks
-	decisions   map[TxnId]*data.TxnDecision
-}
+func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 
-type txnLocks struct {
-	Txn   *data.Txn
-	Locks []*Lock
-}
-
-func newTxnProcessor(partitionID uint32, db kv.DB) *txnProcessor {
-	return &txnProcessor{
-		partitionID: partitionID,
-		db:          mvcc.NewDBBreaker(mvcc.New(partitionID, db)),
-		status:      map[TxnId]*data.TxnStatus{},
-		prepared:    map[TxnId]*txnLocks{},
+	result := &BatchResults{
+		Autocommit:    make([]BatchResult, len(batch.Autocommit)),
+		Prepare:       make([]BatchResult, len(batch.Prepare)),
+		Commit:        make([]BatchResult, len(batch.Commit)),
+		Abort:         make([]BatchResult, len(batch.Abort)),
+		StoreDecision: make([]BatchResult, len(batch.StoreDecision)),
+		MarkTimedout:  make([]BatchResult, len(batch.MarkTimedout)),
 	}
+
+	allWrites := make([]mvcc.Entry, 0, batch.ActionCount())
+
+	for i, cmd := range batch.Autocommit {
+		status, writes, err := p.applyAutocommit(cmd)
+		allWrites = append(allWrites, writes...)
+		result.Autocommit[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.Prepare {
+		status, err := p.applyPrepare(cmd)
+		result.Prepare[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.Commit {
+		status, writes, err := p.applyCommit(cmd)
+		allWrites = append(allWrites, writes...)
+		result.Commit[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.Abort {
+		status, err := p.applyAbort(cmd)
+		result.Abort[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.StoreDecision {
+		status, err := p.applyStoreDecision(cmd)
+		result.Abort[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.MarkTimedout {
+		status, err := p.applyMarkTimedout(cmd)
+		result.MarkTimedout[i] = BatchResult{status, err}
+	}
+
+	// call Put even when allWrites is empty to update the stored Raft index.
+	p.db.Put(index, allWrites...)
+
+	p.maxTimestamp = max(p.maxTimestamp, batch.MaxTimestamp())
+
+	// Ignores the HLC.Update error as log entries can be applied in various
+	// scenarios from lagging group members to new members joining that need
+	// to catch up with the leader, etc. The call here is mainly to ensure
+	// that the newly-elected leader adopts a HCL timestamp greater than any
+	// write timestamps issued by the previous leader/s.
+	hlc.Update(p.maxTimestamp)
+	return result
 }
 
-func (p *txnProcessor) applyAutocommit(cmd *TxnAutocommit) (*data.TxnStatus, []mvcc.Entry, error) {
-	id := NewTxnId(cmd.Txn.Id)
+func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Entry, error) {
+	id := cmd.Txn.Id.id()
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
-		case data.TxnState_Committed, data.TxnState_Failed:
+		case State_Committed, State_Failed:
 			// idempotent calls
 			return status, nil, nil
 		default:
@@ -43,7 +81,7 @@ func (p *txnProcessor) applyAutocommit(cmd *TxnAutocommit) (*data.TxnStatus, []m
 		}
 	}
 
-	locks := buildLocks(cmd.Txn)
+	locks := cmd.Txn.BuildLocks()
 	status = p.checkLocks(id, cmd.Timestamp, locks)
 	if status != nil {
 		return status, nil, nil
@@ -55,18 +93,18 @@ func (p *txnProcessor) applyAutocommit(cmd *TxnAutocommit) (*data.TxnStatus, []m
 	}
 
 	writes := p.buildWriteEntries(cmd.Timestamp, cmd.Txn)
-	status = newTxnStatus(id, cmd.Timestamp, data.TxnState_Committed)
+	status = newStatus(id, cmd.Timestamp, State_Committed)
 
 	p.status[id] = status
 	return status, writes, nil
 }
 
-func (p *txnProcessor) applyPrepare(cmd *TxnPrepare) (*data.TxnStatus, error) {
-	id := NewTxnId(cmd.Txn.Id)
+func (p *Manager) applyPrepare(cmd *Prepare) (*Status, error) {
+	id := cmd.Txn.Id.id()
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
-		case data.TxnState_Prepared, data.TxnState_Failed:
+		case State_Prepared, State_Failed:
 			// idempotent calls
 			return status, nil
 		default:
@@ -74,7 +112,7 @@ func (p *txnProcessor) applyPrepare(cmd *TxnPrepare) (*data.TxnStatus, error) {
 		}
 	}
 
-	locks := buildLocks(cmd.Txn)
+	locks := cmd.Txn.BuildLocks()
 	status = p.checkLocks(id, cmd.Timestamp, locks)
 	if status != nil {
 		return status, nil
@@ -85,29 +123,29 @@ func (p *txnProcessor) applyPrepare(cmd *TxnPrepare) (*data.TxnStatus, error) {
 		return status, nil
 	}
 
-	p.prepared[id] = &txnLocks{
+	p.prepared[id] = &prepared{
 		Txn:   cmd.Txn,
 		Locks: locks,
 	}
 
-	status = newTxnStatus(id, cmd.Timestamp, data.TxnState_Prepared)
+	status = newStatus(id, cmd.Timestamp, State_Prepared)
 
 	p.status[id] = status
 	return status, nil
 }
 
-func (p *txnProcessor) applyCommit(cmd *TxnCommit) (*data.TxnStatus, []mvcc.Entry, error) {
-	id := NewTxnId(cmd.Id)
+func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Entry, error) {
+	id := cmd.Id.id()
 	status, ok := p.status[id]
 	if !ok {
 		return nil, nil, errors.NotFound
 	}
 
 	switch status.State {
-	case data.TxnState_Committed:
+	case State_Committed:
 		// idempotent calls
 		return status, nil, nil
-	case data.TxnState_Prepared, data.TxnState_Decided:
+	case State_Prepared, State_Decided:
 		prepared, ok := p.prepared[id]
 		if !ok {
 			return nil, nil, errors.NotFound
@@ -117,7 +155,7 @@ func (p *txnProcessor) applyCommit(cmd *TxnCommit) (*data.TxnStatus, []mvcc.Entr
 		delete(p.prepared, id)
 		delete(p.decisions, id)
 
-		status := newTxnStatus(id, cmd.Timestamp, data.TxnState_Committed)
+		status := newStatus(id, cmd.Timestamp, State_Committed)
 		// stores the list of participants to be able to recompose the txn results
 		// after the initial client call returns.
 		status.ParticipantPids = prepared.Txn.ParticipantPids
@@ -129,21 +167,21 @@ func (p *txnProcessor) applyCommit(cmd *TxnCommit) (*data.TxnStatus, []mvcc.Entr
 	}
 }
 
-func (p *txnProcessor) applyAbort(cmd *TxnAbort) (*data.TxnStatus, error) {
-	id := NewTxnId(cmd.Id)
+func (p *Manager) applyAbort(cmd *Abort) (*Status, error) {
+	id := cmd.Id.id()
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
 	}
 
 	switch status.State {
-	case data.TxnState_Aborted:
+	case State_Aborted:
 		// idempotent calls
 		return status, nil
-	case data.TxnState_Timedout:
+	case State_Timedout:
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
-	case data.TxnState_Prepared:
+	case State_Prepared:
 		if _, ok := p.prepared[id]; !ok {
 			return nil, errors.NotFound
 		}
@@ -151,7 +189,7 @@ func (p *txnProcessor) applyAbort(cmd *TxnAbort) (*data.TxnStatus, error) {
 		delete(p.prepared, id)
 		delete(p.decisions, id) // presumed abort decisions are not stored, but delete just in case
 
-		status := newTxnStatus(id, cmd.Timestamp, data.TxnState_Aborted)
+		status := newStatus(id, cmd.Timestamp, State_Aborted)
 
 		p.status[id] = status
 		return status, nil
@@ -160,8 +198,8 @@ func (p *txnProcessor) applyAbort(cmd *TxnAbort) (*data.TxnStatus, error) {
 	}
 }
 
-func (p *txnProcessor) applyStoreDecision(cmd *StoreTxnDecision) (*data.TxnStatus, error) {
-	id := NewTxnId(cmd.Decision.Id)
+func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
+	id := cmd.Decision.Id.id()
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
@@ -170,7 +208,7 @@ func (p *txnProcessor) applyStoreDecision(cmd *StoreTxnDecision) (*data.TxnStatu
 	}
 
 	switch status.State {
-	case data.TxnState_Decided:
+	case State_Decided:
 		// is it trying to change prev decision?
 		prevDecision := p.decisions[id]
 		if prevDecision.Commit != cmd.Decision.Commit {
@@ -179,13 +217,13 @@ func (p *txnProcessor) applyStoreDecision(cmd *StoreTxnDecision) (*data.TxnStatu
 
 		// idempotent calls
 		return status, nil
-	case data.TxnState_Timedout:
+	case State_Timedout:
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
-	case data.TxnState_Prepared:
+	case State_Prepared:
 		p.decisions[id] = cmd.Decision
 
-		status := newTxnStatus(id, cmd.Timestamp, data.TxnState_Decided)
+		status := newStatus(id, cmd.Timestamp, State_Decided)
 		p.status[id] = status
 		return status, nil
 	default:
@@ -193,8 +231,8 @@ func (p *txnProcessor) applyStoreDecision(cmd *StoreTxnDecision) (*data.TxnStatu
 	}
 }
 
-func (p *txnProcessor) applyMarkTimedout(cmd *MarkTxnTimedout) (*data.TxnStatus, error) {
-	id := NewTxnId(cmd.Id)
+func (p *Manager) applyMarkTimedout(cmd *MarkTimedout) (*Status, error) {
+	id := cmd.Id.id()
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
@@ -203,68 +241,19 @@ func (p *txnProcessor) applyMarkTimedout(cmd *MarkTxnTimedout) (*data.TxnStatus,
 	}
 
 	switch status.State {
-	case data.TxnState_Timedout:
+	case State_Timedout:
 		if cmd.ReleaseLocks {
 			delete(p.prepared, id)
 		}
 
 		return status, nil
-	case data.TxnState_Prepared:
-		status := newTxnStatus(id, cmd.Timestamp, data.TxnState_Timedout)
+	case State_Prepared:
+		status := newStatus(id, cmd.Timestamp, State_Timedout)
 		p.status[id] = status
 		return status, nil
 	default:
 		return nil, errors.FailedPrecondition
 	}
-}
-
-func (p *txnProcessor) applyBatch(index uint64, batch *TxnBatch) *TxnBatchResult {
-	result := &TxnBatchResult{
-		Autocommit:    make([]TxnStatus, len(batch.Autocommit)),
-		Prepare:       make([]TxnStatus, len(batch.Prepare)),
-		Commit:        make([]TxnStatus, len(batch.Commit)),
-		Abort:         make([]TxnStatus, len(batch.Abort)),
-		StoreDecision: make([]TxnStatus, len(batch.StoreDecision)),
-		MarkTimedout:  make([]TxnStatus, len(batch.MarkTimedout)),
-	}
-
-	allWrites := make([]mvcc.Entry, 0, batch.ActionCount())
-
-	for i, cmd := range batch.Autocommit {
-		status, writes, err := p.applyAutocommit(cmd)
-		allWrites = append(allWrites, writes...)
-		result.Autocommit[i] = TxnStatus{status, err}
-	}
-
-	for i, cmd := range batch.Prepare {
-		status, err := p.applyPrepare(cmd)
-		result.Prepare[i] = TxnStatus{status, err}
-	}
-
-	for i, cmd := range batch.Commit {
-		status, writes, err := p.applyCommit(cmd)
-		allWrites = append(allWrites, writes...)
-		result.Commit[i] = TxnStatus{status, err}
-	}
-
-	for i, cmd := range batch.Abort {
-		status, err := p.applyAbort(cmd)
-		result.Abort[i] = TxnStatus{status, err}
-	}
-
-	for i, cmd := range batch.StoreDecision {
-		status, err := p.applyStoreDecision(cmd)
-		result.Abort[i] = TxnStatus{status, err}
-	}
-
-	for i, cmd := range batch.MarkTimedout {
-		status, err := p.applyMarkTimedout(cmd)
-		result.MarkTimedout[i] = TxnStatus{status, err}
-	}
-
-	// Call Put even when allWrites is empty to update the stored Raft index.
-	p.db.Put(index, allWrites...)
-	return result
 }
 
 // Note: all validation checks below substract 1 from the timestamp parameter. This is a
@@ -279,10 +268,10 @@ func (p *txnProcessor) applyBatch(index uint64, batch *TxnBatch) *TxnBatchResult
 // running replica, install it locally, then start applying the pending raft log entries.
 // Unless a perfect in-sync, at the same applied raft index, kv store checkpoint and raft
 // snapshot can be created it is almost certain that duplicate txn execution will happen.
-func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data.TxnStatus {
+func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *data.Action_Insert:
+		case *Action_Insert:
 			addr := kv.Address{
 				Keyspace:  x.Insert.Keyspace,
 				Key:       x.Insert.Key,
@@ -290,9 +279,9 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 			}
 
 			if p.db.Exists(addr) {
-				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyAlreadyExists)
+				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyAlreadyExists)
 			}
-		case *data.Action_Update:
+		case *Action_Update:
 			addr := kv.Address{
 				Keyspace:  x.Update.Keyspace,
 				Key:       x.Update.Key,
@@ -300,11 +289,11 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 			}
 
 			if !p.db.Exists(addr) {
-				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
+				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyNotFound)
 			}
-		case *data.Action_Upsert:
+		case *Action_Upsert:
 			// pass
-		case *data.Action_Delete:
+		case *Action_Delete:
 			addr := kv.Address{
 				Keyspace:  x.Delete.Keyspace,
 				Key:       x.Delete.Key,
@@ -312,10 +301,10 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 			}
 
 			if !p.db.Exists(addr) {
-				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
+				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyNotFound)
 			}
-		case *data.Action_LockKey:
-			if x.LockKey.Check == data.LockKey_None {
+		case *Action_LockKey:
+			if x.LockKey.Check == LockKey_None {
 				continue
 			}
 
@@ -326,13 +315,13 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 			}
 
 			actual := p.db.Exists(addr)
-			expected := x.LockKey.Check == data.LockKey_MustExist
+			expected := x.LockKey.Check == LockKey_MustExist
 
 			if actual != expected {
-				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_LockCheckFailed)
+				return newFailedStatus(id, timestamp, action.Id, ActionStatus_LockCheckFailed)
 			}
-		case *data.Action_LockRange:
-			if x.LockRange.Check == data.LockRange_None {
+		case *Action_LockRange:
+			if x.LockRange.Check == LockRange_None {
 				continue
 			}
 
@@ -344,10 +333,10 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 			}
 
 			actual := p.db.ExistsInRange(rang)
-			expected := x.LockRange.Check == data.LockRange_MustNotBeEmpty
+			expected := x.LockRange.Check == LockRange_MustNotBeEmpty
 
 			if actual != expected {
-				return newTxnFailedStatus(id, timestamp, action.Id, data.ActionStatus_LockCheckFailed)
+				return newFailedStatus(id, timestamp, action.Id, ActionStatus_LockCheckFailed)
 			}
 		}
 	}
@@ -355,30 +344,30 @@ func (p *txnProcessor) validate(id TxnId, timestamp uint64, txn *data.Txn) *data
 	return nil
 }
 
-func (p *txnProcessor) buildWriteEntries(timestamp uint64, txn *data.Txn) []mvcc.Entry {
+func (p *Manager) buildWriteEntries(timestamp uint64, txn *Txn) []mvcc.Entry {
 	writes := make([]mvcc.Entry, 0, len(txn.Actions))
 
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *data.Action_Insert:
+		case *Action_Insert:
 			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Insert.Keyspace, x.Insert.Key, timestamp),
 				Value:   mustEncodeValue(x.Insert.Value),
 				Flags:   mvcc.FlagEmpty,
 			})
-		case *data.Action_Update:
+		case *Action_Update:
 			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Update.Keyspace, x.Update.Key, timestamp),
 				Value:   mustEncodeValue(x.Update.Value),
 				Flags:   mvcc.FlagEmpty,
 			})
-		case *data.Action_Upsert:
+		case *Action_Upsert:
 			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Upsert.Keyspace, x.Upsert.Key, timestamp),
 				Value:   mustEncodeValue(x.Upsert.Value),
 				Flags:   mvcc.FlagEmpty,
 			})
-		case *data.Action_Delete:
+		case *Action_Delete:
 			writes = append(writes, mvcc.Entry{
 				Address: kv.NewAddress(x.Delete.Keyspace, x.Delete.Key, timestamp),
 				Flags:   mvcc.FlagTombstone,
@@ -389,20 +378,20 @@ func (p *txnProcessor) buildWriteEntries(timestamp uint64, txn *data.Txn) []mvcc
 	return writes
 }
 
-func newTxnStatus(id TxnId, timestamp uint64, state data.TxnState) *data.TxnStatus {
-	return &data.TxnStatus{
+func newStatus(id id, timestamp uint64, state State) *Status {
+	return &Status{
 		Id:        id.ToProto(),
 		Timestamp: timestamp,
 		State:     state,
 	}
 }
 
-func newTxnFailedStatus(id TxnId, timestamp uint64, actionId uint32, code data.ActionStatus_Code) *data.TxnStatus {
-	return &data.TxnStatus{
+func newFailedStatus(id id, timestamp uint64, actionId uint32, code ActionStatus_Code) *Status {
+	return &Status{
 		Id:        id.ToProto(),
 		Timestamp: timestamp,
-		State:     data.TxnState_Failed,
-		ActionStatus: map[uint32]*data.ActionStatus{
+		State:     State_Failed,
+		ActionStatus: map[uint32]*ActionStatus{
 			actionId: {
 				Id:   actionId,
 				Code: code,

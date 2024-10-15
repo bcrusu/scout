@@ -1,4 +1,4 @@
-package leader
+package txn
 
 import (
 	"context"
@@ -6,9 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
-	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/logging"
@@ -44,30 +42,32 @@ var (
 // querying their status first as all the 2pc txn operations are implemented to be idempotent,
 // returning the previous state on duplicate requests.
 type watchdog2PC struct {
-	config      config.Transactions
-	partitionID uint32
-	store       storage.Store
-	client      data.ServiceClient
-	log         logging.Logger
-	requestCh   chan storage.TxnRunning
-	breaker     *rate.Limiter
-	cancelFunc  context.CancelFunc
+	config     config.Transactions
+	pid        uint32
+	service    *Service
+	manager    *Manager
+	client     TxnServiceClient
+	log        logging.Logger
+	requestCh  chan running
+	breaker    *rate.Limiter
+	cancelFunc context.CancelFunc
 }
 
-type dogQueue = *utils.Queue[storage.TxnRunning]
-type dogResolve func(context.Context, storage.TxnRunning)
+type dogQueue = *utils.Queue[running]
+type dogResolve func(context.Context, running)
 
-func newWatchdog2PC(partitionID uint32, store storage.Store, dataClient data.ServiceClient) *watchdog2PC {
+func newWatchdog2PC(pid uint32, service *Service, manager *Manager, client TxnServiceClient) *watchdog2PC {
 	config := config.Get().Transactions
 
 	return &watchdog2PC{
-		config:      config,
-		partitionID: partitionID,
-		store:       store,
-		client:      dataClient,
-		log:         logging.WithComponent("2pc_watchdog").With("partition", partitionID),
-		requestCh:   make(chan storage.TxnRunning, 1),
-		breaker:     utils.NewRateLimiter(config.RetryBreakerLimit, time.Second),
+		config:    config,
+		pid:       pid,
+		service:   service,
+		manager:   manager,
+		client:    client,
+		log:       logging.WithComponent("2pc_watchdog").With("partition", pid),
+		requestCh: make(chan running, 1),
+		breaker:   utils.NewRateLimiter(config.RetryBreakerLimit, time.Second),
 	}
 }
 
@@ -87,7 +87,7 @@ func (w *watchdog2PC) Stop() {
 	w.cancelFunc()
 }
 
-func (w *watchdog2PC) mainLoop(ctx context.Context, all map[storage.TxnId]bool, prepared, decided dogQueue) {
+func (w *watchdog2PC) mainLoop(ctx context.Context, all map[id]bool, prepared, decided dogQueue) {
 	tickerPhase1 := time.NewTicker(w.config.Phase1Timeout / 5)
 	tickerPhase2 := time.NewTicker(w.config.Phase2Timeout / 5)
 	defer tickerPhase1.Stop()
@@ -124,13 +124,13 @@ func (w *watchdog2PC) mainLoop(ctx context.Context, all map[storage.TxnId]bool, 
 			}
 
 			switch status.State {
-			case data.TxnState_Prepared:
+			case State_Prepared:
 				all[status.Id] = true
 				prepared.PushBack(status)
-			case data.TxnState_Decided:
+			case State_Decided:
 				all[status.Id] = true
 				decided.PushBack(status)
-			case data.TxnState_Committed, data.TxnState_Aborted:
+			case State_Committed, State_Aborted:
 				delete(all, status.Id) // checkTimedout above will later clear from queue
 			}
 		case <-tickerPhase1.C:
@@ -149,16 +149,16 @@ func (w *watchdog2PC) mainLoop(ctx context.Context, all map[storage.TxnId]bool, 
 	}
 }
 
-// UpdateTxnStatus takes the latest applied status returned by the FSM, and:
+// UpdateStatus takes the latest applied status returned by the FSM, and:
 //   - the prepared != nil only for Prepare call.
 //   - the decision != nil only for StoreDecision call.
-func (w *watchdog2PC) UpdateTxnStatus(status *data.TxnStatus, prepared *data.Txn, decision *data.TxnDecision) {
-	if status == nil || status.Id.PrincipalPid != w.partitionID {
+func (w *watchdog2PC) UpdateStatus(status *Status, prepared *Txn, decision *Decision) {
+	if status == nil || status.Id.PrincipalPid != w.pid {
 		return
 	}
 
-	s := storage.TxnRunning{
-		Id:        storage.NewTxnId(status.Id),
+	s := running{
+		Id:        status.Id.id(),
 		Timestamp: status.Timestamp,
 		State:     status.State,
 	}
@@ -174,22 +174,22 @@ func (w *watchdog2PC) UpdateTxnStatus(status *data.TxnStatus, prepared *data.Txn
 	w.requestCh <- s
 }
 
-func (w *watchdog2PC) loadRunning() (map[storage.TxnId]bool, dogQueue, dogQueue) {
-	running := w.store.GetRunning()
+func (w *watchdog2PC) loadRunning() (map[id]bool, dogQueue, dogQueue) {
+	trunning := w.manager.getRunning()
 
-	all := map[storage.TxnId]bool{}
-	prepared := make([]storage.TxnRunning, 0, len(running))
-	decided := make([]storage.TxnRunning, 0, len(running))
+	all := map[id]bool{}
+	prepared := make([]running, 0, len(trunning))
+	decided := make([]running, 0, len(trunning))
 
-	for _, p := range running {
+	for _, p := range trunning {
 		all[p.Id] = true
 
 		switch p.State {
-		case data.TxnState_Prepared:
+		case State_Prepared:
 			prepared = append(prepared, p)
-		case data.TxnState_Decided:
+		case State_Decided:
 			decided = append(decided, p)
-		case data.TxnState_Timedout:
+		case State_Timedout:
 			// A running txn in Timedout state happens when the previous Raft partition
 			// leader has started the abort procedure (i.e. marked the txn as timedout),
 			// but lost leadership before the abort operation completed which did not
@@ -199,21 +199,21 @@ func (w *watchdog2PC) loadRunning() (map[storage.TxnId]bool, dogQueue, dogQueue)
 		}
 	}
 
-	cmpFn := func(a, b storage.TxnRunning) int { return int(a.Timestamp - b.Timestamp) }
+	cmpFn := func(a, b running) int { return int(a.Timestamp - b.Timestamp) }
 	slices.SortFunc(prepared, cmpFn)
 	slices.SortFunc(decided, cmpFn)
 
 	return all, utils.NewQueue(prepared...), utils.NewQueue(decided...)
 }
 
-func (w *watchdog2PC) abort(ctx context.Context, txn storage.TxnRunning) {
+func (w *watchdog2PC) abort(ctx context.Context, txn running) {
 	if success, err := w.markTimedout(ctx, txn, false); err != nil || !success {
 		return
 	}
 
 	resultCh := make(chan error, 1)
 	invokeAbort := func(pid uint32) {
-		req := &data.AbortRequest{
+		req := &AbortRequest{
 			ParticipantPid: pid,
 			Id:             txn.Id.ToProto(),
 		}
@@ -262,10 +262,10 @@ func (w *watchdog2PC) abort(ctx context.Context, txn storage.TxnRunning) {
 	}
 }
 
-func (w *watchdog2PC) markTimedout(ctx context.Context, txn storage.TxnRunning, releaseLocks bool) (bool, error) {
+func (w *watchdog2PC) markTimedout(ctx context.Context, txn running, releaseLocks bool) (bool, error) {
 	success := false
 	err := utils.RetryForeverE(ctx, &w.config.RetryPolicy.Backoff, w.withBreaker(func() error {
-		_, err := w.store.MarkTimedout(txn.Id.ToProto(), releaseLocks)
+		_, err := w.service.markTimedout(txn.Id.ToProto(), releaseLocks)
 
 		switch {
 		case err != nil:
@@ -284,7 +284,7 @@ func (w *watchdog2PC) markTimedout(ctx context.Context, txn storage.TxnRunning, 
 	return success, err
 }
 
-func (w *watchdog2PC) commit(ctx context.Context, txn storage.TxnRunning) {
+func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 	if !txn.Decision.Commit {
 		// The 2pc implementation does not store abort decisions with the "presumed abort"
 		// optimization. This execution path should be unreachable.
@@ -293,11 +293,12 @@ func (w *watchdog2PC) commit(ctx context.Context, txn storage.TxnRunning) {
 
 	resultCh := make(chan error, 1)
 	invokeCommit := func(pid uint32) {
-		req := &data.CommitRequest{
+		req := &CommitRequest{
 			ParticipantPid:  pid,
 			Id:              txn.Id.ToProto(),
 			CommitTimestamp: txn.Decision.CommitTimestamp,
 			FetchResults:    false,
+			ReadOnly:        false,
 		}
 
 		resultCh <- utils.RetryForeverE(ctx, &w.config.RetryPolicy.Backoff, w.withBreaker(func() error {
@@ -306,7 +307,7 @@ func (w *watchdog2PC) commit(ctx context.Context, txn storage.TxnRunning) {
 			switch {
 			case err != nil:
 				return errors.Wrapf(err, "2pc txn=%s commit failed at participant %d.", txn.Id, pid)
-			case status.State != data.TxnState_Committed:
+			case status.State != State_Committed:
 				return errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", txn.Id, status.State, pid)
 			default:
 				return nil

@@ -12,6 +12,7 @@ import (
 	"github.com/bcrusu/scout/internal/control/server/convert"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/logging"
@@ -78,7 +79,7 @@ func NewTracker(store storage.Store) *Tracker {
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
 		globalTimeOffset:      newGlobalTimeOffset(c.MaxTimeOffset),
-		dataServiceConfigJson: c.Service.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
+		dataServiceConfigJson: c.Service.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc, txn.TxnService_ServiceDesc),
 		apiServiceConfigJson:  c.Service.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
 }

@@ -40,6 +40,15 @@ func MakeKeySlice[K comparable, V any](m map[K]V) []K {
 	return keys
 }
 
+// MakeValueSlice returns map values slice.
+func MakeValueSlice[K comparable, V any](m map[K]V) []V {
+	values := make([]V, 0, len(m))
+	for _, v := range m {
+		values = append(values, v)
+	}
+	return values
+}
+
 // GetOptionalParameter is used by variadic functions to specify a single optional parameter.
 func GetOptionalParameter[T any](defaultValue T, values []T) T {
 	if len(values) == 1 {

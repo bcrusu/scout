@@ -1,18 +1,17 @@
-package storage
+package txn
 
 import (
 	"fmt"
 
-	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
 func mustEncodeValue(payload any) []byte {
-	var value *data.Value
+	var value *Value
 
 	switch x := payload.(type) {
 	case []byte:
-		value = &data.Value{Payload: &data.Value_Bytes{Bytes: x}}
+		value = &Value{Payload: &Value_Bytes{Bytes: x}}
 	default:
 		panic(fmt.Sprintf("unhandled payload type %T", payload))
 	}
@@ -25,6 +24,6 @@ func mustEncodeValue(payload any) []byte {
 	return bytes
 }
 
-func decodeValue(bytes []byte) (*data.Value, error) {
-	return utils.UnmarshalProto[data.Value](bytes)
+func decodeValue(bytes []byte) (*Value, error) {
+	return utils.UnmarshalProto[Value](bytes)
 }

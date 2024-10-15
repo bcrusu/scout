@@ -3,7 +3,8 @@ package txn
 import (
 	"context"
 
-	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/client"
+	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 )
@@ -16,43 +17,43 @@ import (
 //   - a second commit/fetch phase where results are fetched using the commit timestamp
 //     from the first phase and is equivalent to a snapshot read at that timestamp.
 type processorReadOnly struct {
-	client data.ServiceClient
+	client client.DataClient
 }
 
-func (p *processorReadOnly) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
-	status, err := p.prepare(ctx, txn)
+func (p *processorReadOnly) Process(ctx context.Context, t *Txn) (*TxnResult, error) {
+	status, err := p.prepare(ctx, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "read-only txn=%s failed to prepare.", txn.id)
+		return nil, errors.Wrapf(err, "read-only txn=%s failed to prepare.", t.id)
 	}
 
 	commitTimestamp, commit := p.decide(status)
 	if !commit {
-		return p.aggregateResults(txn, commit, commitTimestamp, status), nil
+		return p.aggregateResults(t, commit, commitTimestamp, status), nil
 	}
 
-	status, err = p.commit(ctx, commitTimestamp, txn)
+	status, err = p.commit(ctx, commitTimestamp, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "read-only txn=%s commit failed.", txn.id)
+		return nil, errors.Wrapf(err, "read-only txn=%s commit failed.", t.id)
 	}
 
-	return p.aggregateResults(txn, commit, commitTimestamp, status), nil
+	return p.aggregateResults(t, commit, commitTimestamp, status), nil
 }
 
-func (p *processorReadOnly) prepare(ctx context.Context, txn *Txn) (statusMap, error) {
+func (p *processorReadOnly) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	type prepareResult struct {
 		pid    uint32
-		status *data.TxnStatus
+		status *txn.Status
 		err    error
 	}
 
 	resultCh := make(chan prepareResult, 1)
 	invokePrepare := func(pid uint32) {
-		req := &data.PrepareRequest{
+		req := &txn.PrepareRequest{
 			ParticipantPid: pid,
 			ReadOnly:       true,
-			Txn: &data.Txn{
-				Id:      txn.id,
-				Actions: txn.participantActions[pid],
+			Txn: &txn.Txn{
+				Id:      t.id,
+				Actions: t.participantActions[pid],
 			}}
 
 		status, err := p.client.Prepare(ctx, req)
@@ -63,14 +64,14 @@ func (p *processorReadOnly) prepare(ctx context.Context, txn *Txn) (statusMap, e
 		}
 	}
 
-	for pid := range txn.participantActions {
+	for pid := range t.participantActions {
 		go invokePrepare(pid)
 	}
 
 	status := statusMap{}
-	errs := make([]error, 0, txn.ParticipantCount())
+	errs := make([]error, 0, t.ParticipantCount())
 
-	for range txn.ParticipantCount() {
+	for range t.ParticipantCount() {
 		r := <-resultCh
 		status[r.pid] = r.status
 		if r.err != nil {
@@ -89,7 +90,7 @@ func (p *processorReadOnly) decide(status statusMap) (uint64, bool) {
 	commitTimestamp := uint64(0)
 
 	for _, s := range status {
-		if s.State == data.TxnState_Prepared {
+		if s.State == txn.State_Prepared {
 			// commit hlc timestamp is min of participant timestamps
 			commitTimestamp = min(commitTimestamp, s.Timestamp)
 			continue
@@ -101,20 +102,21 @@ func (p *processorReadOnly) decide(status statusMap) (uint64, bool) {
 	return commitTimestamp, true
 }
 
-func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, txn *Txn) (statusMap, error) {
+func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, t *Txn) (statusMap, error) {
 	type commitResult struct {
 		pid    uint32
-		status *data.TxnStatus
+		status *txn.Status
 		err    error
 	}
 
 	resultCh := make(chan commitResult, 1)
 	invokeCommit := func(pid uint32) {
-		req := &data.CommitRequest{
+		req := &txn.CommitRequest{
 			ParticipantPid:  pid,
-			Id:              txn.id,
+			Id:              t.id,
 			CommitTimestamp: commitTimestamp,
 			FetchResults:    true,
+			ReadOnly:        true,
 		}
 
 		status, err := p.client.Commit(ctx, req)
@@ -125,20 +127,20 @@ func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, 
 		}
 	}
 
-	for pid := range txn.participantActions {
+	for pid := range t.participantActions {
 		go invokeCommit(pid)
 	}
 
 	status := statusMap{}
 	var errs []error
 
-	for range txn.ParticipantCount() {
+	for range t.ParticipantCount() {
 		r := <-resultCh
 
 		if r.err != nil {
-			errs = append(errs, errors.Wrapf(r.err, "read-only txn=%s commit failed at participant %d.", txn.id, r.pid))
-		} else if r.status.State != data.TxnState_Committed {
-			errs = append(errs, errors.Errorf("read-only txn=%s commit failed with state %s at participant %d.", txn.id, r.status.State, r.pid))
+			errs = append(errs, errors.Wrapf(r.err, "read-only txn=%s commit failed at participant %d.", t.id, r.pid))
+		} else if r.status.State != txn.State_Committed {
+			errs = append(errs, errors.Errorf("read-only txn=%s commit failed with state %s at participant %d.", t.id, r.status.State, r.pid))
 		} else {
 			status[r.pid] = r.status
 		}
@@ -151,14 +153,14 @@ func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, 
 	return status, nil
 }
 
-func (p *processorReadOnly) aggregateResults(txn *Txn, commit bool, commitTimestamp uint64, status statusMap) *TxnResult {
-	actionStatus := map[uint32]*data.ActionStatus{}
+func (p *processorReadOnly) aggregateResults(t *Txn, commit bool, commitTimestamp uint64, status statusMap) *TxnResult {
+	actionStatus := map[uint32]*txn.ActionStatus{}
 	for _, s := range status {
 		utils.AppendMap(actionStatus, s.ActionStatus)
 	}
 
 	result := &TxnResult{
-		Id:           txn.id,
+		Id:           t.id,
 		Success:      commit,
 		ActionStatus: actionStatus,
 	}

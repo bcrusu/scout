@@ -183,9 +183,9 @@ func (h *Hlc) checkUpdateTimeOffset(inPhysical uint64) error {
 		// keep rushers correct
 		diff = inPhysical - h.physical
 	} else {
-		// and a bit more lenient with stragglers as they do not
+		// more lenient with stragglers as they do not
 		// change our h.physical value
-		allowed = 3 * h.maxOffset
+		allowed = 10 * h.maxOffset
 		diff = h.physical - inPhysical
 	}
 

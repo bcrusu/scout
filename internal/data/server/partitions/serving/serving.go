@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/control"
-	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/data/server/partitions/follower"
 	"github.com/bcrusu/scout/internal/data/server/partitions/leader"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/logging"
@@ -30,7 +31,7 @@ type Serving struct {
 	pid          uint32
 	localReplica string
 	multiraft    *multiraft.MultiRaft
-	dataClient   data.ServiceClient
+	dataClient   client.DataClient
 	db           kv.DB
 	log          logging.Logger
 	getStatusCh  chan chan<- *control.DataServerStatus_Replica
@@ -38,7 +39,7 @@ type Serving struct {
 	cancelFunc   context.CancelFunc
 }
 
-func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *Serving {
+func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db kv.DB) *Serving {
 	return &Serving{
 		pid:          pid,
 		localReplica: localReplica,
@@ -70,8 +71,10 @@ func (p *Serving) mainLoop(ctx context.Context) {
 
 	var partConfig *control.DataServerConfig_Partition
 	var dataServers *control.DataServers
+
+	txnManager := txn.NewManager(p.pid, p.db)
+	fsm := storage.NewFSM(p.pid, p.db, txnManager)
 	var raft *multiraft.Raft
-	var store storage.Store
 	isLeader := false
 
 	updateRaft := func() {
@@ -79,13 +82,10 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			eventbus.TryPublishRefreshDataServers()
 			return
 		} else if raft == nil {
-			fsm := storage.NewFSM(p.pid, p.db)
-
 			if r, err := shared.CreateRaft(p.multiraft, partConfig.Name, p.localReplica, fsm, servers...); err != nil {
 				p.log.WithError(err).Error(ctx, "Failed to create Raft group.")
 			} else {
 				raft = r
-				store = storage.NewStore(raft, fsm)
 			}
 		} else if isLeader {
 			p.updateRaftServers(raft, servers)
@@ -111,11 +111,14 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			go old.Stop()
 
 			var new service
+			store := &raftStore{raft: raft}
 
 			if isLeader {
-				new = leader.New(p.pid, store, p.db, p.dataClient)
+				txnService := txn.NewService(p.pid, store, p.db, txnManager, p.dataClient)
+				new = leader.New(p.pid, p.db, txnService)
 			} else {
-				new = follower.New(p.pid, store, p.db)
+				txnService := txn.NewServiceNoWatchdog(p.pid, store, p.db, txnManager)
+				new = follower.New(p.pid, p.db, txnService)
 			}
 
 			drainer := newPartitionDrainer(new)
@@ -154,7 +157,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 				LeaderTerm:        x.LeaderTerm,
 				LeaderLastContact: durationpb.New(x.LeaderLastContact),
 				CommitedIndex:     x.CommitedIndex,
-				AppliedIndex:      store.AppliedIndex(),
+				AppliedIndex:      fsm.AppliedIndex(),
 			}
 		case <-ctx.Done():
 			if old := p.partition.Swap(nil); old != nil {

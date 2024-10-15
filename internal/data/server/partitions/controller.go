@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/control"
-	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/data/server/events"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
@@ -28,13 +28,13 @@ type Controller struct {
 	id         identity.Identity
 	db         kv.DB
 	multiraft  *multiraft.MultiRaft
-	dataClient data.ServiceClient
+	dataClient client.DataClient
 	cancelFunc context.CancelFunc
 	lock       sync.RWMutex
 	replicas   map[uint32]*replica // map[partition_id]*replica
 }
 
-func NewController(id identity.Identity, db kv.DB, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient) *Controller {
+func NewController(id identity.Identity, db kv.DB, multiraft *multiraft.MultiRaft, dataClient client.DataClient) *Controller {
 	c := &Controller{
 		id:        id,
 		db:        db,

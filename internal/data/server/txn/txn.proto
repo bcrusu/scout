@@ -1,11 +1,60 @@
 syntax = "proto3";
 
-package data;
+package txn;
 
-option go_package = "github.com/bcrusu/scout/internal/data";
+option go_package = "github.com/bcrusu/scout/internal/data/server/txn";
 
-// TxnId uniquely identifies a transaction in the cluster.
-message TxnId {
+message Snapshot {
+    repeated Status status = 1;
+    repeated Txn prepared = 2;
+    repeated Decision decisions = 3;
+    uint64 max_timestamp = 4;
+}
+
+message Autocommit {
+    uint64 timestamp = 1;
+    Txn txn = 2;
+}
+
+message Prepare {
+    uint64 timestamp = 1;
+    Txn txn = 2;
+}
+
+message Commit {
+    uint64 timestamp = 1;
+    Id id = 2;
+}
+
+message Abort {
+    uint64 timestamp = 1;
+    Id id = 2;
+}
+
+message StoreDecision {
+    uint64 timestamp = 1;
+    Decision decision = 2;
+}
+
+// The watchdog will apply the command twice for each timedout txn
+// and the second will release the locks, completing the 2pc process.
+message MarkTimedout {
+    uint64 timestamp = 1;
+    Id id = 2;
+    bool release_locks = 3;
+}
+
+message Batch {
+    repeated Autocommit autocommit = 1;
+    repeated Prepare prepare = 2;
+    repeated Commit commit = 3;
+    repeated Abort abort = 4;
+    repeated StoreDecision store_decision = 5;
+    repeated MarkTimedout mark_timedout = 6;
+}
+
+// Id uniquely identifies a transaction in the cluster.
+message Id {
     // The principal partition is where the txn status is written.
     // For a single-partition/autocommit txn, it corresponds to the
     // the sole partition involved in the transaction.
@@ -18,19 +67,19 @@ message TxnId {
 
     // Originating server HLC from when txn is created. It acts as
     // a unique identifier and differs from the commit timestamp found
-    // in TxnStatus which is decided by the participants.
+    // in Status which is decided by the participants.
     uint64 timestamp = 3;
 }
 
 message Txn {
-    TxnId id = 1;
+    Id id = 1;
     repeated Action actions = 2;
     
     // used only for 2PC txn and sent only to the principal partition. 
     repeated uint32 participant_pids = 3;
 }
 
-enum TxnState {
+enum State {
     Pending = 0;
     Prepared = 1;
     Committed = 2;
@@ -40,10 +89,10 @@ enum TxnState {
     Decided = 6;
 }
 
-message TxnStatus  {
-    TxnId id = 1;
+message Status  {
+    Id id = 1;
     uint64 timestamp = 2;
-    TxnState state = 3;
+    State state = 3;
     map<uint32, ActionStatus> action_status = 4;
     repeated uint32 participant_pids = 5;
 }
@@ -133,6 +182,15 @@ message Action {
     }
 }
 
+message Lock {
+    uint32 action_id = 1;
+
+    oneof payload {
+        KeyLock key_lock = 2;
+        RangeLock range_lock = 3;
+    }
+}
+
 message Value {
     oneof payload {
         bytes bytes = 1;
@@ -154,8 +212,8 @@ message ActionStatus {
     repeated Value results = 3;
 }
 
-message TxnDecision {
-    TxnId id = 1;
+message Decision {
+    Id id = 1;
     bool commit = 2;
 	uint64 commit_timestamp = 3;
 }

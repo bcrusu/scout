@@ -3,7 +3,8 @@ package txn
 import (
 	"context"
 
-	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/client"
+	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
@@ -13,16 +14,16 @@ import (
 // other connection-specific and response status-specific retries are
 // handled by the rpc connection layer.
 type clientRetrier struct {
-	data.ServiceClient
+	client.DataClient
 	policy utils.RetryPolicy
 }
 
-func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
-	var last *data.TxnStatus
+func (c clientRetrier) Autocommit(ctx context.Context, req *txn.AutocommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {
+	var last *txn.Status
 	var err error
 
 	utils.RetryContextB(ctx, c.policy, func() error {
-		last, err = c.ServiceClient.Autocommit(ctx, req, opts...)
+		last, err = c.DataClient.Autocommit(ctx, req, opts...)
 
 		// only retry txn status error
 		if err != nil || !c.needsRetry(last) {
@@ -36,12 +37,12 @@ func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitReque
 	return last, err
 }
 
-func (c clientRetrier) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
-	var last *data.TxnStatus
+func (c clientRetrier) Prepare(ctx context.Context, req *txn.PrepareRequest, opts ...grpc.CallOption) (*txn.Status, error) {
+	var last *txn.Status
 	var err error
 
 	utils.RetryContextB(ctx, c.policy, func() error {
-		last, err = c.ServiceClient.Prepare(ctx, req, opts...)
+		last, err = c.DataClient.Prepare(ctx, req, opts...)
 
 		// only retry txn status error
 		if err != nil || !c.needsRetry(last) {
@@ -55,8 +56,8 @@ func (c clientRetrier) Prepare(ctx context.Context, req *data.PrepareRequest, op
 	return last, err
 }
 
-func (c clientRetrier) needsRetry(status *data.TxnStatus) bool {
-	if status.State != data.TxnState_Failed {
+func (c clientRetrier) needsRetry(status *txn.Status) bool {
+	if status.State != txn.State_Failed {
 		return false
 	}
 
@@ -69,6 +70,6 @@ func (c clientRetrier) needsRetry(status *data.TxnStatus) bool {
 	return true
 }
 
-func (c clientRetrier) shouldRetryCode(code data.ActionStatus_Code) bool {
-	return code == data.ActionStatus_LockFailed
+func (c clientRetrier) shouldRetryCode(code txn.ActionStatus_Code) bool {
+	return code == txn.ActionStatus_LockFailed
 }

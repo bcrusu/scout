@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package txn;
+
+option go_package = "github.com/bcrusu/scout/internal/data/server/txn";
+
+import "internal/data/server/txn/txn.proto";
+
+// Service represents the data txn service.
+service TxnService {
+    rpc Autocommit(AutocommitRequest) returns (Status);
+    rpc Prepare(PrepareRequest) returns (Status);
+    rpc Commit(CommitRequest) returns (Status);
+    rpc Abort(AbortRequest) returns (Status);
+    rpc StoreDecision(Decision) returns (Status);
+}
+
+message AutocommitRequest {
+    uint32 partition_id = 1;
+    Txn txn = 2;
+
+    // only for read-only snapshot txn
+    uint64 read_timestamp = 3;
+}
+
+message PrepareRequest {
+    uint32 participant_pid = 1;
+    Txn txn = 2;
+    bool read_only = 3;
+}
+
+message CommitRequest {
+    uint32 participant_pid = 1;
+    Id id = 2;
+    uint64 commit_timestamp = 3;
+    bool fetch_results = 4;
+    bool read_only = 5;
+}
+
+message AbortRequest {
+    uint32 participant_pid = 1;
+    Id id = 2;
+}

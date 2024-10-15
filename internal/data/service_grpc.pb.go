@@ -19,11 +19,6 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Service_Autocommit_FullMethodName      = "/data.Service/Autocommit"
-	Service_Prepare_FullMethodName         = "/data.Service/Prepare"
-	Service_Commit_FullMethodName          = "/data.Service/Commit"
-	Service_Abort_FullMethodName           = "/data.Service/Abort"
-	Service_StoreDecision_FullMethodName   = "/data.Service/StoreDecision"
 	Service_StreamPartition_FullMethodName = "/data.Service/StreamPartition"
 )
 
@@ -33,11 +28,6 @@ const (
 //
 // Service represents the data storage service.
 type ServiceClient interface {
-	Autocommit(ctx context.Context, in *AutocommitRequest, opts ...grpc.CallOption) (*TxnStatus, error)
-	Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*TxnStatus, error)
-	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*TxnStatus, error)
-	Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*TxnStatus, error)
-	StoreDecision(ctx context.Context, in *TxnDecision, opts ...grpc.CallOption) (*TxnStatus, error)
 	StreamPartition(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamResponse], error)
 }
 
@@ -47,56 +37,6 @@ type serviceClient struct {
 
 func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
-}
-
-func (c *serviceClient) Autocommit(ctx context.Context, in *AutocommitRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TxnStatus)
-	err := c.cc.Invoke(ctx, Service_Autocommit_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TxnStatus)
-	err := c.cc.Invoke(ctx, Service_Prepare_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TxnStatus)
-	err := c.cc.Invoke(ctx, Service_Commit_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) Abort(ctx context.Context, in *AbortRequest, opts ...grpc.CallOption) (*TxnStatus, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TxnStatus)
-	err := c.cc.Invoke(ctx, Service_Abort_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) StoreDecision(ctx context.Context, in *TxnDecision, opts ...grpc.CallOption) (*TxnStatus, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TxnStatus)
-	err := c.cc.Invoke(ctx, Service_StoreDecision_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *serviceClient) StreamPartition(ctx context.Context, in *StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[StreamResponse], error) {
@@ -124,11 +64,6 @@ type Service_StreamPartitionClient = grpc.ServerStreamingClient[StreamResponse]
 //
 // Service represents the data storage service.
 type ServiceServer interface {
-	Autocommit(context.Context, *AutocommitRequest) (*TxnStatus, error)
-	Prepare(context.Context, *PrepareRequest) (*TxnStatus, error)
-	Commit(context.Context, *CommitRequest) (*TxnStatus, error)
-	Abort(context.Context, *AbortRequest) (*TxnStatus, error)
-	StoreDecision(context.Context, *TxnDecision) (*TxnStatus, error)
 	StreamPartition(*StreamRequest, grpc.ServerStreamingServer[StreamResponse]) error
 	mustEmbedUnimplementedServiceServer()
 }
@@ -140,21 +75,6 @@ type ServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedServiceServer struct{}
 
-func (UnimplementedServiceServer) Autocommit(context.Context, *AutocommitRequest) (*TxnStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Autocommit not implemented")
-}
-func (UnimplementedServiceServer) Prepare(context.Context, *PrepareRequest) (*TxnStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Prepare not implemented")
-}
-func (UnimplementedServiceServer) Commit(context.Context, *CommitRequest) (*TxnStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
-}
-func (UnimplementedServiceServer) Abort(context.Context, *AbortRequest) (*TxnStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Abort not implemented")
-}
-func (UnimplementedServiceServer) StoreDecision(context.Context, *TxnDecision) (*TxnStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StoreDecision not implemented")
-}
 func (UnimplementedServiceServer) StreamPartition(*StreamRequest, grpc.ServerStreamingServer[StreamResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method StreamPartition not implemented")
 }
@@ -179,96 +99,6 @@ func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Service_Autocommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AutocommitRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).Autocommit(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Service_Autocommit_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Autocommit(ctx, req.(*AutocommitRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Service_Prepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PrepareRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).Prepare(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Service_Prepare_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Prepare(ctx, req.(*PrepareRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Service_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CommitRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).Commit(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Service_Commit_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Commit(ctx, req.(*CommitRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Service_Abort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AbortRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).Abort(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Service_Abort_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Abort(ctx, req.(*AbortRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Service_StoreDecision_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TxnDecision)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).StoreDecision(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Service_StoreDecision_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).StoreDecision(ctx, req.(*TxnDecision))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _Service_StreamPartition_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(StreamRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -286,28 +116,7 @@ type Service_StreamPartitionServer = grpc.ServerStreamingServer[StreamResponse]
 var Service_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "data.Service",
 	HandlerType: (*ServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Autocommit",
-			Handler:    _Service_Autocommit_Handler,
-		},
-		{
-			MethodName: "Prepare",
-			Handler:    _Service_Prepare_Handler,
-		},
-		{
-			MethodName: "Commit",
-			Handler:    _Service_Commit_Handler,
-		},
-		{
-			MethodName: "Abort",
-			Handler:    _Service_Abort_Handler,
-		},
-		{
-			MethodName: "StoreDecision",
-			Handler:    _Service_StoreDecision_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "StreamPartition",

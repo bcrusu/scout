@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/bcrusu/scout/internal/control"
-	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/data/server/partitions/joining"
 	"github.com/bcrusu/scout/internal/data/server/partitions/leaving"
 	"github.com/bcrusu/scout/internal/data/server/partitions/serving"
@@ -23,7 +23,7 @@ type replica struct {
 	partName    string
 	replicaName string
 	multiraft   *multiraft.MultiRaft
-	dataClient  data.ServiceClient
+	dataClient  client.DataClient
 	db          kv.DB
 	log         logging.LoggerNoContext
 	holder      atomic.Pointer[holder]
@@ -35,7 +35,7 @@ type holder struct {
 	instance shared.Replica
 }
 
-func newReplica(pid uint32, partName, replicaName string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *replica {
+func newReplica(pid uint32, partName, replicaName string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db kv.DB) *replica {
 	return &replica{
 		pid:         pid,
 		partName:    partName,

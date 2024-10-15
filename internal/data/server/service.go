@@ -5,19 +5,22 @@ import (
 
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/partitions"
+	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc"
 	"google.golang.org/grpc"
 )
 
 var (
-	_ rpc.Service        = (*DataService)(nil)
-	_ data.ServiceServer = (*DataService)(nil)
+	_ rpc.Service          = (*DataService)(nil)
+	_ data.ServiceServer   = (*DataService)(nil)
+	_ txn.TxnServiceServer = (*DataService)(nil)
 )
 
 // DataService represents the data service.
 type DataService struct {
 	data.UnsafeServiceServer
+	txn.UnsafeTxnServiceServer
 	controller *partitions.Controller
 }
 
@@ -30,17 +33,18 @@ func NewDataService(controller *partitions.Controller) *DataService {
 
 func (s *DataService) RegisterToServer(server *grpc.Server) {
 	data.RegisterServiceServer(server, s)
+	txn.RegisterTxnServiceServer(server, s)
 }
 
-func (s *DataService) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
-	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
+func (s *DataService) Autocommit(ctx context.Context, req *txn.AutocommitRequest) (*txn.Status, error) {
+	if partition, ok := s.controller.GetService(req.PartitionId); !ok {
 		return nil, errors.Unavailable
 	} else {
 		return partition.Autocommit(ctx, req)
 	}
 }
 
-func (s *DataService) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
+func (s *DataService) Prepare(ctx context.Context, req *txn.PrepareRequest) (*txn.Status, error) {
 	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
@@ -48,7 +52,7 @@ func (s *DataService) Prepare(ctx context.Context, req *data.PrepareRequest) (*d
 	}
 }
 
-func (s *DataService) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
+func (s *DataService) Commit(ctx context.Context, req *txn.CommitRequest) (*txn.Status, error) {
 	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
@@ -56,7 +60,7 @@ func (s *DataService) Commit(ctx context.Context, req *data.CommitRequest) (*dat
 	}
 }
 
-func (s *DataService) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
+func (s *DataService) Abort(ctx context.Context, req *txn.AbortRequest) (*txn.Status, error) {
 	if partition, ok := s.controller.GetService(req.ParticipantPid); !ok {
 		return nil, errors.Unavailable
 	} else {
@@ -64,7 +68,7 @@ func (s *DataService) Abort(ctx context.Context, req *data.AbortRequest) (*data.
 	}
 }
 
-func (s *DataService) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*data.TxnStatus, error) {
+func (s *DataService) StoreDecision(ctx context.Context, dec *txn.Decision) (*txn.Status, error) {
 	if partition, ok := s.controller.GetService(dec.Id.PrincipalPid); !ok {
 		return nil, errors.Unavailable
 	} else {

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/scout/internal/api/server/txn"
-	"github.com/bcrusu/scout/internal/data"
+	dtxn "github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -83,7 +83,7 @@ func (s *Store) getSingleValue(r *txn.TxnResult, actionID uint32) (*api.ValueAt,
 	value := status.Results[0]
 
 	switch x := value.Payload.(type) {
-	case *data.Value_Bytes:
+	case *dtxn.Value_Bytes:
 		value, err := utils.UnmarshalProto[api.Value](x.Bytes)
 		if err != nil {
 			return nil, err

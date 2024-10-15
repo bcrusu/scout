@@ -4,68 +4,15 @@ package data.storage;
 
 option go_package = "github.com/bcrusu/scout/internal/data/server/storage";
 
-import "internal/data/common.proto";
+import "internal/data/server/txn/txn.proto";
 
 message Command {
     oneof payload {
-        TxnBatch batch = 1;
+        txn.Batch batch = 1;
     }
-}
-
-message TxnAutocommit {
-    uint64 timestamp = 1;
-    Txn txn = 2;
-}
-
-message TxnPrepare {
-    uint64 timestamp = 1;
-    Txn txn = 2;
-}
-
-message TxnCommit {
-    uint64 timestamp = 1;
-    TxnId id = 2;
-}
-
-message TxnAbort {
-    uint64 timestamp = 1;
-    TxnId id = 2;
-}
-
-message StoreTxnDecision {
-    uint64 timestamp = 1;
-    TxnDecision decision = 2;
-}
-
-// The watchdog will apply the command twice for each timedout txn
-// and the second will release the locks, completing the 2pc process.
-message MarkTxnTimedout {
-    uint64 timestamp = 1;
-    TxnId id = 2;
-    bool release_locks = 3;
-}
-
-message TxnBatch {
-    repeated TxnAutocommit autocommit = 1;
-    repeated TxnPrepare prepare = 2;
-    repeated TxnCommit commit = 3;
-    repeated TxnAbort abort = 4;
-    repeated StoreTxnDecision store_decision = 5;
-    repeated MarkTxnTimedout mark_timedout = 6;
 }
 
 message Snapshot {
     uint64 index = 1;
-    repeated TxnStatus status = 2;
-    repeated Txn prepared = 3;
-    uint64 max_timestamp = 4;
-}
-
-message Lock {
-    uint32 action_id = 1;
-
-    oneof payload {
-        KeyLock key_lock = 2;
-        RangeLock range_lock = 3;
-    }
+    txn.Snapshot txn_snapshot = 2;
 }

@@ -5,41 +5,40 @@ import (
 
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
-	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
-	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
 
 var (
-	_ data.ServiceServer = (*Leader)(nil)
-	_ utils.Lifecycle    = (*Leader)(nil)
+	_ data.ServiceServer   = (*Leader)(nil)
+	_ txn.TxnServiceServer = (*Leader)(nil)
+	_ utils.Lifecycle      = (*Leader)(nil)
 )
 
 // Leader implements the Leader role.
 type Leader struct {
 	data.UnsafeServiceServer
-	pid         uint32
-	log         logging.Logger
-	store       storage.Store
-	watchdog2pc *watchdog2PC
-	streamer    *shared.PartitionStreamer
+	txn.UnsafeTxnServiceServer
+	pid      uint32
+	log      logging.Logger
+	txn      *txn.Service
+	streamer *shared.PartitionStreamer
 }
 
-func New(pid uint32, store storage.Store, db kv.DB, dataClient data.ServiceClient) *Leader {
+func New(pid uint32, db kv.DB, txn *txn.Service) *Leader {
 	return &Leader{
-		pid:         pid,
-		log:         logging.WithComponent("leader").With("partition", pid),
-		store:       store,
-		watchdog2pc: newWatchdog2PC(pid, store, dataClient),
-		streamer:    shared.NewPartitionStreamer(db),
+		pid:      pid,
+		log:      logging.WithComponent("leader").With("partition", pid),
+		txn:      txn,
+		streamer: shared.NewPartitionStreamer(db),
 	}
 }
 
 func (n *Leader) Start(ctx context.Context) error {
-	if err := n.watchdog2pc.Start(ctx); err != nil {
+	if err := n.txn.Start(ctx); err != nil {
 		return err
 	}
 
@@ -48,7 +47,7 @@ func (n *Leader) Start(ctx context.Context) error {
 }
 
 func (n *Leader) Stop() {
-	n.watchdog2pc.Stop()
+	n.txn.Stop()
 	n.log.NoContext().Debug("Stopped leader")
 }
 
@@ -56,54 +55,24 @@ func (n *Leader) IsLeader() bool {
 	return true
 }
 
-func (n *Leader) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
-	return n.store.Autocommit(req.Txn, req.ReadTimestamp)
+func (n *Leader) Autocommit(ctx context.Context, req *txn.AutocommitRequest) (*txn.Status, error) {
+	return n.txn.Autocommit(ctx, req)
 }
 
-func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
-	status, err := n.store.Prepare(req.Txn)
-	if err == nil {
-		n.watchdog2pc.UpdateTxnStatus(status, req.Txn, nil)
-	}
-
-	return status, err
+func (n *Leader) Prepare(ctx context.Context, req *txn.PrepareRequest) (*txn.Status, error) {
+	return n.txn.Prepare(ctx, req)
 }
 
-func (n *Leader) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
-	status, err := n.store.Commit(req.Id, req.CommitTimestamp)
-	if err == nil {
-		n.watchdog2pc.UpdateTxnStatus(status, nil, nil)
-	}
-
-	// TODO: cmd.FetchResults
-
-	return status, err
+func (n *Leader) Commit(ctx context.Context, req *txn.CommitRequest) (*txn.Status, error) {
+	return n.txn.Commit(ctx, req)
 }
 
-func (n *Leader) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
-	status, err := n.store.Abort(req.Id)
-	if err == nil {
-		n.watchdog2pc.UpdateTxnStatus(status, nil, nil)
-	}
-
-	return status, err
+func (n *Leader) Abort(ctx context.Context, req *txn.AbortRequest) (*txn.Status, error) {
+	return n.txn.Abort(ctx, req)
 }
 
-func (n *Leader) StoreDecision(ctx context.Context, dec *data.TxnDecision) (*data.TxnStatus, error) {
-	if !dec.Commit {
-		// only commit decisions are stored
-		return nil, errors.InvalidRequest
-	} else if dec.Id.PrincipalPid != n.pid {
-		n.log.Warn(ctx, "Received 2pc decision for another partition.", "principal_pid", dec.Id.PrincipalPid)
-		return nil, errors.PermissionDenied
-	}
-
-	status, err := n.store.StoreDecision(dec)
-	if err == nil {
-		n.watchdog2pc.UpdateTxnStatus(status, nil, dec)
-	}
-
-	return status, err
+func (n *Leader) StoreDecision(ctx context.Context, dec *txn.Decision) (*txn.Status, error) {
+	return n.txn.StoreDecision(ctx, dec)
 }
 
 func (n *Leader) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
