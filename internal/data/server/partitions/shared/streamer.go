@@ -48,46 +48,46 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 		return err
 	}
 
-	entries := make([]*data.KVEntry, 0, s.config.MaxStreamingSize)
+	records := make([]*data.KVRecord, 0, s.config.MaxStreamingSize)
 
-	for entry, err := range iter {
+	for record, err := range iter {
 		if err != nil {
 			return err
 		}
 
-		entries = append(entries, &data.KVEntry{
+		records = append(records, &data.KVRecord{
 			Address: &data.KVAddress{
-				Keyspace:  entry.Address.Keyspace,
-				Key:       entry.Address.Key,
-				Timestamp: entry.Address.Timestamp,
+				Keyspace:  record.Address.Keyspace,
+				Key:       record.Address.Key,
+				Timestamp: record.Address.Timestamp,
 			},
-			Data: entry.Data,
+			Data: record.Data,
 		})
 
-		if len(entries) < s.config.MaxStreamingSize {
+		if len(records) < s.config.MaxStreamingSize {
 			continue
 		}
 
 		resp := &data.StreamResponse{
-			Entries:   entries,
+			Records:   records,
 			Completed: false,
 		}
 
 		if err := stream.Send(resp); err != nil {
-			s.log.WithError(err).Error(stream.Context(), "Failed to send entries.")
+			s.log.WithError(err).Error(stream.Context(), "Failed to send records.")
 			return nil // client will reconnect and request from last received address
 		}
 
-		entries = entries[:0]
+		records = records[:0]
 	}
 
 	resp := &data.StreamResponse{
-		Entries:   entries,
+		Records:   records,
 		Completed: true,
 	}
 
 	if err := stream.Send(resp); err != nil {
-		s.log.WithError(err).Error(stream.Context(), "Failed to send entries.")
+		s.log.WithError(err).Error(stream.Context(), "Failed to send records.")
 	}
 
 	return nil

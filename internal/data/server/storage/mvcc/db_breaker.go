@@ -2,7 +2,6 @@ package mvcc
 
 import (
 	"github.com/bcrusu/scout/internal/data/server/config"
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
@@ -19,9 +18,9 @@ func NewDBBreaker(db DB) *DBBreaker {
 	}
 }
 
-func (d *DBBreaker) Get(addr kv.Address) *Entry {
-	value, err := utils.RetryR(d.retryPolicy, func() (*Entry, error) {
-		return d.db.Get(addr)
+func (d *DBBreaker) Get(pid uint32, timestamp uint64, addrs ...Address) []*Record {
+	value, err := utils.RetryR(d.retryPolicy, func() ([]*Record, error) {
+		return d.db.Get(pid, timestamp, addrs...)
 	})
 
 	if err != nil {
@@ -31,9 +30,9 @@ func (d *DBBreaker) Get(addr kv.Address) *Entry {
 	return value
 }
 
-func (d *DBBreaker) GetRange(rang Range) Iterator {
+func (d *DBBreaker) GetRange(pid uint32, timestamp uint64, start, end Address) Iterator {
 	iter, err := utils.RetryR(d.retryPolicy, func() (Iterator, error) {
-		return d.db.GetRange(rang)
+		return d.db.GetRange(pid, timestamp, start, end)
 	})
 
 	if err != nil {
@@ -43,9 +42,9 @@ func (d *DBBreaker) GetRange(rang Range) Iterator {
 	return iter
 }
 
-func (d *DBBreaker) Exists(addr kv.Address) bool {
+func (d *DBBreaker) Exists(pid uint32, timestamp uint64, addr Address) bool {
 	result, err := utils.RetryR(d.retryPolicy, func() (bool, error) {
-		return d.db.Exists(addr)
+		return d.db.Exists(pid, timestamp, addr)
 	})
 
 	if err != nil {
@@ -55,9 +54,9 @@ func (d *DBBreaker) Exists(addr kv.Address) bool {
 	return result
 }
 
-func (d *DBBreaker) ExistsInRange(rang Range) bool {
+func (d *DBBreaker) ExistsInRange(pid uint32, timestamp uint64, start, end Address) bool {
 	result, err := utils.RetryR(d.retryPolicy, func() (bool, error) {
-		return d.db.ExistsInRange(rang)
+		return d.db.ExistsInRange(pid, timestamp, start, end)
 	})
 
 	if err != nil {
@@ -67,9 +66,9 @@ func (d *DBBreaker) ExistsInRange(rang Range) bool {
 	return result
 }
 
-func (d *DBBreaker) Put(index uint64, entries ...Entry) {
+func (d *DBBreaker) Put(pid uint32, index uint64, records ...Record) {
 	err := utils.RetryE(d.retryPolicy, func() error {
-		return d.db.Put(index, entries...)
+		return d.db.Put(pid, index, records...)
 	})
 
 	if err != nil {

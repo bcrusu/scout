@@ -11,7 +11,7 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/partitions/leaving"
 	"github.com/bcrusu/scout/internal/data/server/partitions/serving"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
@@ -24,7 +24,7 @@ type replica struct {
 	replicaName string
 	multiraft   *multiraft.MultiRaft
 	dataClient  client.DataClient
-	db          kv.DB
+	db          storage.DB
 	log         logging.LoggerNoContext
 	holder      atomic.Pointer[holder]
 	cancelFunc  context.CancelFunc
@@ -35,7 +35,7 @@ type holder struct {
 	instance shared.Replica
 }
 
-func newReplica(pid uint32, partName, replicaName string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db kv.DB) *replica {
+func newReplica(pid uint32, partName, replicaName string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db storage.DB) *replica {
 	return &replica{
 		pid:         pid,
 		partName:    partName,
@@ -106,7 +106,7 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	case control.DataServerConfig_Joining:
 		switch oldState {
 		case control.DataServerConfig_Stopped:
-			new = joining.New(p.pid, p.replicaName, p.multiraft, p.dataClient, p.db)
+			new = joining.New(p.pid, p.replicaName, p.multiraft, p.dataClient, p.db.KV())
 		case control.DataServerConfig_Joining:
 			new = old
 		}
@@ -122,7 +122,7 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 		case control.DataServerConfig_Leaving:
 			new = old
 		default:
-			new = leaving.New(p.pid, p.partName, p.replicaName, p.multiraft, p.db)
+			new = leaving.New(p.pid, p.partName, p.replicaName, p.multiraft, p.db.KV())
 		}
 	default:
 		panic(fmt.Sprintf("unhandled replica state %s", newState))

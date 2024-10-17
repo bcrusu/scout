@@ -6,6 +6,6 @@ import (
 	"github.com/bcrusu/scout/internal/utils/tests"
 )
 
-func TestUtils(t *testing.T) {
+func TestSuite(t *testing.T) {
 	tests.NewSuite(t, "utils test suite")
 }

@@ -1,7 +1,6 @@
 package txn
 
 import (
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
@@ -20,7 +19,7 @@ func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
 		MarkTimedout:  make([]BatchResult, len(batch.MarkTimedout)),
 	}
 
-	allWrites := make([]mvcc.Entry, 0, batch.ActionCount())
+	allWrites := make([]mvcc.Record, 0, batch.ActionCount())
 
 	for i, cmd := range batch.Autocommit {
 		status, writes, err := p.applyAutocommit(cmd)
@@ -55,7 +54,7 @@ func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
 	}
 
 	// call Put even when allWrites is empty to update the stored Raft index.
-	p.db.Put(index, allWrites...)
+	p.db.Put(p.pid, index, allWrites...)
 
 	p.maxTimestamp = max(p.maxTimestamp, batch.MaxTimestamp())
 
@@ -68,7 +67,7 @@ func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
 	return result
 }
 
-func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Entry, error) {
+func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Record, error) {
 	id := cmd.Txn.Id.id()
 	status, ok := p.status[id]
 	if ok {
@@ -134,7 +133,7 @@ func (p *Manager) applyPrepare(cmd *Prepare) (*Status, error) {
 	return status, nil
 }
 
-func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Entry, error) {
+func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Record, error) {
 	id := cmd.Id.id()
 	status, ok := p.status[id]
 	if !ok {
@@ -203,7 +202,7 @@ func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
-	} else if id.PrincipalPid != p.partitionID {
+	} else if id.PrincipalPid != p.pid {
 		return nil, errors.PermissionDenied
 	}
 
@@ -236,7 +235,7 @@ func (p *Manager) applyMarkTimedout(cmd *MarkTimedout) (*Status, error) {
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
-	} else if id.PrincipalPid != p.partitionID {
+	} else if id.PrincipalPid != p.pid {
 		return nil, errors.PermissionDenied
 	}
 
@@ -272,35 +271,23 @@ func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
 		case *Action_Insert:
-			addr := kv.Address{
-				Keyspace:  x.Insert.Keyspace,
-				Key:       x.Insert.Key,
-				Timestamp: timestamp - 1,
-			}
+			addr := mvcc.NewAddress(x.Insert.Keyspace, x.Insert.Key)
 
-			if p.db.Exists(addr) {
+			if p.db.Exists(p.pid, timestamp-1, addr) {
 				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyAlreadyExists)
 			}
 		case *Action_Update:
-			addr := kv.Address{
-				Keyspace:  x.Update.Keyspace,
-				Key:       x.Update.Key,
-				Timestamp: timestamp - 1,
-			}
+			addr := mvcc.NewAddress(x.Update.Keyspace, x.Update.Key)
 
-			if !p.db.Exists(addr) {
+			if !p.db.Exists(p.pid, timestamp-1, addr) {
 				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyNotFound)
 			}
 		case *Action_Upsert:
 			// pass
 		case *Action_Delete:
-			addr := kv.Address{
-				Keyspace:  x.Delete.Keyspace,
-				Key:       x.Delete.Key,
-				Timestamp: timestamp - 1,
-			}
+			addr := mvcc.NewAddress(x.Delete.Keyspace, x.Delete.Key)
 
-			if !p.db.Exists(addr) {
+			if !p.db.Exists(p.pid, timestamp-1, addr) {
 				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyNotFound)
 			}
 		case *Action_LockKey:
@@ -308,13 +295,9 @@ func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 				continue
 			}
 
-			addr := kv.Address{
-				Keyspace:  x.LockKey.Lock.Keyspace,
-				Key:       x.LockKey.Lock.Key,
-				Timestamp: timestamp - 1,
-			}
+			addr := mvcc.NewAddress(x.LockKey.Lock.Keyspace, x.LockKey.Lock.Key)
 
-			actual := p.db.Exists(addr)
+			actual := p.db.Exists(p.pid, timestamp-1, addr)
 			expected := x.LockKey.Check == LockKey_MustExist
 
 			if actual != expected {
@@ -325,14 +308,10 @@ func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 				continue
 			}
 
-			rang := mvcc.Range{
-				Keyspace:  x.LockRange.Lock.Keyspace,
-				StartKey:  x.LockRange.Lock.StartKey,
-				EndKey:    x.LockRange.Lock.EndKey,
-				Timestamp: timestamp - 1,
-			}
+			start := mvcc.NewAddress(x.LockRange.Lock.Keyspace, x.LockRange.Lock.StartKey)
+			end := mvcc.NewAddress(x.LockRange.Lock.Keyspace, x.LockRange.Lock.EndKey)
 
-			actual := p.db.ExistsInRange(rang)
+			actual := p.db.ExistsInRange(p.pid, timestamp-1, start, end)
 			expected := x.LockRange.Check == LockRange_MustNotBeEmpty
 
 			if actual != expected {
@@ -344,33 +323,37 @@ func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 	return nil
 }
 
-func (p *Manager) buildWriteEntries(timestamp uint64, txn *Txn) []mvcc.Entry {
-	writes := make([]mvcc.Entry, 0, len(txn.Actions))
+func (p *Manager) buildWriteEntries(timestamp uint64, txn *Txn) []mvcc.Record {
+	writes := make([]mvcc.Record, 0, len(txn.Actions))
 
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
 		case *Action_Insert:
-			writes = append(writes, mvcc.Entry{
-				Address: kv.NewAddress(x.Insert.Keyspace, x.Insert.Key, timestamp),
-				Value:   mustEncodeValue(x.Insert.Value),
-				Flags:   mvcc.FlagEmpty,
+			writes = append(writes, mvcc.Record{
+				Address:   mvcc.NewAddress(x.Insert.Keyspace, x.Insert.Key),
+				Timestamp: timestamp,
+				Value:     mustEncodeValue(x.Insert.Value),
+				Flags:     mvcc.FlagEmpty,
 			})
 		case *Action_Update:
-			writes = append(writes, mvcc.Entry{
-				Address: kv.NewAddress(x.Update.Keyspace, x.Update.Key, timestamp),
-				Value:   mustEncodeValue(x.Update.Value),
-				Flags:   mvcc.FlagEmpty,
+			writes = append(writes, mvcc.Record{
+				Address:   mvcc.NewAddress(x.Update.Keyspace, x.Update.Key),
+				Timestamp: timestamp,
+				Value:     mustEncodeValue(x.Update.Value),
+				Flags:     mvcc.FlagEmpty,
 			})
 		case *Action_Upsert:
-			writes = append(writes, mvcc.Entry{
-				Address: kv.NewAddress(x.Upsert.Keyspace, x.Upsert.Key, timestamp),
-				Value:   mustEncodeValue(x.Upsert.Value),
-				Flags:   mvcc.FlagEmpty,
+			writes = append(writes, mvcc.Record{
+				Address:   mvcc.NewAddress(x.Upsert.Keyspace, x.Upsert.Key),
+				Timestamp: timestamp,
+				Value:     mustEncodeValue(x.Upsert.Value),
+				Flags:     mvcc.FlagEmpty,
 			})
 		case *Action_Delete:
-			writes = append(writes, mvcc.Entry{
-				Address: kv.NewAddress(x.Delete.Keyspace, x.Delete.Key, timestamp),
-				Flags:   mvcc.FlagTombstone,
+			writes = append(writes, mvcc.Record{
+				Address:   mvcc.NewAddress(x.Delete.Keyspace, x.Delete.Key),
+				Timestamp: timestamp,
+				Flags:     mvcc.FlagTombstone,
 			})
 		}
 	}

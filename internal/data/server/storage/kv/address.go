@@ -1,8 +1,8 @@
 package kv
 
 import (
+	"bytes"
 	"encoding/base64"
-	"encoding/binary"
 	"fmt"
 	"math"
 	"slices"
@@ -23,24 +23,15 @@ func NewAddress(kyespace uint32, key []byte, timestamp uint64) Address {
 }
 
 func FirstAddress(keyspace uint32) Address {
-	return Address{
-		Keyspace:  keyspace,
-		Key:       []byte{},
-		Timestamp: math.MaxUint64,
-	}
+	return NewAddress(keyspace, []byte{}, math.MaxUint64)
 }
 
-// +----------+---------+-----------+
-// | Keyspace |   Key   | Timestamp |
-// |  4 Bytes | N Bytes |  8 Bytes  |
-// +----------+---------+-----------+
-func (a Address) Encode() []byte {
-	result := make([]byte, 0, 12+len(a.Key))
+func FirstAddressForKey(keyspace uint32, key []byte) Address {
+	return NewAddress(keyspace, key, math.MaxUint64)
+}
 
-	result = binary.LittleEndian.AppendUint32(result, a.Keyspace)
-	result = append(result, a.Key...)
-	result = binary.LittleEndian.AppendUint64(result, a.Timestamp)
-	return result
+func LastAddressForKey(keyspace uint32, key []byte) Address {
+	return NewAddress(keyspace, key, 0)
 }
 
 func (a Address) Next() Address {
@@ -60,20 +51,46 @@ func (a Address) Next() Address {
 	return NewAddress(a.Keyspace+1, key, timestamp)
 }
 
+func (a Address) NextKey() Address {
+	key := slices.Clone(a.Key)
+	for i := range key {
+		key[i] = key[i] + 1
+		if key[i] != 0 {
+			return NewAddress(a.Keyspace, key, math.MaxUint64)
+		}
+	}
+
+	return NewAddress(a.Keyspace+1, key, math.MaxUint64)
+}
+
+// Keys are sorted ascending by keyspace and key and descending by timestamp.
+// This results in a sort order with latest version at the start of each key range.
+func (a Address) Compare(b Address) int {
+	if x := int(a.Keyspace) - int(b.Keyspace); x != 0 {
+		return x
+	} else if x = bytes.Compare(a.Key, b.Key); x != 0 {
+		return x
+	} else {
+		switch {
+		case a.Timestamp > b.Timestamp:
+			return -1
+		case a.Timestamp < b.Timestamp:
+			return 1
+		default:
+			return 0
+		}
+	}
+}
+
+func (a Address) Before(other Address) bool {
+	return a.Compare(other) < 0
+}
+
+func (a Address) After(other Address) bool {
+	return a.Compare(other) > 0
+}
+
 func (a Address) String() string {
 	return fmt.Sprintf("keyspace=%d key=%s timestamp=%d",
 		a.Keyspace, base64.RawURLEncoding.EncodeToString(a.Key), a.Timestamp)
-}
-
-func DecodeAddress(key []byte) Address {
-	l := len(key)
-	if l < 12 {
-		panic(fmt.Sprintf("cannot decode invalid key %s", base64.RawURLEncoding.EncodeToString(key)))
-	}
-
-	return Address{
-		Keyspace:  binary.LittleEndian.Uint32(key[0:4]),
-		Key:       key[4 : len(key)-8],
-		Timestamp: binary.LittleEndian.Uint64(key[l-8:]),
-	}
 }

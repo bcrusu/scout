@@ -5,7 +5,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/keyspace"
 	"github.com/linxGnu/grocksdb"
@@ -18,9 +17,9 @@ const (
 
 var (
 	// each column family is tagged with the partition identifier during init
-	keyPartition = kv.Address{Keyspace: keyspace.ReservedDB, Key: []byte("pid"), Timestamp: 0}.Encode()
+	keyPartition = encodeKey(keyspace.ReservedDB, []byte("pid"))
 	// each column family stores the last applied raft index for its partition
-	keyIndex = kv.Address{Keyspace: keyspace.ReservedDB, Key: []byte("index"), Timestamp: 0}.Encode()
+	keyIndex = encodeKey(keyspace.ReservedDB, []byte("index"))
 )
 
 type cfMap = map[uint32]*grocksdb.ColumnFamilyHandle
@@ -38,7 +37,7 @@ func initCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, pid uint32) error 
 	wo := grocksdb.NewDefaultWriteOptions()
 	defer wo.Destroy()
 
-	if err := db.PutCF(wo, cf, keyPartition, encodeUint32(pid)); err != nil {
+	if err := db.PutCFWithTS(wo, cf, keyPartition, minUint64, encodeUint32(pid)); err != nil {
 		return errors.Wrap(err, "failed to put pid key")
 	}
 
@@ -47,7 +46,7 @@ func initCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, pid uint32) error 
 }
 
 func probeCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle) (uint32, error) {
-	ro := makeReadOptions()
+	ro := makeReadOptionsKV()
 	defer ro.Destroy()
 
 	slice, err := db.GetCF(ro, cf, keyPartition)
@@ -56,12 +55,11 @@ func probeCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle) (uint32, error) {
 	}
 	defer slice.Free()
 
-	data := slice.Data()
-	if len(data) == 0 {
+	if !slice.Exists() {
 		return 0, errors.NotFound
 	}
 
-	return decodeUint32(data)
+	return decodeUint32(slice.Data())
 }
 
 func probeCFs(db *grocksdb.DB, cfHandles cfSlice) (cfMap, cfSlice, error) {
@@ -94,7 +92,7 @@ func probeCFs(db *grocksdb.DB, cfHandles cfSlice) (cfMap, cfSlice, error) {
 }
 
 func readCFIndex(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, tier grocksdb.ReadTier) (uint64, error) {
-	ro := grocksdb.NewDefaultReadOptions()
+	ro := makeReadOptionsKV()
 	ro.SetReadTier(tier)
 	defer ro.Destroy()
 
@@ -104,12 +102,11 @@ func readCFIndex(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, tier grocksdb
 	}
 	defer slice.Free()
 
-	data := slice.Data()
-	if len(data) == 0 {
+	if !slice.Exists() {
 		return 0, errors.NotFound
 	}
 
-	return decodeUint64(data)
+	return decodeUint64(slice.Data())
 }
 
 func flushCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle) error {

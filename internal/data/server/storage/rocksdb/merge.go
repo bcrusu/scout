@@ -35,11 +35,11 @@ func (m *mergeOperator) PartialMergeMulti(key []byte, operands [][]byte) ([]byte
 func (m *mergeOperator) Destroy() {}
 
 func (m *mergeOperator) Name() string {
-	return mergeOperatorName
+	return extensionName
 }
 
 func (m *mergeOperator) mergeMaxIndex(key []byte, operands ...[]byte) ([]byte, bool) {
-	if !bytes.Equal(key, keyIndex) {
+	if !bytes.HasPrefix(key, keyIndex) {
 		log.Warn("Unexpected merge operator call.", "key", base64.RawURLEncoding.EncodeToString(key))
 		return nil, false
 	}

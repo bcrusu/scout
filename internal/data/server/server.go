@@ -9,7 +9,7 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/partitions"
 	"github.com/bcrusu/scout/internal/data/server/session"
-	"github.com/bcrusu/scout/internal/data/server/storage/inmem"
+	"github.com/bcrusu/scout/internal/data/server/storage/rocksdb"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
@@ -76,7 +76,7 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
-	db := inmem.New()
+	db := rocksdb.New()
 	session := session.New(*id, n.config.Server.BindAddress, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	transportService, mraft := n.buildMultiRaft(*id)

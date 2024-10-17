@@ -2,24 +2,23 @@ package rocksdb
 
 import (
 	"github.com/bcrusu/scout/internal/data/server/config"
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/linxGnu/grocksdb"
 )
 
-var (
-	comparatorName    = "scout"
-	mergeOperatorName = "scout"
+const (
+	extensionName = "scout"
 )
 
 func makeDBOptions(config config.RocksDB) *grocksdb.Options {
 	bbto := grocksdb.NewDefaultBlockBasedTableOptions()
 	bbto.SetBlockCache(grocksdb.NewLRUCache(config.CacheSize.MustParse()))
+	bbto.SetFilterPolicy(grocksdb.NewBloomFilter(config.BloomFilterBitsPerKey))
 
 	opts := grocksdb.NewDefaultOptions()
 	opts.SetBlockBasedTableFactory(bbto)
 	opts.SetCreateIfMissingColumnFamilies(false)
 	opts.SetCreateIfMissing(true)
-	opts.SetComparator(grocksdb.NewComparator(comparatorName, kv.CompareKeys))
+	opts.SetComparator(newComparator())
 	opts.SetManualWALFlush(true) // disable all wall knobs, see below
 
 	return opts
@@ -27,10 +26,10 @@ func makeDBOptions(config config.RocksDB) *grocksdb.Options {
 
 func makeCFOptions(config config.RocksDB, name string) *grocksdb.Options {
 	opts := grocksdb.NewDefaultOptions()
-	opts.SetComparator(grocksdb.NewComparator(comparatorName, kv.CompareKeys))
+	opts.SetComparator(newComparator())
 	opts.SetMergeOperator(&mergeOperator{})
 	opts.SetWriteBufferSize(config.WriteBufferSize.MustParse())
-	// opts.SetPrefixExtractor() // todo
+	opts.SetPrefixExtractor(grocksdb.NewCappedPrefixTransform(config.MaxKeyPrefixLen))
 
 	if name == cfDefaultName {
 		return opts
@@ -67,8 +66,18 @@ func makeWriteOptions() *grocksdb.WriteOptions {
 	return opts
 }
 
-func makeReadOptions() *grocksdb.ReadOptions {
+func makeReadOptionsMVCC() *grocksdb.ReadOptions {
 	opts := grocksdb.NewDefaultReadOptions()
+	opts.SetAutoPrefixMode(true)
+
+	return opts
+}
+
+func makeReadOptionsKV() *grocksdb.ReadOptions {
+	opts := grocksdb.NewDefaultReadOptions()
+	opts.SetAutoPrefixMode(true)
+	opts.SetIterStartTimestamp(minUint64)
+	opts.SetTimestamp(maxUint64)
 
 	return opts
 }
@@ -79,6 +88,8 @@ func makeStreamOptions(config config.RocksDB) *grocksdb.ReadOptions {
 	opts.SetTotalOrderSeek(true)
 	opts.SetAsyncIO(true)
 	opts.SetReadaheadSize(config.MaxReadaheadSize.MustParse())
+	opts.SetIterStartTimestamp(minUint64)
+	opts.SetTimestamp(maxUint64)
 
 	return opts
 }

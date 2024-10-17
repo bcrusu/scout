@@ -4,14 +4,13 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
 // TODO: prune status for old txn
 type Manager struct {
-	partitionID  uint32
+	pid          uint32
 	db           *mvcc.DBBreaker
 	lock         sync.RWMutex // guards all below
 	status       map[id]*Status
@@ -25,13 +24,13 @@ type prepared struct {
 	Locks []*Lock
 }
 
-func NewManager(partitionID uint32, db kv.DB) *Manager {
+func NewManager(pid uint32, db mvcc.DB) *Manager {
 	return &Manager{
-		partitionID: partitionID,
-		db:          mvcc.NewDBBreaker(mvcc.New(partitionID, db)),
-		status:      map[id]*Status{},
-		prepared:    map[id]*prepared{},
-		decisions:   map[id]*Decision{},
+		pid:       pid,
+		db:        mvcc.NewDBBreaker(db),
+		status:    map[id]*Status{},
+		prepared:  map[id]*prepared{},
+		decisions: map[id]*Decision{},
 	}
 }
 

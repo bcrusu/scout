@@ -51,3 +51,13 @@ func Assert(err error) {
 		panic(Wrap(err, "assert failed."))
 	}
 }
+
+// Assert2 stops the show right quick when err != nil. It is meant to be
+// used with functions having signature like: `func myFunc(args) (T, error)`
+// and called like: `result := Assert2(myFunc(args))`
+func Assert2[T any](t T, err error) T {
+	if err != nil {
+		panic(Wrap(err, "assert failed."))
+	}
+	return t
+}

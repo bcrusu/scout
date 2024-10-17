@@ -6,7 +6,7 @@ replace github.com/Jille/raft-grpc-transport => ../multiraft-grpc-transport
 
 replace github.com/bcrusu/multiraft => ../multiraft
 
-replace github.com/linxGnu/grocksdb => ../grocksdb
+replace github.com/linxGnu/grocksdb => ../grocksdb_fork
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2

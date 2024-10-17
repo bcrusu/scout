@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestUtils(t *testing.T) {
-	tests.NewSuite(t, "validation test suite")
+func TestSuite(t *testing.T) {
+	tests.NewSuite(t, "eventbus test suite")
 }
 
 var _ = Describe("MessageBus tests", func() {

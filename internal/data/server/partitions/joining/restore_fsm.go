@@ -27,7 +27,7 @@ var (
 	// Used to save progress and resume from last ingested address during restore.
 	// The value is stored next to the data to ensure atomicity: iif data was persisted
 	// successfully then the checkpoint is also persisted.
-	addressCheckpoint = kv.Address{Keyspace: keyspace.ReservedReplica, Key: []byte("checkpoint"), Timestamp: 0}
+	addressCheckpoint = kv.NewAddress(keyspace.ReservedReplica, []byte("checkpoint"), 0)
 )
 
 // restoreFsm helps the joining replica seed its initial state by streaming
@@ -49,10 +49,16 @@ type restoreFsm struct {
 	status       atomic.Pointer[control.DataServerStatus_JoiningStatus] // updated during restore
 }
 
+type address struct {
+	Keyspace  uint32 `json:"keyspace"`
+	Key       []byte `json:"key"`
+	Timestamp uint64 `json:"timestamp"`
+}
+
 type checkpoint struct {
-	MinIndex    uint64 `json:"minIndex"`
-	LastAddress []byte `json:"lastAddress"`
-	Completed   bool   `json:"completed"`
+	MinIndex    uint64   `json:"minIndex"`
+	LastAddress *address `json:"lastAddress"`
+	Completed   bool     `json:"completed"`
 }
 
 func newRestoreFsm(pid uint32, ctx context.Context, localReplica string, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
@@ -106,13 +112,13 @@ func (f *restoreFsm) Restore(snapshot []byte) error {
 }
 
 func (f *restoreFsm) loadCheckpoint(minIndex uint64) (*data.KVAddress, bool) {
-	entry := f.db.Get(f.pid, addressCheckpoint)
-	if entry == nil {
+	record := f.db.Get(f.pid, addressCheckpoint)
+	if record == nil {
 		return nil, false
 	}
 
 	var chk checkpoint
-	errors.Assert(json.Unmarshal(entry.Data, &chk))
+	errors.Assert(json.Unmarshal(record.Data, &chk))
 
 	if chk.MinIndex < minIndex {
 		// Past progress needs to be discarded because we received a newer Raft snapshot.
@@ -128,9 +134,11 @@ func (f *restoreFsm) loadCheckpoint(minIndex uint64) (*data.KVAddress, bool) {
 
 	if chk.Completed {
 		return nil, true
+	} else if chk.LastAddress == nil {
+		return nil, false
 	}
 
-	addr := kv.DecodeAddress(chk.LastAddress)
+	addr := kv.NewAddress(chk.LastAddress.Keyspace, chk.LastAddress.Key, chk.LastAddress.Timestamp)
 	addr = addr.Next() // continue from next
 
 	return newKVAddress(addr), false
@@ -177,7 +185,7 @@ func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddres
 		return lastAddr
 	}
 
-	entries := make([]kv.Entry, 0, f.config.MaxStreamingSize+1)
+	records := make([]kv.Record, 0, f.config.MaxStreamingSize+1)
 
 	for {
 		res, err := stream.Recv()
@@ -186,31 +194,31 @@ func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddres
 			return lastAddr
 		}
 
-		for _, e := range res.Entries {
-			entries = append(entries, e.Entry())
+		for _, e := range res.Records {
+			records = append(records, e.Record())
 		}
 
-		if len(entries) > 0 {
-			last := utils.SliceLast(entries)
+		if len(records) > 0 {
+			last := utils.SliceLast(records)
 			lastAddr = newKVAddress(last.Address)
 		} else {
 			lastAddr = nil
 		}
 
 		// checkpoint is persisted in the same batch
-		entries = append(entries, kv.Entry{
+		records = append(records, kv.Record{
 			Address: addressCheckpoint,
 			Data:    f.newCheckpoint(minIndex, lastAddr, res.Completed),
 		})
 
 		if res.Completed {
-			f.db.Put(f.pid, minIndex, entries...)
+			f.db.Put(f.pid, minIndex, records...)
 			return nil
 		} else {
-			f.db.Put(f.pid, 0, entries...)
+			f.db.Put(f.pid, 0, records...)
 		}
 
-		entries = entries[:0]
+		records = records[:0]
 	}
 }
 
@@ -221,12 +229,14 @@ func (f *restoreFsm) newCheckpoint(minIndex uint64, lastAddress *data.KVAddress,
 	}
 
 	if lastAddress != nil {
-		chk.LastAddress = lastAddress.Address().Encode()
+		chk.LastAddress = &address{
+			Keyspace:  lastAddress.Keyspace,
+			Key:       lastAddress.Key,
+			Timestamp: lastAddress.Timestamp,
+		}
 	}
 
-	data, err := json.Marshal(chk)
-	errors.Assert(err)
-	return data
+	return errors.Assert2(json.Marshal(chk))
 }
 
 func (f *restoreFsm) setStatus(completed bool) {

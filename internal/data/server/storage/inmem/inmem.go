@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 var (
@@ -17,13 +18,8 @@ type DB struct {
 }
 
 type partition struct {
-	index uint64
-	items []item
-}
-
-type item struct {
-	key  []byte
-	data []byte
+	index   uint64
+	records []kv.Record
 }
 
 func New() *DB {
@@ -33,10 +29,17 @@ func New() *DB {
 }
 
 func (d *DB) InitPartition(pid uint32) error {
+	_, ok := d.partitions[pid]
+	if ok {
+		return nil
+	}
+
+	d.partitions[pid] = &partition{}
 	return nil
 }
 
 func (d *DB) DropPartition(pid uint32) error {
+	delete(d.partitions, pid)
 	return nil
 }
 
@@ -45,41 +48,44 @@ func (d *DB) SyncPartition(pid uint32) error {
 }
 
 func (d *DB) GetIndex(pid uint32, _ bool) (uint64, error) {
-	part := d.getPartition(pid)
+	part, ok := d.partitions[pid]
+	if !ok {
+		return 0, errors.NotFound
+	}
+
 	return part.index, nil
 }
 
-func (d *DB) Get(pid uint32, address kv.Address) (*kv.Entry, error) {
-	part := d.getPartition(pid)
-	key := address.Encode()
-	i, found := part.findFirst(key)
+func (d *DB) Get(pid uint32, address kv.Address) (*kv.Record, error) {
+	part, ok := d.partitions[pid]
+	if !ok {
+		return nil, errors.NotFound
+	}
+
+	i, found := part.findFirst(address)
 	if !found {
 		return nil, nil
 	}
 
-	a := part.items[i]
-
-	return &kv.Entry{
-		Address: address,
-		Data:    a.data,
-	}, nil
+	return &part.records[i], nil
 }
 
-func (d *DB) GetFrom(pid uint32, start kv.Address) (kv.Iterator, error) {
-	part := d.getPartition(pid)
-	startKey := start.Encode()
-	startIdx, _ := part.findFirst(startKey)
+func (d *DB) GetRange(pid uint32, start kv.Address, end *kv.Address) (kv.Iterator, error) {
+	part, ok := d.partitions[pid]
+	if !ok {
+		return nil, errors.NotFound
+	}
 
-	return func(yield func(kv.Entry, error) bool) {
+	startIdx, _ := part.findFirst(start)
+
+	return func(yield func(kv.Record, error) bool) {
 		for i := startIdx; i < part.Len(); i++ {
-			a := part.items[i]
-
-			x := kv.Entry{
-				Address: kv.DecodeAddress(a.key),
-				Data:    a.data,
+			a := part.records[i]
+			if end != nil && a.Address.Compare(*end) >= 0 {
+				return
 			}
 
-			if !yield(x, nil) {
+			if !yield(a, nil) {
 				return
 			}
 		}
@@ -87,13 +93,16 @@ func (d *DB) GetFrom(pid uint32, start kv.Address) (kv.Iterator, error) {
 }
 
 func (d *DB) GetStream(pid uint32, start kv.Address) (kv.Iterator, error) {
-	return d.GetFrom(pid, start)
+	return d.GetRange(pid, start, nil)
 }
 
-func (d *DB) Put(pid uint32, index uint64, entries ...kv.Entry) error {
-	part := d.getPartition(pid)
+func (d *DB) Put(pid uint32, index uint64, records ...kv.Record) error {
+	part, ok := d.partitions[pid]
+	if !ok {
+		return errors.NotFound
+	}
 
-	for _, p := range entries {
+	for _, p := range records {
 		if p.Address.Timestamp == 0 {
 			panic(fmt.Sprintf("trying to put key with missing timestamp at %s", p.Address))
 		}
@@ -108,49 +117,37 @@ func (d *DB) Put(pid uint32, index uint64, entries ...kv.Entry) error {
 	return nil
 }
 
-func (d *DB) putOne(part *partition, entry kv.Entry) error {
-	key := entry.Address.Encode()
-
-	i, found := part.findFirst(key)
+func (d *DB) putOne(part *partition, record kv.Record) error {
+	i, found := part.findFirst(record.Address)
 	if found {
-		// allow only idempotent operations to keep the MVCC entries immutable.
-		if !bytes.Equal(entry.Data, part.items[i].data) {
+		// allow only idempotent operations to keep the MVCC records immutable.
+		if !bytes.Equal(record.Data, part.records[i].Data) {
 			panic("key overwrite detected")
 		}
 		return nil
 	}
 
-	part.items = append(part.items, item{key, entry.Data})
+	part.records = append(part.records, record)
 	return nil
 }
 
-func (d *DB) getPartition(pid uint32) *partition {
-	part, ok := d.partitions[pid]
-	if !ok {
-		part = &partition{}
-		d.partitions[pid] = part
-	}
-
-	return part
-}
-
 func (p *partition) Len() int {
-	return len(p.items)
+	return len(p.records)
 }
 
 func (p *partition) Less(i, j int) bool {
-	a := p.items[i]
-	b := p.items[j]
-	return kv.CompareKeys(a.key, b.key) < 0
+	a := p.records[i]
+	b := p.records[j]
+	return a.Address.Before(b.Address)
 }
 
 func (p *partition) Swap(i, j int) {
-	p.items[i], p.items[j] = p.items[j], p.items[i]
+	p.records[i], p.records[j] = p.records[j], p.records[i]
 }
 
-func (p *partition) findFirst(key []byte) (int, bool) {
-	return sort.Find(len(p.items), func(i int) int {
-		a := p.items[i]
-		return kv.CompareKeys(key, a.key)
+func (p *partition) findFirst(addr kv.Address) (int, bool) {
+	return sort.Find(len(p.records), func(i int) int {
+		a := p.records[i]
+		return addr.Compare(a.Address)
 	})
 }

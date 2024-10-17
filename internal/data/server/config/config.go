@@ -54,12 +54,14 @@ type Session struct {
 }
 
 type Transactions struct {
-	Phase1Timeout     time.Duration     `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
-	Phase2Timeout     time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
-	RetryPolicy       utils.RetryPolicy `yaml:"retryPolicy"`
-	RetryBreakerLimit int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
-	MaxBatchSize      int               `yaml:"maxBatchSize" default:"128" validate:"min:1"`
-	MaxBatchDelay     time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
+	Phase1Timeout      time.Duration     `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
+	Phase2Timeout      time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
+	RetryPolicy        utils.RetryPolicy `yaml:"retryPolicy"`
+	RetryBreakerLimit  int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
+	MaxBatchSize       int               `yaml:"maxBatchSize" default:"128" validate:"min:1"`
+	MaxBatchDelay      time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
+	MaxIteratorResults int               `yaml:"maxIteratorResults" default:"1000" validate:"min:100"`
+	SkipCorruptedData  bool              `yaml:"skipCorruptedData" default:"true"`
 }
 
 type DB struct {
@@ -69,17 +71,19 @@ type DB struct {
 }
 
 type RocksDB struct {
-	DataDir          string
-	WriteBufferSize  utils.Bytes   `yaml:"writeBufferSize" default:"128MB" validate:"min:32MB"`
-	CacheSize        utils.Bytes   `yaml:"cacheSize" default:"1GB" validate:"min:1MB"`
-	TTL              time.Duration `yaml:"ttl" default:"24h" validate:"min:1m"` // TODO
-	MaxReadaheadSize utils.Bytes   `yaml:"maxReadaheadSize" default:"32MB" validate:"min:1KB"`
+	DataDir               string
+	WriteBufferSize       utils.Bytes   `yaml:"writeBufferSize" default:"128MB" validate:"min:32MB"`
+	CacheSize             utils.Bytes   `yaml:"cacheSize" default:"1GB" validate:"min:1MB"`
+	TTL                   time.Duration `yaml:"ttl" default:"24h" validate:"min:1m"` // TODO
+	MaxReadaheadSize      utils.Bytes   `yaml:"maxReadaheadSize" default:"32MB" validate:"min:1KB"`
+	MaxKeyPrefixLen       int           `yaml:"maxKeyPrefixLen" default:"10" validate:"min:5"` // key prefix for table bloom filter
+	BloomFilterBitsPerKey float64       `yaml:"bloomFilterBitsPerKey" default:"10" validate:"min:1"`
 }
 
 func (c *Config) prepare() error {
 	dataDir, err := filepath.Abs(c.DataDir)
 	if err != nil {
-		return errors.Wrap(err, "failed to determine data dir ")
+		return errors.Wrap(err, "failed to determine data dir")
 	}
 
 	c.DB.RocksDB.DataDir = path.Join(dataDir, "rocksdb")

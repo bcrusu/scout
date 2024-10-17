@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/scout/internal/data/server/config"
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/logging"
@@ -30,7 +30,7 @@ type RaftStore interface {
 	ApplyBatch(batch *Batch) (<-chan multiraft.AsyncResult, error)
 }
 
-func NewService(pid uint32, raftStore RaftStore, db kv.DB, manager *Manager, client TxnServiceClient) *Service {
+func NewService(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB, client TxnServiceClient) *Service {
 	s := &Service{
 		config:  config.Get().Transactions,
 		pid:     pid,
@@ -47,8 +47,8 @@ func NewService(pid uint32, raftStore RaftStore, db kv.DB, manager *Manager, cli
 	return s
 }
 
-func NewServiceNoWatchdog(pid uint32, raftStore RaftStore, db kv.DB, manager *Manager) *Service {
-	return NewService(pid, raftStore, db, manager, nil)
+func NewServiceNoWatchdog(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB) *Service {
+	return NewService(pid, raftStore, manager, db, nil)
 }
 
 func (s *Service) Start(ctx context.Context) error {
@@ -77,7 +77,7 @@ func (n *Service) Autocommit(ctx context.Context, req *AutocommitRequest) (*Stat
 	if req.PartitionId != n.pid {
 		return nil, errors.InvalidRequest
 	} else if req.Txn.IsReadOnly() {
-		return n.reader.Read(req.Txn, req.ReadTimestamp)
+		return n.reader.Read(ctx, req.Txn, req.ReadTimestamp)
 	}
 
 	return n.batcher.Apply(&Autocommit{Txn: req.Txn, Timestamp: hlc.Now()})

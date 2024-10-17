@@ -60,9 +60,9 @@ func (d *DBBreaker) GetIndex(pid uint32, persistedOnDisk bool) uint64 {
 	return index
 }
 
-func (d *DBBreaker) Put(pid uint32, index uint64, entries ...Entry) {
+func (d *DBBreaker) Put(pid uint32, index uint64, records ...Record) {
 	err := utils.RetryE(d.retryPolicy, func() error {
-		return d.db.Put(pid, index, entries...)
+		return d.db.Put(pid, index, records...)
 	})
 
 	if err != nil {
@@ -70,8 +70,8 @@ func (d *DBBreaker) Put(pid uint32, index uint64, entries ...Entry) {
 	}
 }
 
-func (d *DBBreaker) Get(pid uint32, address Address) *Entry {
-	entry, err := utils.RetryR(d.retryPolicy, func() (*Entry, error) {
+func (d *DBBreaker) Get(pid uint32, address Address) *Record {
+	record, err := utils.RetryR(d.retryPolicy, func() (*Record, error) {
 		return d.db.Get(pid, address)
 	})
 
@@ -79,12 +79,12 @@ func (d *DBBreaker) Get(pid uint32, address Address) *Entry {
 		utils.ShutdownNowf("DBBreaker.Get in partition=%d failed with error=%s", pid, err)
 	}
 
-	return entry
+	return record
 }
 
-func (d *DBBreaker) GetFrom(pid uint32, start Address) Iterator {
+func (d *DBBreaker) GetFrom(pid uint32, start Address, end *Address) Iterator {
 	iter, err := utils.RetryR(d.retryPolicy, func() (Iterator, error) {
-		return d.db.GetFrom(pid, start)
+		return d.db.GetRange(pid, start, end)
 	})
 
 	if err != nil {

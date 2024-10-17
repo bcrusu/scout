@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestUtils(t *testing.T) {
+func TestSuite(t *testing.T) {
 	tests.NewSuite(t, "validation test suite")
 }
 

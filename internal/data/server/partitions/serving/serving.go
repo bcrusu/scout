@@ -11,7 +11,6 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/partitions/leader"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage"
-	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
@@ -32,14 +31,14 @@ type Serving struct {
 	localReplica string
 	multiraft    *multiraft.MultiRaft
 	dataClient   client.DataClient
-	db           kv.DB
+	db           storage.DB
 	log          logging.Logger
 	getStatusCh  chan chan<- *control.DataServerStatus_Replica
 	partition    atomic.Pointer[partitionDrainer]
 	cancelFunc   context.CancelFunc
 }
 
-func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db kv.DB) *Serving {
+func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db storage.DB) *Serving {
 	return &Serving{
 		pid:          pid,
 		localReplica: localReplica,
@@ -72,8 +71,8 @@ func (p *Serving) mainLoop(ctx context.Context) {
 	var partConfig *control.DataServerConfig_Partition
 	var dataServers *control.DataServers
 
-	txnManager := txn.NewManager(p.pid, p.db)
-	fsm := storage.NewFSM(p.pid, p.db, txnManager)
+	txnManager := txn.NewManager(p.pid, p.db.MVCC())
+	fsm := storage.NewFSM(p.pid, p.db.KV(), txnManager)
 	var raft *multiraft.Raft
 	isLeader := false
 
@@ -114,11 +113,11 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			store := &raftStore{raft: raft}
 
 			if isLeader {
-				txnService := txn.NewService(p.pid, store, p.db, txnManager, p.dataClient)
-				new = leader.New(p.pid, p.db, txnService)
+				txnService := txn.NewService(p.pid, store, txnManager, p.db.MVCC(), p.dataClient)
+				new = leader.New(p.pid, p.db.KV(), txnService)
 			} else {
-				txnService := txn.NewServiceNoWatchdog(p.pid, store, p.db, txnManager)
-				new = follower.New(p.pid, p.db, txnService)
+				txnService := txn.NewServiceNoWatchdog(p.pid, store, txnManager, p.db.MVCC())
+				new = follower.New(p.pid, p.db.KV(), txnService)
 			}
 
 			drainer := newPartitionDrainer(new)

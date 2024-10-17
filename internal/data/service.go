@@ -7,15 +7,11 @@ import (
 )
 
 func (a *KVAddress) Address() kv.Address {
-	return kv.Address{
-		Keyspace:  a.Keyspace,
-		Key:       a.Key,
-		Timestamp: a.Timestamp,
-	}
+	return kv.NewAddress(a.Keyspace, a.Key, a.Timestamp)
 }
 
-func (e *KVEntry) Entry() kv.Entry {
-	return kv.Entry{
+func (e *KVRecord) Record() kv.Record {
+	return kv.Record{
 		Address: e.Address.Address(),
 		Data:    e.Data,
 	}
@@ -31,12 +27,12 @@ func (a *KVAddress) Validate() error {
 	return nil
 }
 
-func (a *KVEntry) Validate() error {
+func (a *KVRecord) Validate() error {
 	if a == nil {
-		return errors.Error("KVAddress is nil")
+		return errors.Error("KVRecord is nil")
 	}
 	if err := a.Address.Validate(); err != nil {
-		return errors.Wrap(err, "KVEntry.Address is invalid")
+		return errors.Wrap(err, "KVRecord.Address is invalid")
 	}
 	return nil
 }
@@ -57,9 +53,9 @@ func (r *StreamResponse) Validate() error {
 	if r == nil {
 		return errors.Error("StreamResponse is nil")
 	}
-	for _, e := range r.Entries {
+	for _, e := range r.Records {
 		if err := e.Validate(); err != nil {
-			return errors.Wrap(err, "StreamResponse.Entries is invalid")
+			return errors.Wrap(err, "StreamResponse.Records is invalid")
 		}
 	}
 	return nil

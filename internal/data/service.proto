@@ -15,7 +15,7 @@ message KVAddress {
     uint64 timestamp = 3;
 }
 
-message KVEntry {
+message KVRecord {
     KVAddress address = 1;
     bytes data = 2;
 }
@@ -27,6 +27,6 @@ message StreamRequest {
 }
 
 message StreamResponse {
-    repeated KVEntry entries = 1;
+    repeated KVRecord records = 1;
     bool completed = 2;
 }
