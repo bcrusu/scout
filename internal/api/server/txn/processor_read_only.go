@@ -90,7 +90,7 @@ func (p *processorReadOnly) decide(status statusMap) (uint64, bool) {
 	commitTimestamp := uint64(0)
 
 	for _, s := range status {
-		if s.State == txn.State_Prepared {
+		if s.State == txn.Status_Prepared {
 			// commit hlc timestamp is min of participant timestamps
 			commitTimestamp = min(commitTimestamp, s.Timestamp)
 			continue
@@ -139,7 +139,7 @@ func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, 
 
 		if r.err != nil {
 			errs = append(errs, errors.Wrapf(r.err, "read-only txn=%s commit failed at participant %d.", t.id, r.pid))
-		} else if r.status.State != txn.State_Committed {
+		} else if r.status.State != txn.Status_Committed {
 			errs = append(errs, errors.Errorf("read-only txn=%s commit failed with state %s at participant %d.", t.id, r.status.State, r.pid))
 		} else {
 			status[r.pid] = r.status

@@ -6,9 +6,8 @@ option go_package = "github.com/bcrusu/scout/internal/data/server/txn";
 
 message Snapshot {
     repeated Status status = 1;
-    repeated Txn prepared = 2;
-    repeated Decision decisions = 3;
-    uint64 max_timestamp = 4;
+    repeated Prepared prepared = 2;
+    uint64 max_timestamp = 3;
 }
 
 message Autocommit {
@@ -79,17 +78,17 @@ message Txn {
     repeated uint32 participant_pids = 3;
 }
 
-enum State {
-    Pending = 0;
-    Prepared = 1;
-    Committed = 2;
-    Aborted = 3;
-    Failed = 4;
-    Timedout = 5;
-    Decided = 6;
-}
-
 message Status  {
+    enum State {
+        Pending = 0;
+        Prepared = 1;
+        Committed = 2;
+        Aborted = 3;
+        Failed = 4;
+        Timedout = 5;
+        Decided = 6;
+    }
+
     Id id = 1;
     uint64 timestamp = 2;
     State state = 3;
@@ -216,4 +215,11 @@ message Decision {
     Id id = 1;
     bool commit = 2;
 	uint64 commit_timestamp = 3;
+}
+
+message Prepared {
+	Txn txn = 1;
+	repeated Lock locks = 2;
+	bool locks_released = 3;
+    Decision decision = 4;
 }

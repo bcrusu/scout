@@ -57,7 +57,7 @@ func (c clientRetrier) Prepare(ctx context.Context, req *txn.PrepareRequest, opt
 }
 
 func (c clientRetrier) needsRetry(status *txn.Status) bool {
-	if status.State != txn.State_Failed {
+	if status.State != txn.Status_Failed {
 		return false
 	}
 

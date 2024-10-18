@@ -107,7 +107,7 @@ func (p *Processor) autocommit(ctx context.Context, t *Txn) (*TxnResult, error) 
 	return &TxnResult{
 		Id:           t.id,
 		Timestamp:    status.Timestamp,
-		Success:      status.State == txn.State_Committed,
+		Success:      status.State == txn.Status_Committed,
 		ActionStatus: status.ActionStatus,
 	}, nil
 }

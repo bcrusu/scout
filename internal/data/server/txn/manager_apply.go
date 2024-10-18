@@ -72,7 +72,7 @@ func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Record, erro
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
-		case State_Committed, State_Failed:
+		case Status_Committed, Status_Failed:
 			// idempotent calls
 			return status, nil, nil
 		default:
@@ -92,7 +92,7 @@ func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Record, erro
 	}
 
 	writes := p.buildWriteEntries(cmd.Timestamp, cmd.Txn)
-	status = newStatus(id, cmd.Timestamp, State_Committed)
+	status = newStatus(id, cmd.Timestamp, Status_Committed)
 
 	p.status[id] = status
 	return status, writes, nil
@@ -103,7 +103,7 @@ func (p *Manager) applyPrepare(cmd *Prepare) (*Status, error) {
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
-		case State_Prepared, State_Failed:
+		case Status_Prepared, Status_Failed:
 			// idempotent calls
 			return status, nil
 		default:
@@ -122,12 +122,12 @@ func (p *Manager) applyPrepare(cmd *Prepare) (*Status, error) {
 		return status, nil
 	}
 
-	p.prepared[id] = &prepared{
+	p.prepared[id] = &Prepared{
 		Txn:   cmd.Txn,
 		Locks: locks,
 	}
 
-	status = newStatus(id, cmd.Timestamp, State_Prepared)
+	status = newStatus(id, cmd.Timestamp, Status_Prepared)
 
 	p.status[id] = status
 	return status, nil
@@ -140,21 +140,21 @@ func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Record, error) {
 		return nil, nil, errors.NotFound
 	}
 
+	prepared, ok := p.prepared[id]
+	if !ok {
+		p.log.Warn("Commit: prepared txn not found.", "id", id)
+		return nil, nil, errors.NotFound
+	}
+
 	switch status.State {
-	case State_Committed:
+	case Status_Committed:
 		// idempotent calls
 		return status, nil, nil
-	case State_Prepared, State_Decided:
-		prepared, ok := p.prepared[id]
-		if !ok {
-			return nil, nil, errors.NotFound
-		}
-
+	case Status_Prepared, Status_Decided:
+		prepared.ReleaseLocks()
 		writes := p.buildWriteEntries(cmd.Timestamp, prepared.Txn)
-		delete(p.prepared, id)
-		delete(p.decisions, id)
 
-		status := newStatus(id, cmd.Timestamp, State_Committed)
+		status := newStatus(id, cmd.Timestamp, Status_Committed)
 		// stores the list of participants to be able to recompose the txn results
 		// after the initial client call returns.
 		status.ParticipantPids = prepared.Txn.ParticipantPids
@@ -173,22 +173,22 @@ func (p *Manager) applyAbort(cmd *Abort) (*Status, error) {
 		return nil, errors.NotFound
 	}
 
+	prepared, ok := p.prepared[id]
+	if !ok {
+		p.log.Warn("Abort: prepared txn not found.", "id", id)
+		return nil, errors.NotFound
+	}
+
 	switch status.State {
-	case State_Aborted:
+	case Status_Aborted:
 		// idempotent calls
 		return status, nil
-	case State_Timedout:
+	case Status_Timedout:
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
-	case State_Prepared:
-		if _, ok := p.prepared[id]; !ok {
-			return nil, errors.NotFound
-		}
-
-		delete(p.prepared, id)
-		delete(p.decisions, id) // presumed abort decisions are not stored, but delete just in case
-
-		status := newStatus(id, cmd.Timestamp, State_Aborted)
+	case Status_Prepared:
+		prepared.ReleaseLocks()
+		status := newStatus(id, cmd.Timestamp, Status_Aborted)
 
 		p.status[id] = status
 		return status, nil
@@ -206,23 +206,28 @@ func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
 		return nil, errors.PermissionDenied
 	}
 
+	prepared, ok := p.prepared[id]
+	if !ok {
+		p.log.Warn("StoreDecision: prepared txn not found.", "id", id)
+		return nil, errors.NotFound
+	}
+
 	switch status.State {
-	case State_Decided:
+	case Status_Decided:
 		// is it trying to change prev decision?
-		prevDecision := p.decisions[id]
-		if prevDecision.Commit != cmd.Decision.Commit {
+		if prepared.Decision.Commit != cmd.Decision.Commit {
 			return nil, errors.FailedPrecondition
 		}
 
 		// idempotent calls
 		return status, nil
-	case State_Timedout:
+	case Status_Timedout:
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
-	case State_Prepared:
-		p.decisions[id] = cmd.Decision
+	case Status_Prepared:
+		prepared.Decision = cmd.Decision
 
-		status := newStatus(id, cmd.Timestamp, State_Decided)
+		status := newStatus(id, cmd.Timestamp, Status_Decided)
 		p.status[id] = status
 		return status, nil
 	default:
@@ -239,15 +244,21 @@ func (p *Manager) applyMarkTimedout(cmd *MarkTimedout) (*Status, error) {
 		return nil, errors.PermissionDenied
 	}
 
+	prepared, ok := p.prepared[id]
+	if !ok {
+		p.log.Warn("MarkTimedout: prepared txn not found.", "id", id)
+		return nil, errors.NotFound
+	}
+
 	switch status.State {
-	case State_Timedout:
+	case Status_Timedout:
 		if cmd.ReleaseLocks {
-			delete(p.prepared, id)
+			prepared.ReleaseLocks()
 		}
 
 		return status, nil
-	case State_Prepared:
-		status := newStatus(id, cmd.Timestamp, State_Timedout)
+	case Status_Prepared:
+		status := newStatus(id, cmd.Timestamp, Status_Timedout)
 		p.status[id] = status
 		return status, nil
 	default:
@@ -361,7 +372,7 @@ func (p *Manager) buildWriteEntries(timestamp uint64, txn *Txn) []mvcc.Record {
 	return writes
 }
 
-func newStatus(id id, timestamp uint64, state State) *Status {
+func newStatus(id id, timestamp uint64, state Status_State) *Status {
 	return &Status{
 		Id:        id.ToProto(),
 		Timestamp: timestamp,
@@ -373,7 +384,7 @@ func newFailedStatus(id id, timestamp uint64, actionId uint32, code ActionStatus
 	return &Status{
 		Id:        id.ToProto(),
 		Timestamp: timestamp,
-		State:     State_Failed,
+		State:     Status_Failed,
 		ActionStatus: map[uint32]*ActionStatus{
 			actionId: {
 				Id:   actionId,

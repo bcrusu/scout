@@ -56,7 +56,7 @@ func (p *processor2PC) Process(ctx context.Context, t *Txn) (*TxnResult, error) 
 	if s, err := p.client.StoreDecision(ctx, decision); err != nil {
 		p.abort(ctx, t, status)
 		return nil, errors.Wrapf(err, "2pc txn=%s failed to store decision.", t.id)
-	} else if s.State != txn.State_Decided {
+	} else if s.State != txn.Status_Decided {
 		// The principal partition watchdog was faster than us and timedout the txn.
 		// Nothing to do here as the second phase abort is already underway...
 		return nil, errors.Wrapf(err, "2pc txn=%s failed with state %s.", t.id, s.State)
@@ -116,7 +116,7 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	// Stop early if principal failed
 	if len(errs) > 0 {
 		return nil, errs[0]
-	} else if s := status[t.id.PrincipalPid]; s.State != txn.State_Prepared {
+	} else if s := status[t.id.PrincipalPid]; s.State != txn.Status_Prepared {
 		return status, nil
 	}
 
@@ -144,7 +144,7 @@ func (p *processor2PC) decide(id *txn.Id, status statusMap) *txn.Decision {
 	commitTimestamp := uint64(0)
 
 	for _, s := range status {
-		if s.State == txn.State_Prepared {
+		if s.State == txn.Status_Prepared {
 			// commit hlc timestamp is max of participant timestamps
 			commitTimestamp = max(commitTimestamp, s.Timestamp)
 			continue
@@ -198,7 +198,7 @@ func (p *processor2PC) commit(ctx context.Context, decision *txn.Decision, t *Tx
 	handleResult := func(r commitResult) {
 		if r.err != nil {
 			errs = append(errs, errors.Wrapf(r.err, "2pc txn=%s commit failed at participant %d.", t.id, r.pid))
-		} else if r.status.State != txn.State_Committed {
+		} else if r.status.State != txn.Status_Committed {
 			errs = append(errs, errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", t.id, r.status.State, r.pid))
 		} else {
 			status[r.pid] = r.status

@@ -124,13 +124,13 @@ func (w *watchdog2PC) mainLoop(ctx context.Context, all map[id]bool, prepared, d
 			}
 
 			switch status.State {
-			case State_Prepared:
+			case Status_Prepared:
 				all[status.Id] = true
 				prepared.PushBack(status)
-			case State_Decided:
+			case Status_Decided:
 				all[status.Id] = true
 				decided.PushBack(status)
-			case State_Committed, State_Aborted:
+			case Status_Committed, Status_Aborted:
 				delete(all, status.Id) // checkTimedout above will later clear from queue
 			}
 		case <-tickerPhase1.C:
@@ -185,11 +185,11 @@ func (w *watchdog2PC) loadRunning() (map[id]bool, dogQueue, dogQueue) {
 		all[p.Id] = true
 
 		switch p.State {
-		case State_Prepared:
+		case Status_Prepared:
 			prepared = append(prepared, p)
-		case State_Decided:
+		case Status_Decided:
 			decided = append(decided, p)
-		case State_Timedout:
+		case Status_Timedout:
 			// A running txn in Timedout state happens when the previous Raft partition
 			// leader has started the abort procedure (i.e. marked the txn as timedout),
 			// but lost leadership before the abort operation completed which did not
@@ -307,7 +307,7 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 			switch {
 			case err != nil:
 				return errors.Wrapf(err, "2pc txn=%s commit failed at participant %d.", txn.Id, pid)
-			case status.State != State_Committed:
+			case status.State != Status_Committed:
 				return errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", txn.Id, status.State, pid)
 			default:
 				return nil

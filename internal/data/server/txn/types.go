@@ -28,7 +28,7 @@ type BatchResults struct {
 type running struct {
 	Id              id
 	Timestamp       uint64
-	State           State
+	State           Status_State
 	ParticipantPids []uint32
 	Decision        *Decision
 }

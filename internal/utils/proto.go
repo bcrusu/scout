@@ -81,3 +81,18 @@ func CloneProtoMap[K comparable, V proto.Message](orig map[K]V) map[K]V {
 
 	return result
 }
+
+func CloneProtoMapValues[K comparable, V proto.Message](orig map[K]V) []V {
+	result := make([]V, 0, len(orig))
+
+	for _, v := range orig {
+		clone := proto.Clone(v)
+		v, ok := clone.(V)
+		if !ok {
+			panic("CloneProto failed")
+		}
+		result = append(result, v)
+	}
+
+	return result
+}

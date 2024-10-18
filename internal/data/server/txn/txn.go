@@ -71,11 +71,16 @@ func (t *Txn) BuildLocks() []*Lock {
 	return locks
 }
 
-func (s State) IsFinal() bool {
+func (p *Prepared) ReleaseLocks() {
+	p.Locks = nil
+	p.LocksReleased = true
+}
+
+func (s Status_State) IsFinal() bool {
 	switch s {
-	case State_Pending, State_Prepared, State_Decided:
+	case Status_Pending, Status_Prepared, Status_Decided:
 		return false
-	case State_Committed, State_Aborted, State_Failed, State_Timedout:
+	case Status_Committed, Status_Aborted, Status_Failed, Status_Timedout:
 		return true
 	default:
 		panic(fmt.Sprintf("unhandled txn state %s", s))
@@ -378,7 +383,7 @@ func (t *Status) Validate() error {
 	if err := t.Id.Validate(); err != nil {
 		return errors.Wrap(err, "Txn.Id is invalid")
 	}
-	if _, ok := State_name[int32(t.State)]; !ok {
+	if _, ok := Status_State_name[int32(t.State)]; !ok {
 		return errors.Error("Status.State is invalid")
 	}
 	if t.Timestamp == 0 || len(t.ParticipantPids) == 0 {

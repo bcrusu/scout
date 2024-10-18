@@ -16,6 +16,10 @@ func (p *Manager) checkLocks(id id, timestamp uint64, locks []*Lock) *Status {
 
 func (p *Manager) checkLock(lock *Lock) bool {
 	for _, prepared := range p.prepared {
+		if prepared.LocksReleased {
+			continue
+		}
+
 		for _, other := range prepared.Locks {
 			if !lock.CompatibleWith(other) {
 				return false
