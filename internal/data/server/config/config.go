@@ -54,14 +54,16 @@ type Session struct {
 }
 
 type Transactions struct {
-	Phase1Timeout      time.Duration     `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
-	Phase2Timeout      time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
-	RetryPolicy        utils.RetryPolicy `yaml:"retryPolicy"`
-	RetryBreakerLimit  int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
-	MaxBatchSize       int               `yaml:"maxBatchSize" default:"128" validate:"min:1"`
-	MaxBatchDelay      time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
-	MaxIteratorResults int               `yaml:"maxIteratorResults" default:"1000" validate:"min:100"`
-	SkipCorruptedData  bool              `yaml:"skipCorruptedData" default:"true"`
+	Phase1Timeout       time.Duration     `yaml:"phase1Timeout" default:"5s" validate:"min:100ms"`
+	Phase2Timeout       time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
+	RetryPolicy         utils.RetryPolicy `yaml:"retryPolicy"`
+	RetryBreakerLimit   int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
+	MaxBatchSize        int               `yaml:"maxBatchSize" default:"128" validate:"min:1"`
+	MaxBatchDelay       time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
+	MaxIteratorResults  int               `yaml:"maxIteratorResults" default:"1000" validate:"min:100"`
+	SkipCorruptedData   bool              `yaml:"skipCorruptedData" default:"true"`
+	CleanAfterReadWrite time.Duration     `yaml:"cleanAfterReadWrite" default:"1h" validate:"min:1m"`
+	CleanAfterReadOnly  time.Duration     `yaml:"cleanAfterReadOnly" default:"1m" validate:"min:100ms"`
 }
 
 type DB struct {

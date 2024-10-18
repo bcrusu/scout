@@ -204,11 +204,15 @@ func Update(incoming uint64) error {
 	return Get().Update(incoming)
 }
 
-func AsTimestamp(timestamp uint64) *timestamppb.Timestamp {
+func AsTime(timestamp uint64) time.Time {
 	x := int64(timestamp & physicalMask)
 	sec := int64(x / 1e9)
 	nsec := x - sec
-	return timestamppb.New(time.Unix(sec, nsec))
+	return time.Unix(sec, nsec).UTC()
+}
+
+func AsTimestamp(timestamp uint64) *timestamppb.Timestamp {
+	return timestamppb.New(AsTime(timestamp))
 }
 
 func FromTime(time time.Time) uint64 {

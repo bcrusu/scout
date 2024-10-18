@@ -3,16 +3,21 @@ package txn
 import (
 	"slices"
 	"sync"
+	"time"
 
+	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
-// TODO: prune status for old txn
+// Manager contains the read-write transaction management logic. The implementation
+// needs to be fully deterministic to ensure identical state across all Raft replicas.
+// Its state is advanced by the Raft FSM by calling the Apply method/s.
 type Manager struct {
 	pid          uint32
 	db           *mvcc.DBBreaker
+	cleanAfter   time.Duration
 	log          logging.LoggerNoContext
 	lock         sync.RWMutex // guards all below
 	status       map[id]*Status
@@ -21,12 +26,20 @@ type Manager struct {
 }
 
 func NewManager(pid uint32, db mvcc.DB) *Manager {
+	// It is important that all replicas use the same config value to avoid
+	// diverging states. Even so, transient diverging states are expected
+	// when the value is changed. In the future could have the leader trigger
+	// the periodic cleanup by writing a "cleanup" command to the Raft log.
+	// For now, this approach works for handling low-impact cleanup logic.
+	cleanAfter := config.Get().Transactions.CleanAfterReadWrite
+
 	return &Manager{
-		pid:      pid,
-		db:       mvcc.NewDBBreaker(db),
-		log:      logging.WithComponent("txn_manager").With("partition", pid).NoContext(),
-		status:   map[id]*Status{},
-		prepared: map[id]*Prepared{},
+		pid:        pid,
+		db:         mvcc.NewDBBreaker(db),
+		cleanAfter: cleanAfter,
+		log:        logging.WithComponent("txn_manager").With("partition", pid).NoContext(),
+		status:     map[id]*Status{},
+		prepared:   map[id]*Prepared{},
 	}
 }
 

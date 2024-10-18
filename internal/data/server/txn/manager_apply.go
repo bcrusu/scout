@@ -1,6 +1,8 @@
 package txn
 
 import (
+	"time"
+
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
@@ -64,6 +66,8 @@ func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
 	// that the newly-elected leader adopts a HCL timestamp greater than any
 	// write timestamps issued by the previous leader/s.
 	hlc.Update(p.maxTimestamp)
+
+	p.cleanup()
 	return result
 }
 
@@ -370,6 +374,25 @@ func (p *Manager) buildWriteEntries(timestamp uint64, txn *Txn) []mvcc.Record {
 	}
 
 	return writes
+}
+
+func (p *Manager) cleanup() {
+	oldest := hlc.FromTime(time.Now().Add(-p.cleanAfter))
+	toRemove := map[id]bool{}
+
+	for id, status := range p.status {
+		if status.Timestamp > oldest || !status.State.IsFinal() {
+			continue
+		} else if x := p.prepared[id]; x != nil && !x.LocksReleased {
+			continue
+		}
+		toRemove[id] = true
+	}
+
+	for id := range toRemove {
+		delete(p.status, id)
+		delete(p.prepared, id)
+	}
 }
 
 func newStatus(id id, timestamp uint64, state Status_State) *Status {
