@@ -24,6 +24,7 @@ type Service struct {
 	manager     *Manager
 	watchdog2PC *watchdog2PC
 	log         logging.Logger
+	components  []utils.Lifecycle
 }
 
 type RaftStore interface {
@@ -35,13 +36,19 @@ func NewService(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB, c
 		config:  config.Get().Transactions,
 		pid:     pid,
 		batcher: newBatcher(raftStore),
-		reader:  newReader(pid, db),
+		reader:  newReader(pid, manager, db),
 		manager: manager,
 		log:     logging.WithComponent("txn").With("partition", pid),
 	}
 
+	s.components = []utils.Lifecycle{
+		s.batcher,
+		s.reader,
+	}
+
 	if client != nil {
 		s.watchdog2PC = newWatchdog2PC(pid, s, manager, client)
+		s.components = append(s.components, s.watchdog2PC)
 	}
 
 	return s
@@ -52,42 +59,35 @@ func NewServiceNoWatchdog(pid uint32, raftStore RaftStore, manager *Manager, db 
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	if err := s.batcher.Start(ctx); err != nil {
-		return err
-	}
-
-	if s.watchdog2PC != nil {
-		if err := s.watchdog2PC.Start(ctx); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return utils.LifecycleStart(ctx, s.log, s.components...)
 }
 
 func (s *Service) Stop() {
-	s.batcher.Stop()
-
-	if s.watchdog2PC != nil {
-		s.watchdog2PC.Stop()
-	}
+	utils.LifecycleStop(s.log.NoContext(), s.components...)
 }
 
 func (n *Service) Autocommit(ctx context.Context, req *AutocommitRequest) (*Status, error) {
 	if req.PartitionId != n.pid {
 		return nil, errors.InvalidRequest
 	} else if req.Txn.IsReadOnly() {
-		return n.reader.Read(ctx, req.Txn, req.ReadTimestamp)
+		return n.reader.AutocommitReadOnly(ctx, req.Txn, req.ReadTimestamp)
 	}
 
-	return n.batcher.Apply(&Autocommit{Txn: req.Txn, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&Autocommit{Txn: req.Txn, Timestamp: hlc.Now()})
+	if err != nil {
+		return nil, err
+	} else if err := n.reader.AutocommitReadWrite(ctx, req.Txn, status); err != nil {
+		return nil, err
+	}
+
+	return status, nil
 }
 
 func (n *Service) Prepare(ctx context.Context, req *PrepareRequest) (*Status, error) {
 	if req.ParticipantPid != n.pid {
 		return nil, errors.InvalidRequest
 	} else if req.ReadOnly {
-		return n.reader.PrepareReadOnly(req.Txn)
+		return n.reader.PrepareReadOnly(ctx, req.Txn)
 	}
 
 	status, err := n.batcher.Apply(&Prepare{Txn: req.Txn, Timestamp: hlc.Now()})
@@ -106,7 +106,7 @@ func (n *Service) Commit(ctx context.Context, req *CommitRequest) (*Status, erro
 	} else if err := hlc.Update(req.CommitTimestamp); err != nil {
 		return nil, err
 	} else if req.ReadOnly {
-		return n.reader.ReadPreparedReadOnly(req.Id, req.CommitTimestamp)
+		return n.reader.CommitReadOnly(ctx, req.Id, req.CommitTimestamp)
 	}
 
 	// the commit timestamp is decided by txn participants
@@ -119,9 +119,7 @@ func (n *Service) Commit(ctx context.Context, req *CommitRequest) (*Status, erro
 
 	if !req.FetchResults {
 		return status, nil
-	}
-
-	if err := n.reader.ReadResults(status); err != nil {
+	} else if err := n.reader.CommitReadWrite(ctx, status); err != nil {
 		return nil, err
 	}
 

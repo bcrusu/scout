@@ -104,3 +104,26 @@ func (p *Manager) getRunning() []running {
 
 	return result
 }
+
+func (p *Manager) getLatestReadTimestamp(txn *Txn) uint64 {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.latestReadTimestampForLocks(txn.BuildLocks())
+}
+
+func (p *Manager) getPreparedTxn(id id, clone bool) *Txn {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	prepared, ok := p.prepared[id]
+	if !ok {
+		return nil
+	}
+
+	txn := prepared.Txn
+	if clone {
+		txn = utils.CloneProto(txn)
+	}
+
+	return txn
+}

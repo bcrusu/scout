@@ -394,24 +394,3 @@ func (p *Manager) cleanup() {
 		delete(p.prepared, id)
 	}
 }
-
-func newStatus(id id, timestamp uint64, state Status_State) *Status {
-	return &Status{
-		Id:        id.ToProto(),
-		Timestamp: timestamp,
-		State:     state,
-	}
-}
-
-func newFailedStatus(id id, timestamp uint64, actionId uint32, code ActionStatus_Code) *Status {
-	return &Status{
-		Id:        id.ToProto(),
-		Timestamp: timestamp,
-		State:     Status_Failed,
-		ActionStatus: map[uint32]*ActionStatus{
-			actionId: {
-				Id:   actionId,
-				Code: code,
-			}},
-	}
-}

@@ -62,8 +62,8 @@ type Transactions struct {
 	MaxBatchDelay       time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
 	MaxIteratorResults  int               `yaml:"maxIteratorResults" default:"1000" validate:"min:100"`
 	SkipCorruptedData   bool              `yaml:"skipCorruptedData" default:"true"`
-	CleanAfterReadWrite time.Duration     `yaml:"cleanAfterReadWrite" default:"1h" validate:"min:1m"`
-	CleanAfterReadOnly  time.Duration     `yaml:"cleanAfterReadOnly" default:"1m" validate:"min:100ms"`
+	CleanAfterReadWrite time.Duration     `yaml:"cleanAfterReadWrite" default:"30m" validate:"min:1m"`
+	CleanAfterReadOnly  time.Duration     `yaml:"cleanAfterReadOnly" default:"30s" validate:"min:100ms"`
 }
 
 type DB struct {
