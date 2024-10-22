@@ -161,14 +161,11 @@ func (w *watchdog2PC) UpdateStatus(status *Status, prepared *Txn, decision *Deci
 		Id:        status.Id.id(),
 		Timestamp: status.Timestamp,
 		State:     status.State,
+		Decision:  decision,
 	}
 
 	if prepared != nil {
 		s.ParticipantPids = prepared.ParticipantPids
-	}
-
-	if decision != nil {
-		s.Decision = decision
 	}
 
 	w.requestCh <- s

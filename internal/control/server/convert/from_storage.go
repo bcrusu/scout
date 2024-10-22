@@ -20,15 +20,15 @@ func FromServerType(in storage.ServerType) control.ServerType {
 	}
 }
 
-func FromReplicaState(in storage.Partition_ReplicaState) control.DataServerConfig_ReplicaState {
+func FromReplicaState(in storage.ReplicaState) control.DataServerConfig_ReplicaState {
 	switch in {
-	case storage.Partition_Joining:
+	case storage.ReplicaState_Joining:
 		return control.DataServerConfig_Joining
-	case storage.Partition_Voter:
+	case storage.ReplicaState_Voter:
 		return control.DataServerConfig_Voter
-	case storage.Partition_NonVoter:
+	case storage.ReplicaState_NonVoter:
 		return control.DataServerConfig_NonVoter
-	case storage.Partition_Leaving:
+	case storage.ReplicaState_Leaving:
 		return control.DataServerConfig_Leaving
 	default:
 		panic(fmt.Sprintf("unhandled Partition_ReplicaState %s", in))

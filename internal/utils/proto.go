@@ -67,6 +67,21 @@ func CloneProto[T proto.Message](orig T) T {
 	return t
 }
 
+func CloneProtoSlice[T proto.Message](orig []T) []T {
+	result := make([]T, len(orig))
+	for i, t := range orig {
+		clone := proto.Clone(t)
+		t, ok := clone.(T)
+		if !ok {
+			panic("CloneProto failed")
+		}
+
+		result[i] = t
+	}
+
+	return result
+}
+
 func CloneProtoMap[K comparable, V proto.Message](orig map[K]V) map[K]V {
 	result := map[K]V{}
 
@@ -74,7 +89,7 @@ func CloneProtoMap[K comparable, V proto.Message](orig map[K]V) map[K]V {
 		clone := proto.Clone(v)
 		v, ok := clone.(V)
 		if !ok {
-			panic("CloneProto failed")
+			panic("CloneProtoMap failed")
 		}
 		result[k] = v
 	}
@@ -89,7 +104,7 @@ func CloneProtoMapValues[K comparable, V proto.Message](orig map[K]V) []V {
 		clone := proto.Clone(v)
 		v, ok := clone.(V)
 		if !ok {
-			panic("CloneProto failed")
+			panic("CloneProtoMapValues failed")
 		}
 		result = append(result, v)
 	}

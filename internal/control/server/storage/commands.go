@@ -22,6 +22,10 @@ func newCommand(payload payload) *Command {
 		p = &Command_UpdateServerStatus{UpdateServerStatus: x}
 	case *UpdatePartitionStatus:
 		p = &Command_UpdatePartitionStatus{UpdatePartitionStatus: x}
+	case *InitAssignments:
+		p = &Command_InitAssignments{InitAssignments: x}
+	case *UpdateAssignments:
+		p = &Command_UpdateAssignments{UpdateAssignments: x}
 	default:
 		panic(fmt.Sprintf("unhandled payload type %T", payload))
 	}
@@ -39,6 +43,10 @@ func getPayload(cmd *Command) payload {
 		return x.UpdateServerStatus
 	case *Command_UpdatePartitionStatus:
 		return x.UpdatePartitionStatus
+	case *Command_InitAssignments:
+		return x.InitAssignments
+	case *Command_UpdateAssignments:
+		return x.UpdateAssignments
 	default:
 		panic(fmt.Sprintf("unhandled payload type %T", cmd.Payload))
 	}
@@ -48,3 +56,5 @@ func (*Bootstrap) isPayload()             {}
 func (*Register) isPayload()              {}
 func (*UpdateServerStatus) isPayload()    {}
 func (*UpdatePartitionStatus) isPayload() {}
+func (*InitAssignments) isPayload()       {}
+func (*UpdateAssignments) isPayload()     {}

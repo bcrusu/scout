@@ -331,11 +331,9 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 		replicaServerIDs := make([]uint64, 0, len(part.Replicas))
 
 		for _, replica := range part.Replicas {
-			if replica.State != storage.Partition_Voter && replica.State != storage.Partition_NonVoter {
-				continue
+			if replica.State.IsServing() {
+				replicaServerIDs = append(replicaServerIDs, replica.ServerId)
 			}
-
-			replicaServerIDs = append(replicaServerIDs, replica.ServerId)
 		}
 		slices.Sort(replicaServerIDs)
 

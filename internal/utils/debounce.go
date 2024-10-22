@@ -28,11 +28,6 @@ func DebounceChan[T any](ctx context.Context, source <-chan T, pause time.Durati
 		var last *T
 
 		for {
-			var timerCh <-chan time.Time
-			if last != nil {
-				timerCh = timer.C
-			}
-
 			select {
 			case x, ok := <-source:
 				if !ok {
@@ -50,7 +45,7 @@ func DebounceChan[T any](ctx context.Context, source <-chan T, pause time.Durati
 				} else {
 					timer.Reset(pause)
 				}
-			case <-timerCh:
+			case <-GetTimerChan(timer):
 				if !send(*last) {
 					return
 				}

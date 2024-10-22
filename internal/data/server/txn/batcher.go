@@ -89,13 +89,8 @@ func (s *batcher) mainLoop(ctx context.Context) {
 			timer.Stop()
 		}
 
-		var timerCh <-chan time.Time
-		if timer != nil {
-			timerCh = timer.C
-		}
-
 		select {
-		case <-timerCh:
+		case <-utils.GetTimerChan(timer):
 			nextBatch()
 		case cmd := <-s.applyCh:
 			switch x := cmd.payload.(type) {

@@ -26,6 +26,8 @@ message Command {
         Register register = 3;
         UpdateServerStatus update_server_status = 4;
         UpdatePartitionStatus update_partition_status = 5;
+        InitAssignments init_assignments = 6;
+        UpdateAssignments update_assignments = 7;
     }
 }
 
@@ -45,9 +47,6 @@ message Bootstrap {
     // achievable in the cluster.
     // Each partition maps one-to-one to a multiraft replication group.
     uint32 partition_count = 3;
-
-    // The number of replicas for each partition.
-    uint32 replication_factor = 4;
 }
 
 message Register {
@@ -68,6 +67,39 @@ message UpdateServerStatus {
 message UpdatePartitionStatus {
     uint64 if_match = 1;
     map<uint32, PartitionStatus> items = 2;
+}
+
+message InitAssignments {
+    message Add {
+        uint32 partition_id = 1;
+        uint64 server_id = 2;
+        bool voter = 3;
+    }
+
+    repeated Add add = 1;
+}
+
+message UpdateAssignments {
+    message Add {
+        uint32 partition_id = 1;
+        uint64 server_id = 2;
+    }
+
+    message Update {
+        uint32 partition_id = 1;
+        string replica = 2;
+        ReplicaState state = 3;
+    }
+
+    message Delete {
+        uint32 partition_id = 1;
+        string replica = 2;
+    }
+
+    uint64 if_match = 1;
+    repeated Add add = 2;
+    repeated Update update = 3;
+    repeated Delete remove = 4;
 }
 
 message Snapshot {
@@ -106,8 +138,15 @@ message Servers {
     map<uint64, Server> items = 2;
     uint64 status_version = 3;
     map<uint64, ServerStatus> status = 4;
-    uint64 last_unique_id = 5;
+    uint64 last_id = 5;
     map<string, uint64> tokens = 6;
+}
+
+enum ReplicaState {
+    Joining = 0;
+    Voter = 1;
+    NonVoter = 2;
+    Leaving = 3;
 }
 
 // Partition represents a data storage partition which has a one-to-one
@@ -115,24 +154,19 @@ message Servers {
 // replicas and thir placement to servers. Each replica corresponds to
 // one Raft group member.
 message Partition {
-    enum ReplicaState {
-        Joining = 0;
-        Voter = 1;
-        NonVoter = 2;
-        Leaving = 3;
-    }
-
     message Replica {
         string name = 1;
         uint64 server_id = 2;
         ReplicaState state = 3;
         google.protobuf.Timestamp created_time = 4;
+        google.protobuf.Timestamp state_transition_time = 5;
     }
 
     uint64 version = 1;
     uint32 id = 2;
     string name = 3;
     map<string, Replica> replicas = 4;
+    uint64 last_replica_id = 5;
 }
 
 message PartitionStatus {
@@ -164,5 +198,4 @@ message Partitions {
     map<uint32, Partition> items = 2;
     uint64 status_version = 3;
     map<uint32, PartitionStatus> status = 4;
-    uint64 last_unique_id = 5;
 }

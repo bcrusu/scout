@@ -43,9 +43,8 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 	}
 
 	f.servers.ItemsVersion++
-	f.servers.LastUniqueId++
 
-	id := f.servers.LastUniqueId
+	id := f.nextServerID()
 	name := fmt.Sprintf("%s%d", serverNamePrefix[cmd.Type], id)
 
 	f.servers.Items[id] = &Server{

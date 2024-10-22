@@ -27,3 +27,17 @@ func NewRateLimiter(limit int, interval time.Duration) *rate.Limiter {
 	perSecond := rate.Limit(float64(limit) / interval.Seconds())
 	return rate.NewLimiter(perSecond, limit)
 }
+
+func GetTimerChan(timer *time.Timer) <-chan time.Time {
+	if timer != nil {
+		return timer.C
+	}
+	return nil
+}
+
+func GetTickerChan(ticker *time.Ticker) <-chan time.Time {
+	if ticker != nil {
+		return ticker.C
+	}
+	return nil
+}

@@ -2,6 +2,10 @@ package control
 
 import "github.com/bcrusu/scout/internal/errors"
 
+func (s DataServerConfig_ReplicaState) IsServing() bool {
+	return s == DataServerConfig_Voter || s == DataServerConfig_NonVoter
+}
+
 func (x *Hello) Validate() error {
 	if x == nil {
 		return errors.Error("Hello is nil")

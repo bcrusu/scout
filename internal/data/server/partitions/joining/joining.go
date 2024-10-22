@@ -157,7 +157,7 @@ func (p *Joining) makeCandidates(config *control.DataServerConfig_Partition, par
 		switch {
 		case r.Name == p.localReplica:
 			continue
-		case r.State != control.DataServerConfig_Voter && r.State != control.DataServerConfig_NonVoter:
+		case !r.State.IsServing():
 			continue
 		}
 

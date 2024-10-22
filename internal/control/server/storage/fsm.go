@@ -75,6 +75,10 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 		result, err = f.applyUpdateServerStatus(appendedAt, x)
 	case *UpdatePartitionStatus:
 		result, err = f.applyUpdatePartitionStatus(appendedAt, x)
+	case *InitAssignments:
+		result, err = f.applyInitAssignments(appendedAt, x)
+	case *UpdateAssignments:
+		result, err = f.applyUpdateAssignments(appendedAt, x)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", payload)
 	}

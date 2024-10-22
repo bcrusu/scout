@@ -28,8 +28,8 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 	}
 
 	for _, server := range cmd.Servers {
-		if server.Id > f.servers.LastUniqueId {
-			f.servers.LastUniqueId = server.Id
+		if server.Id > f.servers.LastId {
+			f.servers.LastId = server.Id
 		}
 
 		f.servers.Items[server.Id] = &Server{
@@ -39,6 +39,7 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 			Type:         ServerType_Control,
 			RegisteredAt: timestamppb.New(appendedAt),
 		}
+
 		f.servers.Status[server.Id] = &ServerStatus{
 			Version:     1,
 			LastSeen:    timestamppb.New(appendedAt),
@@ -51,21 +52,21 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 		Items:         map[uint32]*Partition{},
 		StatusVersion: 1,
 		Status:        map[uint32]*PartitionStatus{},
-		LastUniqueId:  0,
 	}
 
 	for id := range cmd.PartitionCount {
 		f.partitions.Items[id] = &Partition{
-			Version:  1,
-			Id:       id,
-			Name:     fmt.Sprintf("%s%d", partitionNamePrefix, id),
-			Replicas: map[string]*Partition_Replica{}, // will be updated live by the partition assignment component
+			Version:       1,
+			Id:            id,
+			Name:          fmt.Sprintf("%s%d", partitionNamePrefix, id),
+			Replicas:      map[string]*Partition_Replica{}, // will be updated live by the partition assignment component
+			LastReplicaId: 0,
 		}
+
 		f.partitions.Status[id] = &PartitionStatus{
 			Version:  1,
 			Replicas: map[string]*PartitionStatus_Replica{},
 		}
-
 	}
 
 	return &BootstrapResult{
