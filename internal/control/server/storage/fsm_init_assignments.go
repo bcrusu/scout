@@ -8,7 +8,7 @@ import (
 )
 
 func (f *FSM) applyInitAssignments(appendedAt time.Time, cmd *InitAssignments) (*UpdateResult, error) {
-	if f.partitions.ItemsVersion != 1 {
+	if f.partitions.IsInitialized() {
 		// init needs to happen only once right after bootstrap
 		return nil, errors.InvalidRequest
 	} else if err := f.validateInitAssignments(cmd); err != nil {

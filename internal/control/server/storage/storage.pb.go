@@ -580,7 +580,7 @@ type UpdateAssignments struct {
 	IfMatch uint64                      `protobuf:"varint,1,opt,name=if_match,json=ifMatch,proto3" json:"if_match,omitempty"`
 	Add     []*UpdateAssignments_Add    `protobuf:"bytes,2,rep,name=add,proto3" json:"add,omitempty"`
 	Update  []*UpdateAssignments_Update `protobuf:"bytes,3,rep,name=update,proto3" json:"update,omitempty"`
-	Remove  []*UpdateAssignments_Delete `protobuf:"bytes,4,rep,name=remove,proto3" json:"remove,omitempty"`
+	Remove  []*UpdateAssignments_Remove `protobuf:"bytes,4,rep,name=remove,proto3" json:"remove,omitempty"`
 }
 
 func (x *UpdateAssignments) Reset() {
@@ -636,7 +636,7 @@ func (x *UpdateAssignments) GetUpdate() []*UpdateAssignments_Update {
 	return nil
 }
 
-func (x *UpdateAssignments) GetRemove() []*UpdateAssignments_Delete {
+func (x *UpdateAssignments) GetRemove() []*UpdateAssignments_Remove {
 	if x != nil {
 		return x.Remove
 	}
@@ -1444,7 +1444,7 @@ func (x *UpdateAssignments_Update) GetState() ReplicaState {
 	return ReplicaState_Joining
 }
 
-type UpdateAssignments_Delete struct {
+type UpdateAssignments_Remove struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -1453,8 +1453,8 @@ type UpdateAssignments_Delete struct {
 	Replica     string `protobuf:"bytes,2,opt,name=replica,proto3" json:"replica,omitempty"`
 }
 
-func (x *UpdateAssignments_Delete) Reset() {
-	*x = UpdateAssignments_Delete{}
+func (x *UpdateAssignments_Remove) Reset() {
+	*x = UpdateAssignments_Remove{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_internal_control_server_storage_storage_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1462,13 +1462,13 @@ func (x *UpdateAssignments_Delete) Reset() {
 	}
 }
 
-func (x *UpdateAssignments_Delete) String() string {
+func (x *UpdateAssignments_Remove) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpdateAssignments_Delete) ProtoMessage() {}
+func (*UpdateAssignments_Remove) ProtoMessage() {}
 
-func (x *UpdateAssignments_Delete) ProtoReflect() protoreflect.Message {
+func (x *UpdateAssignments_Remove) ProtoReflect() protoreflect.Message {
 	mi := &file_internal_control_server_storage_storage_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1480,19 +1480,19 @@ func (x *UpdateAssignments_Delete) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpdateAssignments_Delete.ProtoReflect.Descriptor instead.
-func (*UpdateAssignments_Delete) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateAssignments_Remove.ProtoReflect.Descriptor instead.
+func (*UpdateAssignments_Remove) Descriptor() ([]byte, []int) {
 	return file_internal_control_server_storage_storage_proto_rawDescGZIP(), []int{6, 2}
 }
 
-func (x *UpdateAssignments_Delete) GetPartitionId() uint32 {
+func (x *UpdateAssignments_Remove) GetPartitionId() uint32 {
 	if x != nil {
 		return x.PartitionId
 	}
 	return 0
 }
 
-func (x *UpdateAssignments_Delete) GetReplica() string {
+func (x *UpdateAssignments_Remove) GetReplica() string {
 	if x != nil {
 		return x.Replica
 	}
@@ -1866,7 +1866,7 @@ var file_internal_control_server_storage_storage_proto_rawDesc = []byte{
 	0x70, 0x64, 0x61, 0x74, 0x65, 0x12, 0x41, 0x0a, 0x06, 0x72, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x18,
 	0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x29, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
 	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x55, 0x70, 0x64, 0x61, 0x74, 0x65, 0x41, 0x73,
-	0x73, 0x69, 0x67, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65,
+	0x73, 0x69, 0x67, 0x6e, 0x6d, 0x65, 0x6e, 0x74, 0x73, 0x2e, 0x52, 0x65, 0x6d, 0x6f, 0x76, 0x65,
 	0x52, 0x06, 0x72, 0x65, 0x6d, 0x6f, 0x76, 0x65, 0x1a, 0x45, 0x0a, 0x03, 0x41, 0x64, 0x64, 0x12,
 	0x21, 0x0a, 0x0c, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0b, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e,
@@ -1879,8 +1879,8 @@ var file_internal_control_server_storage_storage_proto_rawDesc = []byte{
 	0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x12, 0x33, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18,
 	0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x1d, 0x2e, 0x63, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x2e,
 	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x65, 0x70, 0x6c, 0x69, 0x63, 0x61, 0x53,
-	0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x1a, 0x45, 0x0a, 0x06, 0x44,
-	0x65, 0x6c, 0x65, 0x74, 0x65, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69,
+	0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x1a, 0x45, 0x0a, 0x06, 0x52,
+	0x65, 0x6d, 0x6f, 0x76, 0x65, 0x12, 0x21, 0x0a, 0x0c, 0x70, 0x61, 0x72, 0x74, 0x69, 0x74, 0x69,
 	0x6f, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0b, 0x70, 0x61, 0x72,
 	0x74, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x18, 0x0a, 0x07, 0x72, 0x65, 0x70, 0x6c,
 	0x69, 0x63, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x72, 0x65, 0x70, 0x6c, 0x69,
@@ -2116,7 +2116,7 @@ var file_internal_control_server_storage_storage_proto_goTypes = []any{
 	(*InitAssignments_Add)(nil),           // 19: control.storage.InitAssignments.Add
 	(*UpdateAssignments_Add)(nil),         // 20: control.storage.UpdateAssignments.Add
 	(*UpdateAssignments_Update)(nil),      // 21: control.storage.UpdateAssignments.Update
-	(*UpdateAssignments_Delete)(nil),      // 22: control.storage.UpdateAssignments.Delete
+	(*UpdateAssignments_Remove)(nil),      // 22: control.storage.UpdateAssignments.Remove
 	nil,                                   // 23: control.storage.Servers.ItemsEntry
 	nil,                                   // 24: control.storage.Servers.StatusEntry
 	nil,                                   // 25: control.storage.Servers.TokensEntry
@@ -2145,7 +2145,7 @@ var file_internal_control_server_storage_storage_proto_depIdxs = []int32{
 	19, // 10: control.storage.InitAssignments.add:type_name -> control.storage.InitAssignments.Add
 	20, // 11: control.storage.UpdateAssignments.add:type_name -> control.storage.UpdateAssignments.Add
 	21, // 12: control.storage.UpdateAssignments.update:type_name -> control.storage.UpdateAssignments.Update
-	22, // 13: control.storage.UpdateAssignments.remove:type_name -> control.storage.UpdateAssignments.Delete
+	22, // 13: control.storage.UpdateAssignments.remove:type_name -> control.storage.UpdateAssignments.Remove
 	34, // 14: control.storage.Snapshot.cluster_created_time:type_name -> google.protobuf.Timestamp
 	12, // 15: control.storage.Snapshot.servers:type_name -> control.storage.Servers
 	15, // 16: control.storage.Snapshot.partitions:type_name -> control.storage.Partitions
@@ -2405,7 +2405,7 @@ func file_internal_control_server_storage_storage_proto_init() {
 			}
 		}
 		file_internal_control_server_storage_storage_proto_msgTypes[20].Exporter = func(v any, i int) any {
-			switch v := v.(*UpdateAssignments_Delete); i {
+			switch v := v.(*UpdateAssignments_Remove); i {
 			case 0:
 				return &v.state
 			case 1:

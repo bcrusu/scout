@@ -91,7 +91,7 @@ message UpdateAssignments {
         ReplicaState state = 3;
     }
 
-    message Delete {
+    message Remove {
         uint32 partition_id = 1;
         string replica = 2;
     }
@@ -99,7 +99,7 @@ message UpdateAssignments {
     uint64 if_match = 1;
     repeated Add add = 2;
     repeated Update update = 3;
-    repeated Delete remove = 4;
+    repeated Remove remove = 4;
 }
 
 message Snapshot {

@@ -40,6 +40,7 @@ type Config struct {
 	MaxTimeOffset time.Duration    `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
 	Raft          multiraft.Config `yaml:"raft"`
 	Sessions      Sessions         `yaml:"sessions"`
+	Partitions    Partitions       `yaml:"partitions"`
 	Register      *Register        `yaml:"register"`
 	Bootstrap     *Bootstrap       `yaml:"bootstrap"`
 }
@@ -63,6 +64,15 @@ type Sessions struct {
 	ReceiveBurst            int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
 	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
 	TimeOffsetCheckInterval time.Duration `yaml:"timeOffsetCheckInterval" default:"5s" validate:"min:100ms"`
+}
+
+type Partitions struct {
+	ReplicationFactor      int           `yaml:"replicationFactor" default:"3" validate:"min:1"`
+	InitalDelay            time.Duration `yaml:"initalDelay" default:"1m" validate:"min:1s"`
+	RebalanceInterval      time.Duration `yaml:"rebalanceInterval" default:"1m" validate:"min:1s"`
+	MaxJoining             int           `yaml:"maxJoining" default:"16" validate:"min:1"`
+	MaxJoiningForServer    int           `yaml:"maxJoiningForServer" default:"2" validate:"min:1"`
+	MaxJoiningForPartition int           `yaml:"maxJoiningForPartition" default:"1" validate:"min:1"`
 }
 
 func (c Config) Validate() error {

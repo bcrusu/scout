@@ -6,7 +6,19 @@ func (s *Servers) ByID(id uint64) *Server {
 	return s.Items[id]
 }
 
-func (s *Servers) ByType(stype ServerType) map[uint64]*Server {
+func (s *Servers) ControlServers() map[uint64]*Server {
+	return s.byType(ServerType_Control)
+}
+
+func (s *Servers) DataServers() map[uint64]*Server {
+	return s.byType(ServerType_Data)
+}
+
+func (s *Servers) ApiServers() map[uint64]*Server {
+	return s.byType(ServerType_Api)
+}
+
+func (s *Servers) byType(stype ServerType) map[uint64]*Server {
 	result := map[uint64]*Server{}
 
 	for id, s := range s.Items {
@@ -20,6 +32,10 @@ func (s *Servers) ByType(stype ServerType) map[uint64]*Server {
 
 func (s ReplicaState) IsServing() bool {
 	return s == ReplicaState_Voter || s == ReplicaState_NonVoter
+}
+
+func (p *Partitions) IsInitialized() bool {
+	return p.ItemsVersion > 1
 }
 
 func (p *Partition) nextReplicaName() string {

@@ -43,7 +43,7 @@ func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *st
 	}
 
 	result := dsConfigs{}
-	for id := range servers.ByType(storage.ServerType_Data) {
+	for id := range servers.DataServers() {
 		partitions := byServer[id]
 
 		etags := make([]string, 0, len(partitions))
@@ -62,7 +62,7 @@ func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *st
 
 func (t *Tracker) makeApiServerConfigs(servers *storage.Servers) asConfigs {
 	result := asConfigs{}
-	for id := range servers.ByType(storage.ServerType_Api) {
+	for id := range servers.ApiServers() {
 		result[id] = &control.ApiServerConfig{
 			ETag:           "",
 			PartitionCount: t.store.PartitionCount(),

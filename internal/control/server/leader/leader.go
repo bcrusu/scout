@@ -6,6 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/common"
 	"github.com/bcrusu/scout/internal/control/server/convert"
+	"github.com/bcrusu/scout/internal/control/server/leader/partitions"
 	"github.com/bcrusu/scout/internal/control/server/leader/sessions"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
@@ -26,28 +27,38 @@ var (
 type Leader struct {
 	control.UnsafeServiceServer
 	*common.Shared
-	raft           *multiraft.Raft
-	store          storage.Store
-	sessionTracker *sessions.Tracker
+	raft              *multiraft.Raft
+	store             storage.Store
+	sessionTracker    *sessions.Tracker
+	partitionAssigner *partitions.Assigner
+	components        []utils.Lifecycle
 }
 
 func New(raft *multiraft.Raft, store storage.Store) *Leader {
-	return &Leader{
-		Shared:         common.New(raft, store),
-		raft:           raft,
-		store:          store,
-		sessionTracker: sessions.NewTracker(store),
+	l := &Leader{
+		Shared:            common.New(raft, store),
+		raft:              raft,
+		store:             store,
+		sessionTracker:    sessions.NewTracker(store),
+		partitionAssigner: partitions.NewAssigner(store),
 	}
+
+	l.components = []utils.Lifecycle{
+		l.sessionTracker,
+		l.partitionAssigner,
+	}
+
+	return l
 }
 
 func (n *Leader) Start(ctx context.Context) error {
-	utils.LifecycleStart(ctx, logL, n.sessionTracker)
+	utils.LifecycleStart(ctx, logL, n.components...)
 	logL.Debug(ctx, "Started leader")
 	return nil
 }
 
 func (n *Leader) Stop() {
-	utils.LifecycleStop(logL.NoContext(), n.sessionTracker)
+	utils.LifecycleStop(logL.NoContext(), n.components...)
 	logL.NoContext().Debug("Stopped leader")
 }
 

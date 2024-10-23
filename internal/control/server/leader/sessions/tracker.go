@@ -319,7 +319,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 		ServiceConfigJson: t.dataServiceConfigJson,
 	}
 
-	for id := range servers.ByType(storage.ServerType_Data) {
+	for id := range servers.DataServers() {
 		new.Servers[id] = &control.DataServers_Server{
 			Id:      id,
 			Address: status.getServerLastAddress(id),
@@ -374,7 +374,7 @@ func (t *Tracker) updateApiServerList(sessions sessions, servers *storage.Server
 		ServiceConfigJson: t.apiServiceConfigJson,
 	}
 
-	for id := range servers.ByType(storage.ServerType_Api) {
+	for id := range servers.ApiServers() {
 		new.Servers[id] = &control.ApiServers_Server{
 			Id:      id,
 			Address: status.getServerLastAddress(id),

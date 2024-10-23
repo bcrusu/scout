@@ -44,6 +44,8 @@ type Store interface {
 	Register(*Register) (*RegisterResult, error)
 	UpdateServerStatus(*UpdateServerStatus) (*UpdateResult, error)
 	UpdatePartitionStatus(*UpdatePartitionStatus) (*UpdateResult, error)
+	InitAssignments(*InitAssignments) (*UpdateResult, error)
+	UpdateAssignments(*UpdateAssignments) (*UpdateResult, error)
 }
 
 type store struct {
@@ -161,6 +163,14 @@ func (s *store) UpdateServerStatus(cmd *UpdateServerStatus) (*UpdateResult, erro
 }
 
 func (s *store) UpdatePartitionStatus(cmd *UpdatePartitionStatus) (*UpdateResult, error) {
+	return applyR[*UpdateResult](s.raft, cmd)
+}
+
+func (s *store) InitAssignments(cmd *InitAssignments) (*UpdateResult, error) {
+	return applyR[*UpdateResult](s.raft, cmd)
+}
+
+func (s *store) UpdateAssignments(cmd *UpdateAssignments) (*UpdateResult, error) {
 	return applyR[*UpdateResult](s.raft, cmd)
 }
 

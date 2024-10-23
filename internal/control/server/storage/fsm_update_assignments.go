@@ -10,7 +10,7 @@ import (
 func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignments) (*UpdateResult, error) {
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.partitions.ItemsVersion {
 		return nil, errors.FailedPrecondition
-	} else if f.partitions.ItemsVersion == 1 {
+	} else if !f.partitions.IsInitialized() {
 		// init assignments did not happen
 		return nil, errors.InvalidRequest
 	} else if err := f.validateUpdateAssignments(cmd); err != nil {
@@ -59,6 +59,11 @@ func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignment
 }
 
 func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
+	changes := len(cmd.Add) + len(cmd.Update) + len(cmd.Remove)
+	if changes == 0 {
+		return errors.InvalidRequest
+	}
+
 	for _, x := range cmd.Add {
 		if !f.isValidPartitionID(x.PartitionId) || !f.isValidDataServer(x.ServerId) {
 			return errors.InvalidRequest
