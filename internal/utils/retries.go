@@ -20,7 +20,7 @@ type RetryPolicy struct {
 // Backoff retry parameters
 type Backoff struct {
 	MinDelay   time.Duration `yaml:"minDelay" default:"100ms" validate:"min:10ms"`
-	MaxDelay   time.Duration `yaml:"maxDelay" default:"500ms" validate:"min:100ms"`
+	MaxDelay   time.Duration `yaml:"maxDelay" default:"1s" validate:"min:100ms"`
 	Jitter     float64       `yaml:"jitter" default:"0.15" validate:"min:0,max:1"`
 	Multiplier float64       `yaml:"multiplier" default:"1.75" validate:"min:1"`
 }

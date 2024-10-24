@@ -23,11 +23,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-const (
-	sessionSendBufferChSize   = 32
-	writeLatestStatusInterval = 5 * time.Second
-)
-
 var (
 	logS                                       = logging.WithComponent("session_tracker")
 	_                          utils.Lifecycle = (*Tracker)(nil)
@@ -78,7 +73,7 @@ func NewTracker(store storage.Store) *Tracker {
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
-		globalTimeOffset:      newGlobalTimeOffset(c.MaxTimeOffset),
+		globalTimeOffset:      newGlobalTimeOffset(c.TimeOffset),
 		dataServiceConfigJson: c.Service.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc, txn.TxnService_ServiceDesc),
 		apiServiceConfigJson:  c.Service.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
@@ -129,7 +124,7 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 func (t *Tracker) mainLoop(ctx context.Context) {
 	serversSub := eventbus.Subscribe[*storage.Servers]()
 	partitionsSub := eventbus.Subscribe[*storage.Partitions]()
-	writeLatestStatusTicker := time.NewTicker(writeLatestStatusInterval)
+	writeLatestStatusTicker := time.NewTicker(t.config.Sessions.WriteStatusInterval)
 	defer serversSub.Unsubscribe()
 	defer partitionsSub.Unsubscribe()
 	defer writeLatestStatusTicker.Stop()
@@ -187,10 +182,10 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				serverType:    convert.FromServerType(server.Type),
 				serverAddress: x.serverAddress,
 				createdAt:     now,
-				sendBufferCh:  make(chan *control.SessionOut, sessionSendBufferChSize),
+				sendBufferCh:  make(chan *control.SessionOut, t.config.Sessions.SendBufferSize),
 				ctx:           x.stream.Context(),
 				waitCh:        x.waitCh,
-				timeOffset:    newSessionTimeOffset(t.globalTimeOffset, t.config.MaxTimeOffset),
+				timeOffset:    newSessionTimeOffset(t.config.TimeOffset, t.globalTimeOffset),
 				dsConfig:      dsConfigs[x.serverID],
 				asConfig:      asConfigs[x.serverID],
 				recvLimiter:   utils.NewRateLimiter(t.config.Sessions.ReceiveBurst, time.Second),

@@ -107,7 +107,7 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, c
 		BindAddress: n.config.Server.BindAddress,
 	}
 
-	registerer := register.NewRegisterer(idStore, controlClient)
+	registerer := register.NewRegisterer(idStore, controlClient, n.config.Register.RetryBackoff)
 	return registerer.Register(ctx, params)
 }
 

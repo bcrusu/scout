@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
@@ -20,10 +19,6 @@ const (
 )
 
 var (
-	retryBackoff = &utils.Backoff{
-		MinDelay: 5 * time.Second,
-		MaxDelay: 20 * time.Second,
-	}
 	log = logging.WithComponent("control_bootstrap")
 )
 
@@ -45,14 +40,16 @@ type Bootstrapper struct {
 	raft    *multiraft.Raft
 	store   storage.Store
 	idStore identity.IdentityStore
+	backoff utils.Backoff
 }
 
 // NewBootstrapper returns a new Bootstrapper.
-func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.IdentityStore) *Bootstrapper {
+func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.IdentityStore, backoff utils.Backoff) *Bootstrapper {
 	return &Bootstrapper{
 		raft:    raft,
 		store:   store,
 		idStore: idStore,
+		backoff: backoff,
 	}
 }
 
@@ -185,7 +182,7 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 		PartitionCount: p.PartitionCount,
 	}
 
-	return utils.RetryForeverE(ctx, retryBackoff, func() error {
+	return utils.RetryForeverE(ctx, &b.backoff, func() error {
 		if clusterName := b.store.ClusterName(); clusterName == p.ClusterName {
 			log.Info(ctx, "Initial write was completed successfully by another server.")
 			return nil
@@ -220,7 +217,7 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 }
 
 func (b *Bootstrapper) storeIdentityWithRetry(ctx context.Context, p Params) error {
-	return utils.RetryForeverE(ctx, retryBackoff, func() error {
+	return utils.RetryForeverE(ctx, &b.backoff, func() error {
 		if err := b.idStore.Set(p.identity); err != nil {
 			log.WithError(err).Error(ctx, "Storing identity failed. Retrying...")
 			return err

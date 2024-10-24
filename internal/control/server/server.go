@@ -103,7 +103,7 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	if bparams != nil {
-		bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore)
+		bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore, n.config.Bootstrap.RetryBackoff)
 		return bootstrapper.Bootstrap(ctx, *bparams)
 	}
 
@@ -131,7 +131,7 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (
 		BindAddress: n.config.Server.BindAddress,
 	}
 
-	registerer := register.NewRegisterer(idStore, client)
+	registerer := register.NewRegisterer(idStore, client, n.config.Register.RetryBackoff)
 	return registerer.Register(ctx, params)
 }
 

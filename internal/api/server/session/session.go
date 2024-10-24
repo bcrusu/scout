@@ -21,9 +21,7 @@ import (
 
 var (
 	_                          utils.Lifecycle = (*Session)(nil)
-	sendChSize                                 = 32
 	refreshDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
-	newSessionThrottle                         = utils.AddJitter(5*time.Second, 0.15)
 	log                                        = logging.WithComponent("api_session").NoContext()
 )
 
@@ -76,7 +74,7 @@ func (m *Session) mainLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(newSessionThrottle):
+		case <-time.After(utils.AddJitter(m.config.NewSessionThrottle, 0.15)): // TODO: review AddJitter
 		}
 	}
 }
@@ -97,7 +95,7 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 	}
 
 	loopDoneCh := make(chan error)
-	sendCh := make(chan *control.SessionIn, sendChSize)
+	sendCh := make(chan *control.SessionIn, m.config.SendBufferSize)
 	recvCh := make(chan any)
 
 	go m.sendLoop(stream, sendCh, loopDoneCh)

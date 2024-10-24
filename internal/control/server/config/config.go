@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
 )
 
@@ -34,24 +35,26 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	Server        rpc.ServerConfig `yaml:"server"`
-	Service       Service          `yaml:"service"`
-	DataDir       string           `yaml:"dataDir" validate:"required"`
-	MaxTimeOffset time.Duration    `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
-	Raft          multiraft.Config `yaml:"raft"`
-	Sessions      Sessions         `yaml:"sessions"`
-	Partitions    Partitions       `yaml:"partitions"`
-	Register      *Register        `yaml:"register"`
-	Bootstrap     *Bootstrap       `yaml:"bootstrap"`
+	Server     rpc.ServerConfig `yaml:"server"`
+	Service    Service          `yaml:"service"`
+	DataDir    string           `yaml:"dataDir" validate:"required"`
+	Raft       multiraft.Config `yaml:"raft"`
+	Sessions   Sessions         `yaml:"sessions"`
+	TimeOffset TimeOffset       `yaml:"timeOffset"`
+	Partitions Partitions       `yaml:"partitions"`
+	Register   *Register        `yaml:"register"`
+	Bootstrap  *Bootstrap       `yaml:"bootstrap"`
 }
 
 type Register struct {
-	Discovery discovery.Discovery `yaml:"discovery"`
+	Discovery    discovery.Discovery `yaml:"discovery"`
+	RetryBackoff utils.Backoff       `yaml:"retryBackoff"`
 }
 
 type Bootstrap struct {
-	InitialServers []string `yaml:"initialServers"`
-	PartitionCount uint32   `yaml:"partitionCount" validate:"min:1,max:65536"`
+	InitialServers []string      `yaml:"initialServers"`
+	PartitionCount uint32        `yaml:"partitionCount" validate:"min:1,max:65536"`
+	RetryBackoff   utils.Backoff `yaml:"retryBackoff"`
 }
 
 type Service struct {
@@ -61,9 +64,19 @@ type Service struct {
 }
 
 type Sessions struct {
-	ReceiveBurst            int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
-	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
-	TimeOffsetCheckInterval time.Duration `yaml:"timeOffsetCheckInterval" default:"5s" validate:"min:100ms"`
+	ReceiveBurst        int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
+	ReceiveMaxOffenses  int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
+	WriteStatusInterval time.Duration `yaml:"writeStatusInterval" default:"5s" validate:"min:100ms"`
+	SendBufferSize      int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
+}
+
+type TimeOffset struct {
+	MaxTimeOffset        time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:10ms"`
+	CheckInterval        time.Duration `yaml:"checkInterval" default:"5s" validate:"min:100ms"`
+	GlobalTruncationPct  float64       `yaml:"globalTruncationPct" default:"80" validate:"min:1"`
+	GlobalWarmupCount    int           `yaml:"globalWarmupCount" default:"100" validate:"min:1"`
+	SessionTruncationPct float64       `yaml:"sessionTruncationPct" default:"95" validate:"min:1"`
+	SessionWarmupCount   int           `yaml:"sessionWarmupCount" default:"10" validate:"min:1"`
 }
 
 type Partitions struct {

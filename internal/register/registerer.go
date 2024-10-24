@@ -2,7 +2,6 @@ package register
 
 import (
 	"context"
-	"time"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/client"
@@ -13,10 +12,6 @@ import (
 )
 
 var (
-	registerBackoff = &utils.Backoff{
-		MinDelay: 2 * time.Second,
-		MaxDelay: 30 * time.Second,
-	}
 	log = logging.WithComponent("register")
 )
 
@@ -30,13 +25,15 @@ type Params struct {
 type Registerer struct {
 	idStore identity.IdentityStore
 	client  client.ControlClient
+	backoff utils.Backoff
 }
 
 // NewRegisterer returns a new Registerer.
-func NewRegisterer(idStore identity.IdentityStore, client client.ControlClient) *Registerer {
+func NewRegisterer(idStore identity.IdentityStore, client client.ControlClient, backoff utils.Backoff) *Registerer {
 	return &Registerer{
 		idStore: idStore,
 		client:  client,
+		backoff: backoff,
 	}
 }
 
@@ -51,7 +48,7 @@ func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Ide
 		Type:    params.ServerType,
 	}
 
-	res, err := utils.RetryForeverR(ctx, registerBackoff, func() (*control.RegisterResponse, error) {
+	res, err := utils.RetryForeverR(ctx, &r.backoff, func() (*control.RegisterResponse, error) {
 		resp, err := r.client.Register(ctx, req)
 		if err != nil {
 			log.WithError(err).Error(ctx, "Register failed. Retrying...")

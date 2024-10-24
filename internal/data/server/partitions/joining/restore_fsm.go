@@ -21,9 +21,7 @@ import (
 )
 
 var (
-	_                       multiraft.FSM = (*restoreFsm)(nil)
-	streamPartitionThrottle               = utils.AddJitter(5*time.Second, 0.15)
-
+	_ multiraft.FSM = (*restoreFsm)(nil)
 	// Used to save progress and resume from last ingested address during restore.
 	// The value is stored next to the data to ensure atomicity: iif data was persisted
 	// successfully then the checkpoint is also persisted.
@@ -166,7 +164,7 @@ func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) 
 		select {
 		case <-f.ctx.Done():
 			return errors.Error("stream partition halted")
-		case <-time.After(streamPartitionThrottle):
+		case <-time.After(utils.AddJitter(f.config.StreamingThrottle, 0.15)):
 		}
 	}
 }

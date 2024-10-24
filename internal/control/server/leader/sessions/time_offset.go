@@ -6,42 +6,42 @@ import (
 
 	"github.com/HdrHistogram/hdrhistogram-go"
 	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/control/server/config"
 	"github.com/bcrusu/scout/internal/errors"
 )
 
 const (
-	minTimeOffset        = time.Millisecond
-	globalTimeOffsetPct  = float64(80)
-	sessionTimeOffsetPct = float64(95)
-	histoWarmupCount     = 100
+	minTimeOffset = time.Millisecond
 )
 
 // globalTimeOffset tracks the global, across all sessions, time offset.
 type globalTimeOffset struct {
-	lock  sync.Mutex
-	histo *hdrhistogram.Histogram
+	config config.TimeOffset
+	lock   sync.Mutex
+	histo  *hdrhistogram.Histogram
 }
 
 // sessionTimeOffset tracks the time offset between the control plane leader and
 // the connected server. If the offset exceeds the configured limit the session
 // is terminated with TimeOffsetOutOfRange.
 type sessionTimeOffset struct {
-	maxTimeOffset time.Duration
-	global        *globalTimeOffset
-	histo         *hdrhistogram.Histogram
+	config config.TimeOffset
+	global *globalTimeOffset
+	histo  *hdrhistogram.Histogram
 }
 
-func newGlobalTimeOffset(maxTimeOffset time.Duration) *globalTimeOffset {
+func newGlobalTimeOffset(config config.TimeOffset) *globalTimeOffset {
 	return &globalTimeOffset{
-		histo: hdrhistogram.New(int64(minTimeOffset), int64(maxTimeOffset), 2),
+		config: config,
+		histo:  hdrhistogram.New(int64(minTimeOffset), int64(config.MaxTimeOffset), 2),
 	}
 }
 
-func newSessionTimeOffset(global *globalTimeOffset, maxTimeOffset time.Duration) *sessionTimeOffset {
+func newSessionTimeOffset(config config.TimeOffset, global *globalTimeOffset) *sessionTimeOffset {
 	return &sessionTimeOffset{
-		maxTimeOffset: maxTimeOffset,
-		global:        global,
-		histo:         hdrhistogram.New(int64(minTimeOffset), int64(maxTimeOffset), 2),
+		config: config,
+		global: global,
+		histo:  hdrhistogram.New(int64(minTimeOffset), int64(config.MaxTimeOffset), 2),
 	}
 }
 
@@ -51,10 +51,10 @@ func (t *globalTimeOffset) record(offset time.Duration) time.Duration {
 
 	t.histo.RecordValue(int64(offset))
 
-	if t.histo.TotalCount() < histoWarmupCount {
+	if t.histo.TotalCount() < int64(t.config.GlobalWarmupCount) {
 		return time.Duration(t.histo.Max())
 	} else {
-		return time.Duration(t.histo.ValueAtPercentile(globalTimeOffsetPct))
+		return time.Duration(t.histo.ValueAtPercentile(t.config.GlobalTruncationPct))
 	}
 }
 
@@ -64,17 +64,21 @@ func (t *sessionTimeOffset) recordAndCheck(msg *control.TimestampResponse) error
 	switch {
 	case offset < minTimeOffset:
 		offset = minTimeOffset
-	case offset > 2*t.maxTimeOffset:
+	case offset > 2*t.config.MaxTimeOffset:
 		// don't even bother...
 		return errors.TimeOffsetOutOfRange
-	case offset > t.maxTimeOffset:
+	case offset > t.config.MaxTimeOffset:
 		// trim the value so the hdr histogram can accept it
-		offset = t.maxTimeOffset
+		offset = t.config.MaxTimeOffset
 	}
 
 	t.histo.RecordValue(int64(offset))
 
-	sessionPct := time.Duration(t.histo.ValueAtPercentile(sessionTimeOffsetPct))
+	if t.histo.TotalCount() < int64(t.config.SessionWarmupCount) {
+		return nil
+	}
+
+	sessionPct := time.Duration(t.histo.ValueAtPercentile(t.config.SessionTruncationPct))
 	globalPct := t.global.record(offset)
 
 	if sessionPct > globalPct {

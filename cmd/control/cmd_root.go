@@ -27,7 +27,7 @@ func newRootCmd() *cobra.Command {
 				return err
 			}
 
-			hlc.Set(hlc.New(cfg.MaxTimeOffset))
+			hlc.Set(hlc.New(cfg.TimeOffset.MaxTimeOffset))
 			return nil
 		},
 	}

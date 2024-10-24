@@ -138,7 +138,7 @@ func (t *Tracker) handleDataServerStatus(sess *session, msg *control.DataServerS
 	return nil
 }
 
-func (t *Tracker) handleApiServerStatus(sess *session, msg *control.ApiServerStatus) error {
+func (t *Tracker) handleApiServerStatus(sess *session, _ *control.ApiServerStatus) error {
 	if sess.serverType != control.ServerType_Api {
 		return errors.PermissionDenied
 	}

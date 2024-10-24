@@ -38,19 +38,26 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	Server        rpc.ServerConfig    `yaml:"server"`
-	DataDir       string              `yaml:"dataDir" validate:"required"`
-	MaxTimeOffset time.Duration       `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
-	Session       Session             `yaml:"session"`
-	Discovery     discovery.Discovery `yaml:"discovery"`
-	Raft          multiraft.Config    `yaml:"raft"`
-	DB            DB                  `yaml:"db"`
-	Transactions  Transactions        `yaml:"transactions"`
+	Server       rpc.ServerConfig    `yaml:"server"`
+	DataDir      string              `yaml:"dataDir" validate:"required"`
+	Discovery    discovery.Discovery `yaml:"discovery"`
+	Register     Register            `yaml:"register"`
+	Session      Session             `yaml:"session"`
+	Raft         multiraft.Config    `yaml:"raft"`
+	DB           DB                  `yaml:"db"`
+	Transactions Transactions        `yaml:"transactions"`
+}
+
+type Register struct {
+	RetryBackoff utils.Backoff `yaml:"retryBackoff"`
 }
 
 type Session struct {
-	HeartbeatInterval time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
-	StatusInterval    time.Duration `yaml:"statusInterval" default:"15s" validate:"min:100ms"`
+	NewSessionThrottle time.Duration `yaml:"newSessionThrottle" default:"3s" validate:"min:100ms"`
+	MaxTimeOffset      time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:10ms"`
+	HeartbeatInterval  time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
+	StatusInterval     time.Duration `yaml:"statusInterval" default:"15s" validate:"min:100ms"`
+	SendBufferSize     int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
 }
 
 type Transactions struct {
@@ -67,9 +74,10 @@ type Transactions struct {
 }
 
 type DB struct {
-	RetryPolicy      utils.RetryPolicy `yaml:"retryPolicy"`
-	MaxStreamingSize int               `yaml:"maxStreamingSize" default:"10000" validate:"min:100"`
-	RocksDB          RocksDB           `yaml:"rocksDB"`
+	RetryPolicy       utils.RetryPolicy `yaml:"retryPolicy"`
+	MaxStreamingSize  int               `yaml:"maxStreamingSize" default:"10000" validate:"min:100"`
+	StreamingThrottle time.Duration     `yaml:"streamingThrottle" default:"5s" validate:"min:100ms"`
+	RocksDB           RocksDB           `yaml:"rocksDB"`
 }
 
 type RocksDB struct {
