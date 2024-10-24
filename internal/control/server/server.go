@@ -46,7 +46,7 @@ func NewServer(action Action) *Server {
 }
 
 func (n *Server) Start(ctx context.Context) error {
-	idStore, err := identity.NewStore(n.config.DataDir)
+	idStore, err := n.buildIdentityStore()
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (n *Server) Start(ctx context.Context) error {
 	switch n.action {
 	case DoBootstrap:
 		bparams = &bootstrap.Params{
-			ClusterName:    n.config.Server.ClusterName,
+			ClusterName:    n.config.ClusterName,
 			LocalAddress:   n.config.Server.BindAddress,
 			InitialServers: n.config.Bootstrap.InitialServers,
 			PartitionCount: n.config.Bootstrap.PartitionCount,
@@ -74,11 +74,12 @@ func (n *Server) Start(ctx context.Context) error {
 			return err
 		}
 	default:
-		id = idStore.Get()
-		if id == nil {
+		if x, ok := idStore.Get(); ok {
 			return errors.Error("server identity not found; must join a cluster first.")
-		} else if id.ClusterName != n.config.Server.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
+		} else if x.ClusterName != n.config.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", x.ClusterName)
+		} else {
+			id = &x
 		}
 	}
 
@@ -88,7 +89,7 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	controlService := NewControlService(raft, store)
-	server := rpc.NewServer(n.config.Server, controlService, transportService)
+	server := rpc.NewServer(n.config.Server, n.config.ClusterName, controlService, transportService)
 
 	n.components = []utils.Lifecycle{
 		store,
@@ -114,9 +115,9 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.Store) (*identity.Identity, error) {
 	client := client.New(
-		client.WithClusterName(n.config.Server.ClusterName),
+		client.WithClusterName(n.config.ClusterName),
 		client.WithDiscovery(n.config.Register.Discovery),
 	)
 
@@ -127,12 +128,21 @@ func (n *Server) register(ctx context.Context, idStore identity.IdentityStore) (
 
 	params := register.Params{
 		ServerType:  control.ServerType_Control,
-		ClusterName: n.config.Server.ClusterName,
+		ClusterName: n.config.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
+		Token:       n.config.Register.Token,
 	}
 
 	registerer := register.NewRegisterer(idStore, client, n.config.Register.RetryBackoff)
 	return registerer.Register(ctx, params)
+}
+
+func (n *Server) buildIdentityStore() (identity.Store, error) {
+	if n.config.InMem {
+		return identity.NewInmem(), nil
+	}
+
+	return identity.NewStore(n.config.IdentityFilePath())
 }
 
 func (n *Server) buildRaft(id identity.Identity) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {

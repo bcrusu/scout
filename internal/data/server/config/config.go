@@ -11,6 +11,7 @@ import (
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
+	"github.com/google/uuid"
 )
 
 var (
@@ -38,7 +39,9 @@ func Set(config Config) error {
 }
 
 type Config struct {
+	ClusterName  string              `yaml:"clusterName" validate:"required,maxLen:100"`
 	Server       rpc.ServerConfig    `yaml:"server"`
+	InMem        bool                `yaml:"inMem" default:"false"`
 	DataDir      string              `yaml:"dataDir" validate:"required"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	Register     Register            `yaml:"register"`
@@ -49,6 +52,7 @@ type Config struct {
 }
 
 type Register struct {
+	Token        string        `yaml:"token" default:"GENERATE_RANDOM" validate:"required,maxLen:1024"`
 	RetryBackoff utils.Backoff `yaml:"retryBackoff"`
 }
 
@@ -91,6 +95,10 @@ type RocksDB struct {
 }
 
 func (c *Config) prepare() error {
+	if c.Register.Token == "GENERATE_RANDOM" {
+		c.Register.Token = uuid.New().String()
+	}
+
 	dataDir, err := filepath.Abs(c.DataDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to determine data dir")
@@ -101,4 +109,8 @@ func (c *Config) prepare() error {
 	return utils.MkdirsAll(
 		c.DB.RocksDB.DataDir,
 	)
+}
+
+func (c *Config) IdentityFilePath() string {
+	return path.Join(c.DataDir, "id")
 }

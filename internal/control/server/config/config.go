@@ -1,6 +1,7 @@
 package config
 
 import (
+	"path"
 	"time"
 
 	"github.com/bcrusu/scout/internal/discovery"
@@ -10,6 +11,7 @@ import (
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
+	"github.com/google/uuid"
 )
 
 var (
@@ -29,24 +31,30 @@ func Set(config Config) error {
 		panic("config already set")
 	} else if err := validation.Validate(config); err != nil {
 		return err
+	} else if err := config.prepare(); err != nil {
+		return err
 	}
+
 	global = &config
 	return nil
 }
 
 type Config struct {
-	Server     rpc.ServerConfig `yaml:"server"`
-	Service    Service          `yaml:"service"`
-	DataDir    string           `yaml:"dataDir" validate:"required"`
-	Raft       multiraft.Config `yaml:"raft"`
-	Sessions   Sessions         `yaml:"sessions"`
-	TimeOffset TimeOffset       `yaml:"timeOffset"`
-	Partitions Partitions       `yaml:"partitions"`
-	Register   *Register        `yaml:"register"`
-	Bootstrap  *Bootstrap       `yaml:"bootstrap"`
+	ClusterName string           `yaml:"clusterName" validate:"required,maxLen:100"`
+	Server      rpc.ServerConfig `yaml:"server"`
+	Service     Service          `yaml:"service"`
+	InMem       bool             `yaml:"inMem" default:"false"`
+	DataDir     string           `yaml:"dataDir" validate:"required"`
+	Raft        multiraft.Config `yaml:"raft"`
+	Sessions    Sessions         `yaml:"sessions"`
+	TimeOffset  TimeOffset       `yaml:"timeOffset"`
+	Partitions  Partitions       `yaml:"partitions"`
+	Register    *Register        `yaml:"register"`
+	Bootstrap   *Bootstrap       `yaml:"bootstrap"`
 }
 
 type Register struct {
+	Token        string              `yaml:"token" default:"GENERATE_RANDOM" validate:"required,maxLen:1024"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	RetryBackoff utils.Backoff       `yaml:"retryBackoff"`
 }
@@ -94,4 +102,16 @@ func (c Config) Validate() error {
 	}
 
 	return nil
+}
+
+func (c *Config) prepare() error {
+	if c.Register.Token == "GENERATE_RANDOM" {
+		c.Register.Token = uuid.New().String()
+	}
+
+	return nil
+}
+
+func (c *Config) IdentityFilePath() string {
+	return path.Join(c.DataDir, "id")
 }

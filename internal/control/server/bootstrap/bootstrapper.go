@@ -39,12 +39,12 @@ type Params struct {
 type Bootstrapper struct {
 	raft    *multiraft.Raft
 	store   storage.Store
-	idStore identity.IdentityStore
+	idStore identity.Store
 	backoff utils.Backoff
 }
 
 // NewBootstrapper returns a new Bootstrapper.
-func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.IdentityStore, backoff utils.Backoff) *Bootstrapper {
+func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.Store, backoff utils.Backoff) *Bootstrapper {
 	return &Bootstrapper{
 		raft:    raft,
 		store:   store,
@@ -100,7 +100,7 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 		return errors.Error("params were not validated")
 	}
 
-	if id := b.idStore.Get(); id != nil {
+	if id, ok := b.idStore.Get(); ok {
 		return errors.Errorf("cannot bootstrap, already part of cluster %s", id.ClusterName)
 	}
 

@@ -19,17 +19,18 @@ type Params struct {
 	ServerType  control.ServerType
 	ClusterName string
 	BindAddress string
+	Token       string
 }
 
 // Registerer is used to register a server in the cluster.
 type Registerer struct {
-	idStore identity.IdentityStore
+	idStore identity.Store
 	client  client.ControlClient
 	backoff utils.Backoff
 }
 
 // NewRegisterer returns a new Registerer.
-func NewRegisterer(idStore identity.IdentityStore, client client.ControlClient, backoff utils.Backoff) *Registerer {
+func NewRegisterer(idStore identity.Store, client client.ControlClient, backoff utils.Backoff) *Registerer {
 	return &Registerer{
 		idStore: idStore,
 		client:  client,
@@ -38,12 +39,12 @@ func NewRegisterer(idStore identity.IdentityStore, client client.ControlClient, 
 }
 
 func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Identity, error) {
-	if id := r.idStore.Get(); id != nil {
+	if id, ok := r.idStore.Get(); ok {
 		return nil, errors.Errorf("cannot register, already part of cluster %s", id.ClusterName)
 	}
 
 	req := &control.RegisterRequest{
-		Token:   r.idStore.Token(),
+		Token:   params.Token,
 		Address: params.BindAddress,
 		Type:    params.ServerType,
 	}

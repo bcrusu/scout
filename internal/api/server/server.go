@@ -45,13 +45,13 @@ func NewServer(action Action) *Server {
 }
 
 func (n *Server) Start(ctx context.Context) error {
-	idStore, err := identity.NewStore(n.config.DataDir)
+	idStore, err := n.buildIdentityStore()
 	if err != nil {
 		return err
 	}
 
 	controlClient := cclient.New(
-		cclient.WithClusterName(n.config.Server.ClusterName),
+		cclient.WithClusterName(n.config.ClusterName),
 		cclient.WithDiscovery(n.config.Discovery),
 	)
 
@@ -68,11 +68,12 @@ func (n *Server) Start(ctx context.Context) error {
 			return err
 		}
 	default:
-		id = idStore.Get()
-		if id == nil {
+		if x, ok := idStore.Get(); ok {
 			return errors.Error("server identity not found; must join a cluster first.")
-		} else if id.ClusterName != n.config.Server.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
+		} else if x.ClusterName != n.config.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", x.ClusterName)
+		} else {
+			id = &x
 		}
 	}
 
@@ -82,7 +83,7 @@ func (n *Server) Start(ctx context.Context) error {
 	adminService := NewAdminService(*id)
 	keyValueService := NewKeyValueService(*keyvalue.NewStore(txnProcessor))
 	graphService := NewGraphService(graph.NewStore(txnProcessor))
-	server := rpc.NewServer(n.config.Server, adminService, keyValueService, graphService)
+	server := rpc.NewServer(n.config.Server, n.config.ClusterName, adminService, keyValueService, graphService)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
@@ -100,13 +101,22 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.IdentityStore, controlClient cclient.ControlClient) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.Store, controlClient cclient.ControlClient) (*identity.Identity, error) {
 	params := register.Params{
 		ServerType:  control.ServerType_Api,
-		ClusterName: n.config.Server.ClusterName,
+		ClusterName: n.config.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
+		Token:       n.config.Register.Token,
 	}
 
 	registerer := register.NewRegisterer(idStore, controlClient, n.config.Register.RetryBackoff)
 	return registerer.Register(ctx, params)
+}
+
+func (n *Server) buildIdentityStore() (identity.Store, error) {
+	if n.config.InMem {
+		return identity.NewInmem(), nil
+	}
+
+	return identity.NewStore(n.config.IdentityFilePath())
 }

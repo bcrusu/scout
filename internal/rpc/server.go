@@ -20,7 +20,6 @@ var (
 
 // ServerConfig is the gRPC server configuration.
 type ServerConfig struct {
-	ClusterName          string        `yaml:"clusterName" validate:"required,maxLen:100"`
 	BindAddress          string        `yaml:"bindAddress" validate:"required,minLen:2,maxLen:128"`
 	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s" validate:"positive"`
 	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
@@ -40,7 +39,7 @@ type Service interface {
 }
 
 // NewServer returns a new Server instance.
-func NewServer(config ServerConfig, services ...Service) *Server {
+func NewServer(config ServerConfig, clusterName string, services ...Service) *Server {
 	options := []grpc.ServerOption{
 		grpc.Creds(insecure.NewCredentials()), // TODO
 		grpc.MaxConcurrentStreams(config.MaxConcurrentStreams),
@@ -49,7 +48,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 		grpc.WaitForHandlers(true),
 		grpc.ConnectionTimeout(10 * time.Second),
 		grpc.ChainUnaryInterceptor(
-			interceptors.UnaryAuthServerInterceptor(config.ClusterName),
+			interceptors.UnaryAuthServerInterceptor(clusterName),
 			interceptors.UnaryMetadataServerInterceptor(),
 			interceptors.UnaryLoggerServerInterceptor(),
 			interceptors.UnaryErrorsServerInterceptor(),
@@ -58,7 +57,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 			interceptors.UnaryRecoveryServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
-			interceptors.StreamAuthServerInterceptor(config.ClusterName),
+			interceptors.StreamAuthServerInterceptor(clusterName),
 			interceptors.StreamMetadataServerInterceptor(),
 			interceptors.StreamLoggerServerInterceptor(),
 			interceptors.StreamErrorsServerInterceptor(),
