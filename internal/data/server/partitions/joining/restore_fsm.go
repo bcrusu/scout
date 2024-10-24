@@ -164,7 +164,7 @@ func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) 
 		select {
 		case <-f.ctx.Done():
 			return errors.Error("stream partition halted")
-		case <-time.After(utils.AddJitter(f.config.StreamingThrottle, 0.15)):
+		case <-time.After(utils.AddJitter(f.config.StreamingThrottle)):
 		}
 	}
 }

@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	resolveThrottle = utils.AddJitter(2*time.Second, 0.15)
+	resolveThrottle = utils.AddJitter(2 * time.Second)
 	logR            = logging.WithComponent("data_resolver").NoContext()
 )
 

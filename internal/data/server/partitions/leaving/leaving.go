@@ -16,7 +16,7 @@ import (
 
 var (
 	_               shared.Replica = (*Leaving)(nil)
-	cleanupThrottle                = utils.AddJitter(5*time.Second, 0.15)
+	cleanupThrottle                = utils.AddJitter(5 * time.Second)
 )
 
 type Leaving struct {

@@ -21,7 +21,7 @@ import (
 
 var (
 	_                          utils.Lifecycle = (*Session)(nil)
-	refreshDataServersThrottle                 = utils.AddJitter(2*time.Second, 0.15)
+	refreshDataServersThrottle                 = utils.AddJitter(2 * time.Second)
 	log                                        = logging.WithComponent("api_session").NoContext()
 )
 
@@ -74,15 +74,15 @@ func (m *Session) mainLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(utils.AddJitter(m.config.NewSessionThrottle, 0.15)): // TODO: review AddJitter
+		case <-time.After(utils.AddJitter(m.config.NewSessionThrottle)):
 		}
 	}
 }
 
 func (m *Session) runSessionStream(ctx context.Context) error {
 	refreshDataServersSub := eventbus.SubscribeThrottled[eventbus.RefreshDataServers](ctx, refreshDataServersThrottle)
-	heartbeatTicker := time.NewTicker(utils.AddJitter(m.config.HeartbeatInterval, 0.15))
-	statusTicker := time.NewTicker(utils.AddJitter(m.config.StatusInterval, 0.15))
+	heartbeatTicker := time.NewTicker(utils.AddJitter(m.config.HeartbeatInterval))
+	statusTicker := time.NewTicker(utils.AddJitter(m.config.StatusInterval))
 	defer refreshDataServersSub.Unsubscribe()
 	defer heartbeatTicker.Stop()
 	defer statusTicker.Stop()
