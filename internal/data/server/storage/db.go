@@ -1,10 +1,12 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
+	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (
@@ -16,6 +18,7 @@ var (
 // be emulated if not available, albeit in an less-performant way that involves more
 // KV records fetched to memory.
 type DB interface {
+	utils.Lifecycle
 	KV() kv.DB
 	MVCC() mvcc.DB
 }
@@ -46,4 +49,17 @@ func (p *dbx) KV() kv.DB {
 
 func (p *dbx) MVCC() mvcc.DB {
 	return p.mvcc
+}
+
+func (p *dbx) Start(ctx context.Context) error {
+	if l, ok := p.kv.(utils.Lifecycle); ok {
+		return l.Start(ctx)
+	}
+	return nil
+}
+
+func (p *dbx) Stop() {
+	if l, ok := p.kv.(utils.Lifecycle); ok {
+		l.Stop()
+	}
 }

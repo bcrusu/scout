@@ -141,8 +141,7 @@ message DataServerConfig {
     message Partition {
         string e_tag = 1;
         uint32 id = 2;
-        string name = 3;
-        map<string, Replica> replicas = 4;
+        map<string, Replica> replicas = 3;
     }
 
     string e_tag = 1;

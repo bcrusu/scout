@@ -164,9 +164,8 @@ message Partition {
 
     uint64 version = 1;
     uint32 id = 2;
-    string name = 3;
-    map<string, Replica> replicas = 4;
-    uint64 last_replica_id = 5;
+    map<string, Replica> replicas = 3;
+    uint64 last_replica_id = 4;
 }
 
 message PartitionStatus {

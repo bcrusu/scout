@@ -1,9 +1,28 @@
 package control
 
-import "github.com/bcrusu/scout/internal/errors"
+import (
+	"github.com/bcrusu/scout/internal/control/server/storage"
+	"github.com/bcrusu/scout/internal/errors"
+)
 
 func (s DataServerConfig_ReplicaState) IsServing() bool {
 	return s == DataServerConfig_Voter || s == DataServerConfig_NonVoter
+}
+
+func (x *RegisterRequest) Validate() error {
+	if x == nil {
+		return errors.Error("RegisterRequest is nil")
+	}
+
+	if !storage.IsValidAddress(x.Address) || !storage.IsValidToken(x.Token) {
+		return errors.Error("RegisterRequest has missing fields")
+	}
+
+	if _, ok := ServerType_name[int32(x.Type)]; !ok {
+		return errors.Error("RegisterRequest.ServerType is invalid")
+	}
+
+	return nil
 }
 
 func (x *Hello) Validate() error {
@@ -96,7 +115,7 @@ func (x *DataServerConfig_Partition) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.ETag == "" || x.Name == "" {
+	if x.ETag == "" {
 		return errors.Error("Partition has missing fields")
 	}
 
@@ -119,7 +138,7 @@ func (x *DataServerConfig_Replica) Validate() error {
 	}
 
 	if _, ok := DataServerConfig_ReplicaState_name[int32(x.State)]; !ok {
-		return errors.Error("Invalid Mode")
+		return errors.Error("Replica.Mode is invalid")
 	}
 
 	return nil

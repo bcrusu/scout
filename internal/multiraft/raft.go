@@ -1,24 +1,21 @@
 package multiraft
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"strconv"
 	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
 )
 
 var (
-	_ utils.Lifecycle  = (*Raft)(nil)
 	_ raft.FSM         = (*fsmAdapter)(nil)
 	_ raft.FSMSnapshot = (*fsmSnapshot)(nil)
 )
 
-// Raft represents a single Raft group.
+// Raft represents a single Raft instance.
 type Raft struct {
 	localID        raft.ServerID
 	requestTimeout time.Duration
@@ -50,17 +47,6 @@ type fsmAdapter struct {
 
 type fsmSnapshot struct {
 	data []byte
-}
-
-func (r *Raft) Start(ctx context.Context) error {
-	return nil
-}
-
-// Stop stops the Raft group.
-func (r *Raft) Stop() {
-	if err := r.raft.Shutdown().Error(); err != nil {
-		log.WithError(err).Warn("Shutdown call returned error.")
-	}
 }
 
 // Bootstrap is called only once, in the beggining, when the cluster is created.

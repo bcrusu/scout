@@ -8,7 +8,6 @@ import (
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
-	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 )
 
@@ -18,16 +17,14 @@ var (
 
 // Shared implements common functionality for both leader and follower roles.
 type Shared struct {
-	raft              *multiraft.Raft
 	store             storage.Store
 	serviceConfigJson string
 }
 
-func New(raft *multiraft.Raft, store storage.Store) *Shared {
+func New(store storage.Store) *Shared {
 	config := config.Get().Service
 
 	return &Shared{
-		raft:              raft,
 		store:             store,
 		serviceConfigJson: config.ControlClient.GetServiceConfigJson(serviceconfig.LBNameScoutControl, control.Service_ServiceDesc),
 	}
@@ -36,13 +33,15 @@ func New(raft *multiraft.Raft, store storage.Store) *Shared {
 // Discover is used early by control plane clients to discover the cluster servers.
 // Can be invoked on leader and followers.
 func (n *Shared) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
-	leaderID, _, ok := n.raft.GetLeader()
+	raft := n.store.Raft()
+
+	leaderID, _, ok := raft.GetLeader()
 	if !ok {
 		log.Debug(ctx, "Discover failed. Leader not available.")
 		return nil, errors.Unavailable
 	}
 
-	raftServers, err := n.raft.GetServers()
+	raftServers, err := raft.GetServers()
 	if err != nil {
 		return nil, err
 	}

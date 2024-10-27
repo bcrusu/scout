@@ -40,7 +40,7 @@ func (p *Partitions) IsInitialized() bool {
 
 func (p *Partition) nextReplicaName() string {
 	p.LastReplicaId++
-	return fmt.Sprintf("%s_%d", p.Name, p.LastReplicaId)
+	return fmt.Sprintf("p%d_r%d", p.Id, p.LastReplicaId)
 }
 
 func (p *Partition) getReplicaForServer(serverID uint64) *Partition_Replica {

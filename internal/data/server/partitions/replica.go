@@ -19,15 +19,14 @@ import (
 )
 
 type replica struct {
-	pid         uint32
-	partName    string
-	replicaName string
-	multiraft   *multiraft.MultiRaft
-	dataClient  client.DataClient
-	db          storage.DB
-	log         logging.LoggerNoContext
-	holder      atomic.Pointer[holder]
-	cancelFunc  context.CancelFunc
+	pid        uint32
+	name       string
+	multiraft  *multiraft.Multi
+	dataClient client.DataClient
+	db         storage.DB
+	log        logging.LoggerNoContext
+	holder     atomic.Pointer[holder]
+	cancelFunc context.CancelFunc
 }
 
 type holder struct {
@@ -35,15 +34,14 @@ type holder struct {
 	instance shared.Replica
 }
 
-func newReplica(pid uint32, partName, replicaName string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db storage.DB) *replica {
+func newReplica(pid uint32, name string, multiraft *multiraft.Multi, dataClient client.DataClient, db storage.DB) *replica {
 	return &replica{
-		pid:         pid,
-		partName:    partName,
-		replicaName: replicaName,
-		multiraft:   multiraft,
-		dataClient:  dataClient,
-		db:          db,
-		log:         logging.WithComponent("partition").With("id", pid, "replica", replicaName).NoContext(),
+		pid:        pid,
+		name:       name,
+		multiraft:  multiraft,
+		dataClient: dataClient,
+		db:         db,
+		log:        logging.WithComponent("partition").With("id", pid, "replica", name).NoContext(),
 	}
 }
 
@@ -71,7 +69,7 @@ func (p *replica) mainLoop(ctx context.Context) {
 
 			if config != nil && config.ETag == newConfig.ETag {
 				continue
-			} else if replica := x.GetReplica(p.pid, p.replicaName); replica != nil {
+			} else if replica := x.GetReplica(p.pid, p.name); replica != nil {
 				p.updateReplicaState(ctx, replica.State)
 			} else {
 				p.updateReplicaState(ctx, control.DataServerConfig_Stopped)
@@ -106,14 +104,14 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	case control.DataServerConfig_Joining:
 		switch oldState {
 		case control.DataServerConfig_Stopped:
-			new = joining.New(p.pid, p.replicaName, p.multiraft, p.dataClient, p.db.KV())
+			new = joining.New(p.pid, p.name, p.multiraft, p.dataClient, p.db.KV())
 		case control.DataServerConfig_Joining:
 			new = old
 		}
 	case control.DataServerConfig_NonVoter, control.DataServerConfig_Voter:
 		switch oldState {
 		case control.DataServerConfig_Stopped, control.DataServerConfig_Joining:
-			new = serving.New(p.pid, p.replicaName, p.multiraft, p.dataClient, p.db)
+			new = serving.New(p.pid, p.name, p.multiraft, p.dataClient, p.db)
 		case control.DataServerConfig_Voter, control.DataServerConfig_NonVoter:
 			new = old
 		}
@@ -122,7 +120,7 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 		case control.DataServerConfig_Leaving:
 			new = old
 		default:
-			new = leaving.New(p.pid, p.partName, p.replicaName, p.multiraft, p.db.KV())
+			new = leaving.New(p.pid, p.name, p.multiraft, p.db.KV())
 		}
 	default:
 		panic(fmt.Sprintf("unhandled replica state %s", newState))

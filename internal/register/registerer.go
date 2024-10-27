@@ -38,9 +38,9 @@ func NewRegisterer(idStore identity.Store, client client.ControlClient, backoff 
 	}
 }
 
-func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Identity, error) {
+func (r *Registerer) Register(ctx context.Context, params Params) (identity.Identity, error) {
 	if id, ok := r.idStore.Get(); ok {
-		return nil, errors.Errorf("cannot register, already part of cluster %s", id.ClusterName)
+		return identity.Identity{}, errors.Errorf("cannot register, already part of cluster %s", id.ClusterName)
 	}
 
 	req := &control.RegisterRequest{
@@ -60,7 +60,7 @@ func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Ide
 	})
 
 	if err != nil {
-		return nil, err
+		return identity.Identity{}, err
 	}
 
 	id := identity.Identity{
@@ -70,8 +70,8 @@ func (r *Registerer) Register(ctx context.Context, params Params) (*identity.Ide
 	}
 
 	if err := r.idStore.Set(id); err != nil {
-		return nil, err
+		return identity.Identity{}, err
 	}
 
-	return &id, nil
+	return id, nil
 }

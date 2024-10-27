@@ -9,7 +9,6 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
-	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
 )
@@ -37,16 +36,14 @@ type Params struct {
 
 // Bootstrapper is used only once, in the beginning of time, when a new baby cluster is born.
 type Bootstrapper struct {
-	raft    *multiraft.Raft
 	store   storage.Store
 	idStore identity.Store
 	backoff utils.Backoff
 }
 
 // NewBootstrapper returns a new Bootstrapper.
-func NewBootstrapper(raft *multiraft.Raft, store storage.Store, idStore identity.Store, backoff utils.Backoff) *Bootstrapper {
+func NewBootstrapper(store storage.Store, idStore identity.Store, backoff utils.Backoff) *Bootstrapper {
 	return &Bootstrapper{
-		raft:    raft,
 		store:   store,
 		idStore: idStore,
 		backoff: backoff,
@@ -159,7 +156,7 @@ func (b *Bootstrapper) bootstrapRaft(p Params) error {
 		}
 	}
 
-	if err := b.raft.Bootstrap(servers...); err != nil {
+	if err := b.store.Raft().Bootstrap(servers...); err != nil {
 		return errors.Wrap(err, "bootstrap raft cluster failed")
 	}
 
@@ -190,7 +187,7 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 			return errors.Errorf("cannot perform initial write. Different cluster detected %s.", clusterName)
 		}
 
-		if !b.raft.IsLeader() {
+		if !b.store.Raft().IsLeader() {
 			log.Info(ctx, "Not leader. Backing off...")
 			return errors.NotLeader
 		}

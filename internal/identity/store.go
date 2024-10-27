@@ -61,7 +61,7 @@ func (s *store) Set(id Identity) error {
 		return errors.Wrap(err, "failed to marshal the identity.")
 	}
 
-	if err := os.WriteFile(s.filePath, data, os.ModePerm); err != nil {
+	if err := os.WriteFile(s.filePath, data, 0755); err != nil {
 		return errors.Wrap(err, "failed to write the identity file.")
 	}
 

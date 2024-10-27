@@ -27,14 +27,14 @@ var (
 type Controller struct {
 	id         identity.Identity
 	db         storage.DB
-	multiraft  *multiraft.MultiRaft
+	multiraft  *multiraft.Multi
 	dataClient client.DataClient
 	cancelFunc context.CancelFunc
 	lock       sync.RWMutex
 	replicas   map[uint32]*replica // map[partition_id]*replica
 }
 
-func NewController(id identity.Identity, db storage.DB, multiraft *multiraft.MultiRaft, dataClient client.DataClient) *Controller {
+func NewController(id identity.Identity, db storage.DB, multiraft *multiraft.Multi, dataClient client.DataClient) *Controller {
 	c := &Controller{
 		id:        id,
 		db:        db,
@@ -110,7 +110,7 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 			replicaConfig = c.getLocalReplicaConfig(config)
 		}
 
-		if replicaConfig == nil || replica.replicaName != replicaConfig.Name {
+		if replicaConfig == nil || replica.name != replicaConfig.Name {
 			go replica.Stop()
 			delete(c.replicas, pid)
 		}
@@ -123,7 +123,7 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 			continue
 		}
 
-		replica := newReplica(pid, config.Name, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
+		replica := newReplica(pid, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
 
 		go replica.Start(ctx, config)
 		c.replicas[pid] = replica
@@ -136,7 +136,7 @@ func (c *Controller) getLocalReplicaConfig(config *control.DataServerConfig_Part
 			return replica
 		}
 	}
-	logC.Warn("Partition replica not found.", "id", config.Id, "name", config.Name, "server_id", c.id.ServerID)
+	logC.Warn("Partition replica not found.", "id", config.Id, "server_id", c.id.ServerID)
 	return nil
 }
 

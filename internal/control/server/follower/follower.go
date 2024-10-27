@@ -8,7 +8,6 @@ import (
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
-	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
@@ -23,13 +22,11 @@ var (
 type Follower struct {
 	control.UnsafeServiceServer
 	*common.Shared
-	raft *multiraft.Raft
 }
 
-func New(raft *multiraft.Raft, store storage.Store) *Follower {
+func New(store storage.Store) *Follower {
 	return &Follower{
-		Shared: common.New(raft, store),
-		raft:   raft,
+		Shared: common.New(store),
 	}
 }
 

@@ -22,14 +22,14 @@ var (
 )
 
 type Joining struct {
-	pid          uint32
-	localReplica string
-	multiraft    *multiraft.MultiRaft
-	dataClient   data.ServiceClient
-	db           kv.DB
-	log          logging.Logger
-	getStatusCh  chan chan<- *control.DataServerStatus_Replica
-	cancelFunc   context.CancelFunc
+	pid         uint32
+	replica     string
+	multiraft   *multiraft.Multi
+	dataClient  data.ServiceClient
+	db          kv.DB
+	log         logging.Logger
+	getStatusCh chan chan<- *control.DataServerStatus_Replica
+	cancelFunc  context.CancelFunc
 }
 
 type candidates struct {
@@ -42,15 +42,15 @@ type replica struct {
 	isLeader bool
 }
 
-func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient data.ServiceClient, db kv.DB) *Joining {
+func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient data.ServiceClient, db kv.DB) *Joining {
 	return &Joining{
-		pid:          pid,
-		localReplica: localReplica,
-		multiraft:    multiraft,
-		dataClient:   dataClient,
-		db:           db,
-		log:          logging.WithComponent("replica_joining").With("partition", pid, "replica", localReplica),
-		getStatusCh:  make(chan chan<- *control.DataServerStatus_Replica),
+		pid:         pid,
+		replica:     replica,
+		multiraft:   multiraft,
+		dataClient:  dataClient,
+		db:          db,
+		log:         logging.WithComponent("replica_joining").With("partition", pid, "replica", replica),
+		getStatusCh: make(chan chan<- *control.DataServerStatus_Replica),
 	}
 }
 
@@ -76,7 +76,7 @@ func (p *Joining) mainLoop(ctx context.Context) {
 	var part *control.DataServers_Partition
 
 	cctx, cancelCtx := context.WithCancel(context.Background())
-	fsm := newRestoreFsm(p.pid, cctx, p.localReplica, p.dataClient, p.db)
+	fsm := newRestoreFsm(p.pid, cctx, p.replica, p.dataClient, p.db)
 	var raft *multiraft.Raft
 
 	ensureRaft := func() {
@@ -84,9 +84,9 @@ func (p *Joining) mainLoop(ctx context.Context) {
 			return
 		}
 
-		r, err := shared.CreateRaft(p.multiraft, config.Name, p.localReplica, fsm)
+		r, err := shared.CreateRaft(p.multiraft, config.Id, p.replica, fsm)
 		if err != nil {
-			p.log.WithError(err).Error(ctx, "Failed to create Raft group.")
+			p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
 			return
 		}
 		raft = r
@@ -121,7 +121,7 @@ func (p *Joining) mainLoop(ctx context.Context) {
 
 			x := raft.GetStats()
 			statusCh <- &control.DataServerStatus_Replica{
-				Name:              p.localReplica,
+				Name:              p.replica,
 				IsLeader:          x.IsLeader,
 				LeaderTerm:        x.LeaderTerm,
 				LeaderLastContact: durationpb.New(x.LeaderLastContact),
@@ -131,7 +131,7 @@ func (p *Joining) mainLoop(ctx context.Context) {
 			}
 		case <-ctx.Done():
 			if raft != nil {
-				raft.Stop()
+				p.multiraft.Shutdown(p.pid)
 			}
 
 			cancelCtx()
@@ -155,7 +155,7 @@ func (p *Joining) makeCandidates(config *control.DataServerConfig_Partition, par
 
 	for _, r := range config.Replicas {
 		switch {
-		case r.Name == p.localReplica:
+		case r.Name == p.replica:
 			continue
 		case !r.State.IsServing():
 			continue

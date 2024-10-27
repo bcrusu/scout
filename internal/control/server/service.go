@@ -10,7 +10,6 @@ import (
 	"github.com/bcrusu/scout/internal/control/server/leader"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
@@ -25,7 +24,6 @@ var (
 // ControlService represents the control plane service
 type ControlService struct {
 	control.UnsafeServiceServer
-	raft       *multiraft.Raft
 	store      storage.Store
 	cancelFunc context.CancelFunc
 	role       atomic.Pointer[roleDrainer]
@@ -37,9 +35,8 @@ type role interface {
 }
 
 // NewControlService returns a new ControlService instance
-func NewControlService(raft *multiraft.Raft, store storage.Store) *ControlService {
+func NewControlService(store storage.Store) *ControlService {
 	return &ControlService{
-		raft:  raft,
 		store: store,
 	}
 }
@@ -65,7 +62,7 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 		return
 	}
 
-	isLeader := s.raft.IsLeader()
+	isLeader := s.store.Raft().IsLeader()
 
 	if !s.setRole(ctx, isLeader) {
 		return
@@ -73,7 +70,7 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 
 	for {
 		select {
-		case next := <-s.raft.LeaderChan():
+		case next := <-s.store.Raft().LeaderChan():
 			if next != isLeader && !s.setRole(ctx, next) {
 				return
 			}
@@ -118,9 +115,9 @@ func (s *ControlService) setRole(ctx context.Context, isLeader bool) bool {
 
 	var new role
 	if isLeader {
-		new = leader.New(s.raft, s.store)
+		new = leader.New(s.store)
 	} else {
-		new = follower.New(s.raft, s.store)
+		new = follower.New(s.store)
 	}
 
 	drainer := newRoleDrainer(new)

@@ -2,29 +2,27 @@ module github.com/bcrusu/scout
 
 go 1.23.0
 
-replace github.com/Jille/raft-grpc-transport => ../multiraft-grpc-transport
-
-replace github.com/bcrusu/multiraft => ../multiraft
+replace github.com/Jille/raft-grpc-transport => github.com/bcrusu/raft-grpc-transport v0.0.0-20241026083029-0534fcda4cbf
 
 replace github.com/linxGnu/grocksdb => ../grocksdb_fork
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2
 	github.com/Jille/raft-grpc-transport v1.6.1
-	github.com/bcrusu/multiraft v0.0.0-00010101000000-000000000000
+	github.com/bcrusu/raft-rocksdb v0.0.0-20241026073150-8d55fa8db840
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/hashicorp/raft v1.7.1
-	github.com/linxGnu/grocksdb v1.9.5
+	github.com/linxGnu/grocksdb v1.9.7
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/onsi/gomega v1.34.2
 	github.com/spf13/cobra v1.8.1
 	go.uber.org/mock v0.4.0
 	golang.org/x/time v0.6.0
 	google.golang.org/grpc v1.66.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.35.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 

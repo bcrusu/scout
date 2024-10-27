@@ -20,7 +20,6 @@ func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *st
 		partition := &control.DataServerConfig_Partition{
 			ETag:     strconv.FormatUint(p.Version, 10),
 			Id:       p.Id,
-			Name:     p.Name,
 			Replicas: map[string]*control.DataServerConfig_Replica{},
 		}
 

@@ -27,26 +27,26 @@ var (
 )
 
 type Serving struct {
-	pid          uint32
-	localReplica string
-	multiraft    *multiraft.MultiRaft
-	dataClient   client.DataClient
-	db           storage.DB
-	log          logging.Logger
-	getStatusCh  chan chan<- *control.DataServerStatus_Replica
-	partition    atomic.Pointer[partitionDrainer]
-	cancelFunc   context.CancelFunc
+	pid         uint32
+	replica     string
+	multiraft   *multiraft.Multi
+	dataClient  client.DataClient
+	db          storage.DB
+	log         logging.Logger
+	getStatusCh chan chan<- *control.DataServerStatus_Replica
+	partition   atomic.Pointer[partitionDrainer]
+	cancelFunc  context.CancelFunc
 }
 
-func New(pid uint32, localReplica string, multiraft *multiraft.MultiRaft, dataClient client.DataClient, db storage.DB) *Serving {
+func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient client.DataClient, db storage.DB) *Serving {
 	return &Serving{
-		pid:          pid,
-		localReplica: localReplica,
-		multiraft:    multiraft,
-		dataClient:   dataClient,
-		db:           db,
-		log:          logging.WithComponent("replica_serving").With("partition", pid, "replica", localReplica),
-		getStatusCh:  make(chan chan<- *control.DataServerStatus_Replica),
+		pid:         pid,
+		replica:     replica,
+		multiraft:   multiraft,
+		dataClient:  dataClient,
+		db:          db,
+		log:         logging.WithComponent("replica_serving").With("partition", pid, "replica", replica),
+		getStatusCh: make(chan chan<- *control.DataServerStatus_Replica),
 	}
 }
 
@@ -81,8 +81,8 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			eventbus.TryPublishRefreshDataServers()
 			return
 		} else if raft == nil {
-			if r, err := shared.CreateRaft(p.multiraft, partConfig.Name, p.localReplica, fsm, servers...); err != nil {
-				p.log.WithError(err).Error(ctx, "Failed to create Raft group.")
+			if r, err := shared.CreateRaft(p.multiraft, partConfig.Id, p.replica, fsm, servers...); err != nil {
+				p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
 			} else {
 				raft = r
 			}
@@ -151,7 +151,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 
 			x := raft.GetStats()
 			statusCh <- &control.DataServerStatus_Replica{
-				Name:              p.localReplica,
+				Name:              p.replica,
 				IsLeader:          isLeader,
 				LeaderTerm:        x.LeaderTerm,
 				LeaderLastContact: durationpb.New(x.LeaderLastContact),
@@ -163,15 +163,15 @@ func (p *Serving) mainLoop(ctx context.Context) {
 				old.Stop()
 			}
 			if raft != nil {
-				raft.Stop()
+				p.multiraft.Shutdown(p.pid)
 			}
 			return
 		}
 	}
 }
 
-func (p *Serving) updateRaftServers(raftGroup *multiraft.Raft, newServers []raft.Server) {
-	oldServers, err := raftGroup.GetServers()
+func (p *Serving) updateRaftServers(instance *multiraft.Raft, newServers []raft.Server) {
+	oldServers, err := instance.GetServers()
 	if err != nil {
 		p.log.NoContext().WithError(err).Error("Failed to get Raft servers.")
 		return
@@ -206,7 +206,7 @@ func (p *Serving) updateRaftServers(raftGroup *multiraft.Raft, newServers []raft
 			log = log.With("old_id", old.ID, "old_address", old.Address, "old_suffrage", old.Suffrage)
 		}
 
-		if err := raftGroup.AddOrUpdateServer(new); err != nil {
+		if err := instance.AddOrUpdateServer(new); err != nil {
 			if errors.Is(err, errors.NotLeader) {
 				log.Debug("Raft.AddOrUpdateServer failed. Lost leader status.")
 				return
@@ -232,7 +232,7 @@ func (p *Serving) updateRaftServers(raftGroup *multiraft.Raft, newServers []raft
 
 		log := p.log.With("id", old.ID, "address", old.Address, "suffrage", old.Suffrage).NoContext()
 
-		if err := raftGroup.RemoveServer(old.ID); err != nil {
+		if err := instance.RemoveServer(old.ID); err != nil {
 			if errors.Is(err, errors.NotLeader) {
 				log.Debug("Raft.RemoveServer failed. Lost leader status.")
 				return

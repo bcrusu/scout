@@ -1,14 +1,9 @@
 package storage
 
 import (
-	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
-)
-
-const (
-	partitionNamePrefix = "part_"
 )
 
 func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapResult, error) {
@@ -58,7 +53,6 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 		f.partitions.Items[id] = &Partition{
 			Version:       1,
 			Id:            id,
-			Name:          fmt.Sprintf("%s%d", partitionNamePrefix, id),
 			Replicas:      map[string]*Partition_Replica{}, // will be updated live by the partition assignment component
 			LastReplicaId: 0,
 		}

@@ -55,7 +55,7 @@ func (n *Server) Start(ctx context.Context) error {
 		cclient.WithDiscovery(n.config.Discovery),
 	)
 
-	var id *identity.Identity
+	var id identity.Identity
 
 	switch n.action {
 	case DoRegister:
@@ -68,19 +68,18 @@ func (n *Server) Start(ctx context.Context) error {
 			return err
 		}
 	default:
-		if x, ok := idStore.Get(); ok {
+		var ok bool
+		if id, ok = idStore.Get(); ok {
 			return errors.Error("server identity not found; must join a cluster first.")
-		} else if x.ClusterName != n.config.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", x.ClusterName)
-		} else {
-			id = &x
+		} else if id.ClusterName != n.config.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
 		}
 	}
 
-	session := session.New(*id, n.config.Server.BindAddress, controlClient)
+	session := session.New(id, n.config.Server.BindAddress, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
-	txnProcessor := txn.NewProcessor(*id, dataClient)
-	adminService := NewAdminService(*id)
+	txnProcessor := txn.NewProcessor(id, dataClient)
+	adminService := NewAdminService(id)
 	keyValueService := NewKeyValueService(*keyvalue.NewStore(txnProcessor))
 	graphService := NewGraphService(graph.NewStore(txnProcessor))
 	server := rpc.NewServer(n.config.Server, n.config.ClusterName, adminService, keyValueService, graphService)
@@ -101,7 +100,7 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.Store, controlClient cclient.ControlClient) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.Store, controlClient cclient.ControlClient) (identity.Identity, error) {
 	params := register.Params{
 		ServerType:  control.ServerType_Api,
 		ClusterName: n.config.ClusterName,

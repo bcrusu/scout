@@ -20,24 +20,22 @@ var (
 )
 
 type Leaving struct {
-	pid          uint32
-	partName     string
-	localReplica string
-	multiraft    *multiraft.MultiRaft
-	db           *kv.DBBreaker
-	log          logging.Logger
-	cancelFunc   context.CancelFunc
-	status       atomic.Pointer[control.DataServerStatus_LeavingStatus]
+	pid        uint32
+	replica    string
+	multiraft  *multiraft.Multi
+	db         *kv.DBBreaker
+	log        logging.Logger
+	cancelFunc context.CancelFunc
+	status     atomic.Pointer[control.DataServerStatus_LeavingStatus]
 }
 
-func New(pid uint32, partName, localReplica string, multiraft *multiraft.MultiRaft, db kv.DB) *Leaving {
+func New(pid uint32, replica string, multiraft *multiraft.Multi, db kv.DB) *Leaving {
 	return &Leaving{
-		pid:          pid,
-		partName:     partName,
-		localReplica: localReplica,
-		multiraft:    multiraft,
-		db:           kv.NewDBBreaker(db),
-		log:          logging.WithComponent("replica_leaving").With("partition", pid, "replica", localReplica),
+		pid:       pid,
+		replica:   replica,
+		multiraft: multiraft,
+		db:        kv.NewDBBreaker(db),
+		log:       logging.WithComponent("replica_leaving").With("partition", pid, "replica", replica),
 	}
 }
 
@@ -85,7 +83,7 @@ func (p *Leaving) GetStatus() *control.DataServerStatus_Replica {
 	}
 
 	return &control.DataServerStatus_Replica{
-		Name:          p.localReplica,
+		Name:          p.replica,
 		LeavingStatus: status,
 	}
 }
@@ -97,7 +95,7 @@ func (p *Leaving) setStatus(completed bool) {
 }
 
 func (p *Leaving) cleanup() error {
-	if err := p.multiraft.Remove(p.partName); err != nil {
+	if err := p.multiraft.Drop(p.pid); err != nil {
 		return errors.Wrap(err, "failed to remove Raft group.")
 	}
 

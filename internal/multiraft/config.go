@@ -15,6 +15,7 @@ type Config struct {
 	RequestTimeout     time.Duration        `yaml:"requestTimeout" default:"1s" validate:"min:100ms"`
 	SnapshotInterval   time.Duration        `yaml:"snapshotInterval" default:"5m" validate:"min:10s"`
 	SnapshotThreshold  uint64               `yaml:"snapshotThreshold" default:"250" validate:"min:20"`
+	SnapshotRetainMax  int                  `yaml:"snapshotRetainMax" default:"5" validate:"min:1"`
 	TrailingLogs       uint64               `yaml:"trailingLogs" default:"100" validate:"min:20"`
 	TransportClient    serviceconfig.Config `yaml:"transportClient"`
 }

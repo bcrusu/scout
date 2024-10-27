@@ -57,7 +57,7 @@ func (n *Server) Start(ctx context.Context) error {
 		cclient.WithDiscovery(n.config.Discovery),
 	)
 
-	var id *identity.Identity
+	var id identity.Identity
 
 	switch n.action {
 	case DoRegister:
@@ -70,28 +70,28 @@ func (n *Server) Start(ctx context.Context) error {
 			return err
 		}
 	default:
-		if x, ok := idStore.Get(); ok {
+		var ok bool
+		if id, ok = idStore.Get(); ok {
 			return errors.Error("server identity not found; must join a cluster first.")
-		} else if x.ClusterName != n.config.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", x.ClusterName)
-		} else {
-			id = &x
+		} else if id.ClusterName != n.config.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
 		}
 	}
 
-	db := n.buildDB()
-	session := session.New(*id, n.config.Server.BindAddress, controlClient)
+	session := session.New(id, n.config.Server.BindAddress, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
-	transportService, mraft := n.buildMultiRaft(*id)
-	partitionController := partitions.NewController(*id, db, mraft, dataClient)
+	multiraft := n.buildMultiRaft()
+	db := n.buildDB()
+	partitionController := partitions.NewController(id, db, multiraft, dataClient)
 	dataService := NewDataService(partitionController)
-	server := rpc.NewServer(n.config.Server, n.config.ClusterName, dataService, transportService)
+	server := rpc.NewServer(n.config.Server, n.config.ClusterName, dataService, multiraft)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
 		session,
 		dataClient,
-		transportService,
+		multiraft,
+		db,
 		partitionController,
 		server,
 	}
@@ -103,7 +103,7 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.Store, controlClient cclient.ControlClient) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.Store, controlClient cclient.ControlClient) (identity.Identity, error) {
 	params := register.Params{
 		ServerType:  control.ServerType_Data,
 		ClusterName: n.config.ClusterName,
@@ -123,13 +123,12 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 	return identity.NewStore(n.config.IdentityFilePath())
 }
 
-func (n *Server) buildMultiRaft(id identity.Identity) (*multiraft.TransportService, *multiraft.MultiRaft) {
-	dialOpts := rpc.DefaultDialOptions(id.ClusterName)
-	transportService := multiraft.NewTransportService(n.config.Raft, n.config.Server.BindAddress, dialOpts...)
+func (n *Server) buildMultiRaft() *multiraft.Multi {
+	if n.config.InMem {
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.Server.BindAddress)
+	}
 
-	mraft := multiraft.NewMultiRaft(n.config.Raft, transportService)
-
-	return transportService, mraft
+	return multiraft.New(n.config.Raft, n.config.DataDir, n.config.ClusterName, n.config.Server.BindAddress)
 }
 
 func (n *Server) buildDB() storage.DB {

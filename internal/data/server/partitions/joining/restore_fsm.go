@@ -35,16 +35,16 @@ var (
 // it notifies the replica to update its status to joining==done. This eventually
 // leads the control plane to transition the replica from joining to serving state.
 type restoreFsm struct {
-	ctx          context.Context
-	pid          uint32
-	localReplica string
-	config       config.DB
-	dataClient   data.ServiceClient
-	db           *kv.DBBreaker
-	log          logging.Logger
-	candidates   atomic.Pointer[candidates]                             // updated by the joining replica
-	index        atomic.Uint64                                          // updated during restore
-	status       atomic.Pointer[control.DataServerStatus_JoiningStatus] // updated during restore
+	ctx        context.Context
+	pid        uint32
+	replica    string
+	config     config.DB
+	dataClient data.ServiceClient
+	db         *kv.DBBreaker
+	log        logging.Logger
+	candidates atomic.Pointer[candidates]                             // updated by the joining replica
+	index      atomic.Uint64                                          // updated during restore
+	status     atomic.Pointer[control.DataServerStatus_JoiningStatus] // updated during restore
 }
 
 type address struct {
@@ -59,15 +59,15 @@ type checkpoint struct {
 	Completed   bool     `json:"completed"`
 }
 
-func newRestoreFsm(pid uint32, ctx context.Context, localReplica string, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
+func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
 	f := &restoreFsm{
-		ctx:          ctx,
-		pid:          pid,
-		localReplica: localReplica,
-		config:       config.Get().DB,
-		dataClient:   dataClient,
-		db:           kv.NewDBBreaker(db),
-		log:          logging.WithComponent("replica_joining").With("partition", pid, "replica", localReplica),
+		ctx:        ctx,
+		pid:        pid,
+		replica:    replica,
+		config:     config.Get().DB,
+		dataClient: dataClient,
+		db:         kv.NewDBBreaker(db),
+		log:        logging.WithComponent("replica_joining").With("partition", pid, "replica", replica),
 	}
 
 	f.setStatus(false)
@@ -83,7 +83,7 @@ func (f *restoreFsm) Apply(_ uint64, _ time.Time, _ []byte) any {
 }
 
 func (f *restoreFsm) Snapshot() ([]byte, error) {
-	panic(fmt.Sprintf("unexpected Snapshot while restoring partition %d replica %s.", f.pid, f.localReplica))
+	panic(fmt.Sprintf("unexpected Snapshot while restoring partition %d replica %s.", f.pid, f.replica))
 }
 
 func (f *restoreFsm) Restore(snapshot []byte) error {

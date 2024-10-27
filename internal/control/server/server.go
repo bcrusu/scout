@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	raftGroupName        = "control"
-	DoStart       Action = "start"
-	DoBootstrap   Action = "bootstrap"
-	DoRegister    Action = "register"
+	raftId      uint32 = 888
+	DoStart     Action = "start"
+	DoBootstrap Action = "bootstrap"
+	DoRegister  Action = "register"
 )
 
 var (
@@ -52,7 +52,7 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	var bparams *bootstrap.Params
-	var id *identity.Identity
+	var id identity.Identity
 
 	switch n.action {
 	case DoBootstrap:
@@ -67,44 +67,47 @@ func (n *Server) Start(ctx context.Context) error {
 			return err
 		}
 
-		id = utils.PointerOf(bparams.Identity())
+		id = bparams.Identity()
 	case DoRegister:
 		id, err = n.register(ctx, idStore)
 		if err != nil {
 			return err
 		}
 	default:
-		if x, ok := idStore.Get(); ok {
+		var ok bool
+		if id, ok = idStore.Get(); ok {
 			return errors.Error("server identity not found; must join a cluster first.")
-		} else if x.ClusterName != n.config.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", x.ClusterName)
-		} else {
-			id = &x
+		} else if id.ClusterName != n.config.ClusterName {
+			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
 		}
 	}
 
-	store, transportService, raft, err := n.buildRaft(*id)
+	multiraft := n.buildMultiRaft()
+	if err := multiraft.Start(ctx); err != nil {
+		return errors.Wrap(err, "failed to start multiraft")
+	}
+
+	store, err := n.buildStore(id, multiraft)
 	if err != nil {
 		return err
 	}
 
-	controlService := NewControlService(raft, store)
-	server := rpc.NewServer(n.config.Server, n.config.ClusterName, controlService, transportService)
+	controlService := NewControlService(store)
+	server := rpc.NewServer(n.config.Server, n.config.ClusterName, controlService, multiraft)
 
 	n.components = []utils.Lifecycle{
+		multiraft,
 		store,
-		transportService,
-		raft,
 		controlService,
 		server,
 	}
 
-	if err := utils.LifecycleStart(ctx, log, n.components...); err != nil {
+	if err := utils.LifecycleStart(ctx, log, n.components[1:]...); err != nil {
 		return err
 	}
 
 	if bparams != nil {
-		bootstrapper := bootstrap.NewBootstrapper(raft, store, idStore, n.config.Bootstrap.RetryBackoff)
+		bootstrapper := bootstrap.NewBootstrapper(store, idStore, n.config.Bootstrap.RetryBackoff)
 		return bootstrapper.Bootstrap(ctx, *bparams)
 	}
 
@@ -115,14 +118,14 @@ func (n *Server) Stop() {
 	utils.LifecycleStop(log.NoContext(), n.components...)
 }
 
-func (n *Server) register(ctx context.Context, idStore identity.Store) (*identity.Identity, error) {
+func (n *Server) register(ctx context.Context, idStore identity.Store) (identity.Identity, error) {
 	client := client.New(
 		client.WithClusterName(n.config.ClusterName),
 		client.WithDiscovery(n.config.Register.Discovery),
 	)
 
 	if err := client.Start(ctx); err != nil {
-		return nil, err
+		return identity.Identity{}, err
 	}
 	defer client.Stop()
 
@@ -145,19 +148,22 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 	return identity.NewStore(n.config.IdentityFilePath())
 }
 
-func (n *Server) buildRaft(id identity.Identity) (storage.Store, *multiraft.TransportService, *multiraft.Raft, error) {
+func (n *Server) buildMultiRaft() *multiraft.Multi {
+	if n.config.InMem {
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.Server.BindAddress)
+	}
+
+	return multiraft.New(n.config.Raft, n.config.DataDir, n.config.ClusterName, n.config.Server.BindAddress)
+}
+
+func (n *Server) buildStore(id identity.Identity, multi *multiraft.Multi) (storage.Store, error) {
 	fsm := storage.NewFSM()
-	dialOpts := rpc.DefaultDialOptions(id.ClusterName)
-	transportService := multiraft.NewTransportService(n.config.Raft, n.config.Server.BindAddress, dialOpts...)
 
-	mraft := multiraft.NewMultiRaft(n.config.Raft, transportService)
-
-	raft, err := mraft.New(raftGroupName, fsm, raft.ServerID(id.ServerName))
+	raft, err := multi.New(raftId, fsm, raft.ServerID(id.ServerName))
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "failed to create raft group")
+		return nil, errors.Wrap(err, "failed to create raft instance")
 	}
 
 	store := storage.NewStore(raft, fsm)
-
-	return store, transportService, raft, nil
+	return store, nil
 }

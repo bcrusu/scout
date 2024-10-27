@@ -9,6 +9,7 @@ import (
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
+	"github.com/hashicorp/raft"
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 type Store interface {
 	utils.Lifecycle
 
+	Raft() *multiraft.Raft
 	Bootstrapped() bool
 	ClusterName() string
 	PartitionCount() uint32
@@ -122,6 +124,10 @@ func (s *store) mainLoop(ctx context.Context) {
 	}
 }
 
+func (s *store) Raft() *multiraft.Raft {
+	return s.raft
+}
+
 func (s *store) ClusterName() string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
@@ -155,7 +161,28 @@ func (s *store) Bootstrap(cmd *Bootstrap) (*BootstrapResult, error) {
 }
 
 func (s *store) Register(cmd *Register) (*RegisterResult, error) {
-	return applyR[*RegisterResult](s.raft, cmd)
+	result, err := applyR[*RegisterResult](s.raft, cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	if cmd.Type == ServerType_Control {
+		// For control plane servers, add them immediately to the Raft group.
+		// If the operation fails, the server can retry later with the same token
+		// to recover the original id/name pair assigned above by the store in the
+		// initial request.
+		server := raft.Server{
+			ID:       raft.ServerID(result.ServerName),
+			Address:  raft.ServerAddress(cmd.Address),
+			Suffrage: raft.Voter,
+		}
+
+		if err := s.raft.AddOrUpdateServer(server); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
 }
 
 func (s *store) UpdateServerStatus(cmd *UpdateServerStatus) (*UpdateResult, error) {
