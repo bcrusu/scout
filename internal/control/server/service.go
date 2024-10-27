@@ -76,8 +76,9 @@ func (s *ControlService) mainLoop(ctx context.Context) {
 			}
 			isLeader = next
 		case <-ctx.Done():
-			old := s.role.Swap(nil)
-			old.Stop()
+			if old := s.role.Swap(nil); old != nil {
+				old.Stop()
+			}
 			return
 		}
 	}
@@ -108,8 +109,7 @@ func (s *ControlService) setRole(ctx context.Context, isLeader bool) bool {
 	// until the new role is ready. Could use and intermediary role type
 	// that retries, with backoff, until the new role is ready. Will leave it,
 	// for now, to the client to retry the request.
-	old := s.role.Swap(nil)
-	if old != nil {
+	if old := s.role.Swap(nil); old != nil {
 		go old.Stop()
 	}
 

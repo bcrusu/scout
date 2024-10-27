@@ -26,7 +26,7 @@ func New(store storage.Store) *Shared {
 
 	return &Shared{
 		store:             store,
-		serviceConfigJson: config.ControlClient.GetServiceConfigJson(serviceconfig.LBNameScoutControl, control.Service_ServiceDesc),
+		serviceConfigJson: config.Control.GetServiceConfigJson(serviceconfig.LBNameScoutControl, control.Service_ServiceDesc),
 	}
 }
 

@@ -230,7 +230,7 @@ func (b *balancerImpl) getLBConnectivityState() connectivity.State {
 	available := 0
 
 	for _, part := range b.partitions {
-		if part.leader.state == connectivity.Ready {
+		if part.leader != nil && part.leader.state == connectivity.Ready {
 			available++
 		}
 	}

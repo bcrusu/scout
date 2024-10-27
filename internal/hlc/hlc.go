@@ -72,6 +72,7 @@ func Set(hlc *Hlc) {
 func New(maxOffset time.Duration) *Hlc {
 	return &Hlc{
 		maxOffset: uint64(maxOffset) & physicalMask,
+		physical:  physicalNow(),
 	}
 }
 
@@ -81,7 +82,7 @@ func (h *Hlc) Now() uint64 {
 	h.statsNow.Total++
 
 	for range maxRetries {
-		now := h.physicalNow()
+		now := physicalNow()
 
 		if now > h.physical {
 			h.statsNow.LogicalReset++
@@ -124,13 +125,13 @@ func (h *Hlc) Update(incoming uint64) error {
 	defer h.lock.Unlock()
 	h.statsUpdate.Total++
 
-	inPhysical, inLogical := h.split(incoming)
+	inPhysical, inLogical := split(incoming)
 	if err := h.checkUpdateTimeOffset(inPhysical); err != nil {
 		return err
 	}
 
 	for range maxRetries {
-		nextPhysical := max(h.physical, inPhysical, h.physicalNow())
+		nextPhysical := max(h.physical, inPhysical, physicalNow())
 		nextLogical := uint64(0)
 
 		switch {
@@ -167,26 +168,19 @@ func (h *Hlc) Stats() (StatsNow, StatsUpdate) {
 	return h.statsNow, h.statsUpdate
 }
 
-func (h *Hlc) physicalNow() uint64 {
-	return uint64(time.Now().UnixNano()) & physicalMask
-}
-
-func (h *Hlc) split(timestamp uint64) (uint64, uint64) {
-	return timestamp & physicalMask, timestamp & logicalMask
-}
-
 func (h *Hlc) checkUpdateTimeOffset(inPhysical uint64) error {
+	now := physicalNow()
 	var diff uint64
 	allowed := h.maxOffset
 
-	if inPhysical > h.physical {
+	if inPhysical > now {
 		// keep rushers correct
-		diff = inPhysical - h.physical
+		diff = inPhysical - now
 	} else {
 		// more lenient with stragglers as they do not
 		// change our h.physical value
 		allowed = 10 * h.maxOffset
-		diff = h.physical - inPhysical
+		diff = now - inPhysical
 	}
 
 	if diff > allowed {
@@ -221,4 +215,12 @@ func FromTime(time time.Time) uint64 {
 
 func FromTimestamp(ts *timestamppb.Timestamp) uint64 {
 	return FromTime(ts.AsTime())
+}
+
+func physicalNow() uint64 {
+	return uint64(time.Now().UnixNano()) & physicalMask
+}
+
+func split(timestamp uint64) (uint64, uint64) {
+	return timestamp & physicalMask, timestamp & logicalMask
 }

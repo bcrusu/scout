@@ -14,7 +14,8 @@ const (
 )
 
 func openDB(config config.RocksDB) (*grocksdb.DB, cfMap, error) {
-	currentFilePath := path.Join(config.DataDir, currentFileName)
+	dataDir := config.DataDir
+	currentFilePath := path.Join(dataDir, currentFileName)
 	exists, err := utils.PathExists(currentFilePath)
 	if err != nil {
 		return nil, nil, err
@@ -23,21 +24,21 @@ func openDB(config config.RocksDB) (*grocksdb.DB, cfMap, error) {
 	opts := makeDBOptions(config)
 
 	if !exists {
-		db, err := grocksdb.OpenDb(opts, config.DataDir)
+		db, err := grocksdb.OpenDb(opts, dataDir)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to open db.")
 		}
 		return db, cfMap{}, nil
 	}
 
-	cfNames, err := grocksdb.ListColumnFamilies(opts, config.DataDir)
+	cfNames, err := grocksdb.ListColumnFamilies(opts, dataDir)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to list column families.")
 	}
 
 	cfOpts := makeCFsOptions(config, cfNames...)
 
-	db, cfHandles, err := grocksdb.OpenDbColumnFamilies(opts, config.DataDir, cfNames, cfOpts)
+	db, cfHandles, err := grocksdb.OpenDbColumnFamilies(opts, dataDir, cfNames, cfOpts)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to open db column families.")
 	}

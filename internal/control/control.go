@@ -9,6 +9,25 @@ func (s DataServerConfig_ReplicaState) IsServing() bool {
 	return s == DataServerConfig_Voter || s == DataServerConfig_NonVoter
 }
 
+func (x *DiscoverRequest) Validate() error {
+	if x == nil {
+		return errors.Error("DiscoverRequest is nil")
+	}
+	return nil
+}
+
+func (x *DiscoverResponse) Validate() error {
+	if x == nil {
+		return errors.Error("DiscoverResponse is nil")
+	}
+
+	if len(x.Servers) == 0 || x.ServiceConfigJson == "" {
+		return errors.Error("DiscoverResponse has missing fields")
+	}
+
+	return nil
+}
+
 func (x *RegisterRequest) Validate() error {
 	if x == nil {
 		return errors.Error("RegisterRequest is nil")
@@ -23,6 +42,68 @@ func (x *RegisterRequest) Validate() error {
 	}
 
 	return nil
+}
+
+func (x *RegisterResponse) Validate() error {
+	if x == nil {
+		return errors.Error("RegisterResponse is nil")
+	}
+
+	if x.ServerId == 0 || x.ServerName == "" {
+		return errors.Error("RegisterResponse has missing fields")
+	}
+
+	return nil
+}
+
+func (x *SessionIn) Validate() error {
+	if x == nil {
+		return errors.Error("SessionIn is nil")
+	}
+
+	switch p := x.Payload.(type) {
+	case *SessionIn_Hello:
+		return p.Hello.Validate()
+	case *SessionIn_Heartbeat:
+		return p.Heartbeat.Validate()
+	case *SessionIn_GetDataServers:
+		return p.GetDataServers.Validate()
+	case *SessionIn_GetApiServers:
+		return p.GetApiServers.Validate()
+	case *SessionIn_DataServerStatus:
+		return p.DataServerStatus.Validate()
+	case *SessionIn_ApiServerStatus:
+		return p.ApiServerStatus.Validate()
+	case *SessionIn_TimestampResponse:
+		return p.TimestampResponse.Validate()
+	default:
+		return errors.Error("SessionIn.Payload is unknown.")
+	}
+}
+
+func (x *SessionOut) Validate() error {
+	if x == nil {
+		return errors.Error("SessionOut is nil")
+	}
+
+	switch p := x.Payload.(type) {
+	case *SessionOut_HelloDataServer:
+		return p.HelloDataServer.Validate()
+	case *SessionOut_HelloApiServer:
+		return p.HelloApiServer.Validate()
+	case *SessionOut_DataServerConfig:
+		return p.DataServerConfig.Validate()
+	case *SessionOut_ApiServerConfig:
+		return p.ApiServerConfig.Validate()
+	case *SessionOut_DataServers:
+		return p.DataServers.Validate()
+	case *SessionOut_ApiServers:
+		return p.ApiServers.Validate()
+	case *SessionOut_TimestampRequest:
+		return p.TimestampRequest.Validate()
+	default:
+		return errors.Error("SessionOut.Payload is unknown.")
+	}
 }
 
 func (x *Hello) Validate() error {

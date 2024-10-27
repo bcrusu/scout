@@ -3,6 +3,7 @@ package interceptors
 import (
 	"context"
 	"reflect"
+	"strings"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
@@ -13,9 +14,12 @@ import (
 // UnaryValidatorServerInterceptor validates the incoming requests.
 func UnaryValidatorServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		if err := validateMessage(ctx, req); err != nil {
-			return nil, err
+		if validationEnabled(info.FullMethod) {
+			if err := validateMessage(ctx, req); err != nil {
+				return nil, err
+			}
 		}
+
 		return handler(ctx, req)
 	}
 }
@@ -23,8 +27,11 @@ func UnaryValidatorServerInterceptor() grpc.UnaryServerInterceptor {
 // StreamValidatorServerInterceptor validates the incoming stream messages.
 func StreamValidatorServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		sw := &ssWrapperForValidator{ServerStream: ss}
-		return handler(srv, sw)
+		if validationEnabled(info.FullMethod) {
+			ss = &ssWrapperForValidator{ServerStream: ss}
+		}
+
+		return handler(srv, ss)
 	}
 }
 
@@ -33,9 +40,14 @@ func UnaryValidatorClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		if err := invoker(ctx, method, req, reply, cc, opts...); err != nil {
 			return err
-		} else if err := validateMessage(ctx, reply); err != nil {
-			return err
 		}
+
+		if validationEnabled(method) {
+			if err := validateMessage(ctx, reply); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	}
 }
@@ -48,7 +60,11 @@ func StreamValidatorClientInterceptor() grpc.StreamClientInterceptor {
 			return nil, err
 		}
 
-		return &csWrapperForValidator{ClientStream: cs}, nil
+		if validationEnabled(method) {
+			return &csWrapperForValidator{ClientStream: cs}, nil
+		}
+
+		return cs, nil
 	}
 }
 
@@ -86,15 +102,20 @@ func validateMessage(ctx context.Context, value any) error {
 
 	v, ok := value.(validation.CanValidate)
 	if !ok {
-		logging.Debug(ctx, "Message %T does not implement validation.", value)
+		logging.Debugf(ctx, "Message %T does not implement validation.", value)
 		return nil
 	}
 
 	err := v.Validate()
 	if err != nil {
-		logging.WithError(err).Error(ctx, "Invalid message %T.", value)
+		logging.WithError(err).Errorf(ctx, "Invalid message %T.", value)
 		return errors.InvalidRequest
 	}
 
 	return nil
+}
+
+func validationEnabled(fullMethod string) bool {
+	const raftTransportSvc = "/RaftTransport/"
+	return !strings.HasPrefix(fullMethod, raftTransportSvc)
 }

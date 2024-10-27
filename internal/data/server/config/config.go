@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	_      validation.CanValidate = (*Config)(nil)
 	global *Config
 )
 
@@ -42,13 +43,15 @@ type Config struct {
 	ClusterName  string              `yaml:"clusterName" validate:"required,maxLen:100"`
 	Server       rpc.ServerConfig    `yaml:"server"`
 	InMem        bool                `yaml:"inMem" default:"false"`
-	DataDir      string              `yaml:"dataDir" validate:"required"`
+	DataDir      string              `yaml:"dataDir"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	Register     Register            `yaml:"register"`
 	Session      Session             `yaml:"session"`
 	Raft         multiraft.Config    `yaml:"raft"`
 	DB           DB                  `yaml:"db"`
 	Transactions Transactions        `yaml:"transactions"`
+	identityFile string
+	raftDir      string
 }
 
 type Register struct {
@@ -94,23 +97,46 @@ type RocksDB struct {
 	BloomFilterBitsPerKey float64       `yaml:"bloomFilterBitsPerKey" default:"10" validate:"min:1"`
 }
 
+func (c Config) Validate() error {
+	if !c.InMem && c.DataDir == "" {
+		return errors.Error("missing data dir")
+	}
+
+	return nil
+}
+
 func (c *Config) prepare() error {
 	if c.Register.Token == "GENERATE_RANDOM" {
 		c.Register.Token = uuid.New().String()
 	}
 
+	if !c.InMem {
+		return c.prepareDirs()
+	}
+
+	return nil
+}
+
+func (c *Config) prepareDirs() error {
 	dataDir, err := filepath.Abs(c.DataDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to determine data dir")
 	}
 
+	c.identityFile = path.Join(dataDir, "id")
+	c.raftDir = path.Join(dataDir, "raft")
 	c.DB.RocksDB.DataDir = path.Join(dataDir, "rocksdb")
 
 	return utils.MkdirsAll(
+		c.raftDir,
 		c.DB.RocksDB.DataDir,
 	)
 }
 
-func (c *Config) IdentityFilePath() string {
-	return path.Join(c.DataDir, "id")
+func (c Config) IdentityFile() string {
+	return c.identityFile
+}
+
+func (c *Config) RaftDir() string {
+	return c.raftDir
 }

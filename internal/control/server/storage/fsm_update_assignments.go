@@ -59,26 +59,28 @@ func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignment
 }
 
 func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
-	changes := len(cmd.Add) + len(cmd.Update) + len(cmd.Remove)
-	if changes == 0 {
-		return errors.InvalidRequest
+	if cmd.IsEmpty() {
+		return errors.Error("is empty")
 	}
 
 	for _, x := range cmd.Add {
 		if !f.isValidPartitionID(x.PartitionId) || !f.isValidDataServer(x.ServerId) {
-			return errors.InvalidRequest
+			return errors.Error("has invalid Add fields")
 		}
 
 		// two replicas on the same server would be redundant
 		if replica := f.getReplicaByServer(x.PartitionId, x.ServerId); replica != nil {
-			return errors.InvalidRequest
+			return errors.Error("has partition with replicas on the same server")
 		}
 	}
 
 	for _, x := range cmd.Update {
-		if !f.isValidPartitionID(x.PartitionId) || !f.isValidReplicaName(x.PartitionId, x.Replica) ||
-			!f.isValidReplicaTransition(x.PartitionId, x.Replica, x.State) {
-			return errors.InvalidRequest
+		if !f.isValidPartitionID(x.PartitionId) || !f.isValidReplicaName(x.PartitionId, x.Replica) {
+			return errors.Error("has invalid Update fields")
+		}
+
+		if !f.isValidReplicaTransition(x.PartitionId, x.Replica, x.State) {
+			return errors.Error("has invalid state transition")
 		}
 
 		part := f.getPartition(x.PartitionId)
@@ -86,18 +88,18 @@ func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
 
 		// does not allow the last serving replica to leave
 		if servingCount == 1 && !x.State.IsServing() {
-			return errors.InvalidRequest
+			return errors.Error("cannot remove last serving replica")
 		}
 	}
 
 	for _, x := range cmd.Remove {
 		if !f.isValidPartitionID(x.PartitionId) || !f.isValidReplicaName(x.PartitionId, x.Replica) {
-			return errors.InvalidRequest
+			return errors.Error("has invalid Remove fields")
 		}
 
 		// it first needs to transition to leaving, then it can be removed
 		if replica := f.getReplicaByName(x.PartitionId, x.Replica); replica.State != ReplicaState_Leaving {
-			return errors.InvalidRequest
+			return errors.Error("cannot remove non-leaving replica")
 		}
 	}
 

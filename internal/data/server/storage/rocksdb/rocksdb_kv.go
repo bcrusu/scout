@@ -64,7 +64,7 @@ func (r *rocksKV) DropPartition(pid uint32) error {
 	cf.Destroy()
 
 	name := getCFName(pid)
-	path := getCFPath(r.rdb.config.DataDir, name)
+	path := getCFPath(r.rdb.config, name)
 
 	if err := os.Remove(path); err != nil {
 		log.WithError(err).Error("Failed to remove column family directory.", "dir", path)

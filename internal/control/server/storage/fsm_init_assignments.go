@@ -53,12 +53,12 @@ func (f *FSM) validateInitAssignments(cmd *InitAssignments) error {
 
 	for _, x := range cmd.Add {
 		if !f.isValidPartitionID(x.PartitionId) || !f.isValidDataServer(x.ServerId) {
-			return errors.InvalidRequest
+			return errors.Error("has invalid fields")
 		}
 
 		pair := pair{x.PartitionId, x.ServerId}
 		if seenPairs[pair] {
-			return errors.InvalidRequest
+			return errors.Error("has duplicate entries")
 		}
 
 		seenPairs[pair] = true
@@ -66,7 +66,7 @@ func (f *FSM) validateInitAssignments(cmd *InitAssignments) error {
 	}
 
 	if len(seenPart) != int(f.partitionCount) {
-		return errors.InvalidRequest
+		return errors.Error("has missing partitions")
 	}
 
 	return nil

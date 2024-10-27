@@ -2,6 +2,7 @@ package config
 
 import (
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/bcrusu/scout/internal/discovery"
@@ -44,7 +45,7 @@ type Config struct {
 	Server      rpc.ServerConfig `yaml:"server"`
 	Service     Service          `yaml:"service"`
 	InMem       bool             `yaml:"inMem" default:"false"`
-	DataDir     string           `yaml:"dataDir" validate:"required"`
+	DataDir     string           `yaml:"dataDir"`
 	Raft        multiraft.Config `yaml:"raft"`
 	Sessions    Sessions         `yaml:"sessions"`
 	TimeOffset  TimeOffset       `yaml:"timeOffset"`
@@ -66,9 +67,9 @@ type Bootstrap struct {
 }
 
 type Service struct {
-	ControlClient serviceconfig.Config `yaml:"controlClient"`
-	DataClient    serviceconfig.Config `yaml:"dataClient"`
-	ApiClient     serviceconfig.Config `yaml:"apiClient"`
+	Control serviceconfig.Config `yaml:"control"`
+	Data    serviceconfig.Config `yaml:"data"`
+	Api     serviceconfig.Config `yaml:"api"`
 }
 
 type Sessions struct {
@@ -89,7 +90,7 @@ type TimeOffset struct {
 
 type Partitions struct {
 	ReplicationFactor      int           `yaml:"replicationFactor" default:"3" validate:"min:1"`
-	InitalDelay            time.Duration `yaml:"initalDelay" default:"1m" validate:"min:1s"`
+	InitDelay              time.Duration `yaml:"initDelay" default:"1m" validate:"min:1s"`
 	RebalanceInterval      time.Duration `yaml:"rebalanceInterval" default:"1m" validate:"min:1s"`
 	MaxJoining             int           `yaml:"maxJoining" default:"16" validate:"min:1"`
 	MaxJoiningForServer    int           `yaml:"maxJoiningForServer" default:"2" validate:"min:1"`
@@ -101,17 +102,40 @@ func (c Config) Validate() error {
 		return errors.Error("register and bootstrap are mutually exclusive")
 	}
 
-	return nil
-}
-
-func (c *Config) prepare() error {
-	if c.Register.Token == "GENERATE_RANDOM" {
-		c.Register.Token = uuid.New().String()
+	if !c.InMem && c.DataDir == "" {
+		return errors.Error("missing data dir")
 	}
 
 	return nil
 }
 
-func (c *Config) IdentityFilePath() string {
+func (c *Config) prepare() error {
+	if c.Register != nil && c.Register.Token == "GENERATE_RANDOM" {
+		c.Register.Token = uuid.New().String()
+	}
+
+	if !c.InMem {
+		return c.prepareDirs()
+	}
+
+	return nil
+}
+
+func (c *Config) prepareDirs() error {
+	dataDir, err := filepath.Abs(c.DataDir)
+	if err != nil {
+		return errors.Wrap(err, "failed to determine data dir")
+	}
+
+	return utils.MkdirsAll(
+		path.Join(dataDir, "raft"),
+	)
+}
+
+func (c Config) IdentityFile() string {
 	return path.Join(c.DataDir, "id")
+}
+
+func (c Config) RaftDir() string {
+	return path.Join(c.DataDir, "raft")
 }

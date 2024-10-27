@@ -146,7 +146,17 @@ func (t *statusTracker) getServerLastAddress(serverID uint64) string {
 	return t.servers[serverID].LastAddress
 }
 
-func (t *statusTracker) removeServer(serverID uint64) {
-	delete(t.servers, serverID)
-	delete(t.serversDirty, serverID)
+func (t *statusTracker) updateServers(newServers *storage.Servers) {
+	for serverID := range t.servers {
+		if _, ok := newServers.Items[serverID]; !ok {
+			delete(t.servers, serverID)
+			delete(t.serversDirty, serverID)
+		}
+	}
+
+	for serverID, status := range newServers.Status {
+		if _, ok := t.servers[serverID]; !ok {
+			t.servers[serverID] = utils.CloneProto(status)
+		}
+	}
 }

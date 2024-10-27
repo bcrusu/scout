@@ -85,8 +85,7 @@ func (r *resolverImpl) mainLoop() {
 
 	go func() {
 		for range reqCh {
-			r.resolveNow(tracing.NewContext())
-			resCh <- true
+			resCh <- r.resolveNow(tracing.NewContext())
 		}
 	}()
 
@@ -108,20 +107,23 @@ func (r *resolverImpl) mainLoop() {
 			}
 
 			resolve()
-		case <-resCh:
+		case ok := <-resCh:
 			resolving = false
+			if ok {
+				ticker.Stop()
+			}
 		case <-ticker.C:
 			resolve()
 		}
 	}
 }
 
-func (r *resolverImpl) resolveNow(ctx context.Context) {
+func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 	conn, client := r.createClient()
 	if err := conn.Start(ctx); err != nil {
 		logR.WithError(err).Warnf(ctx, "Failed to start client for resolver")
 		r.clientConn.ReportError(err)
-		return
+		return false
 	}
 	defer conn.Stop()
 
@@ -129,14 +131,16 @@ func (r *resolverImpl) resolveNow(ctx context.Context) {
 	if err != nil {
 		logR.WithError(err).Warnf(ctx, "Discover call failed")
 		r.clientConn.ReportError(err)
-		return
+		return false
 	}
 
 	if err := r.updateState(resp); err != nil {
 		logR.WithError(err).Warn(ctx, "Failed to update resolver state")
 		r.clientConn.ReportError(err)
-		return
+		return false
 	}
+
+	return true
 }
 
 func (r *resolverImpl) createClient() (*rpc.Conn, api.AdminClient) {

@@ -14,7 +14,10 @@ type inmem struct {
 }
 
 func newInmem() stores {
-	return &inmem{}
+	return &inmem{
+		store:    map[uint32]*raft.InmemStore{},
+		snapshot: map[uint32]*raft.InmemSnapshotStore{},
+	}
 }
 
 func (r *inmem) Start(ctx context.Context) error {

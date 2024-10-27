@@ -145,7 +145,7 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 		return identity.NewInmem(), nil
 	}
 
-	return identity.NewStore(n.config.IdentityFilePath())
+	return identity.NewStore(n.config.IdentityFile())
 }
 
 func (n *Server) buildMultiRaft() *multiraft.Multi {
@@ -153,7 +153,7 @@ func (n *Server) buildMultiRaft() *multiraft.Multi {
 		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.Server.BindAddress)
 	}
 
-	return multiraft.New(n.config.Raft, n.config.DataDir, n.config.ClusterName, n.config.Server.BindAddress)
+	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.Server.BindAddress)
 }
 
 func (n *Server) buildStore(id identity.Identity, multi *multiraft.Multi) (storage.Store, error) {

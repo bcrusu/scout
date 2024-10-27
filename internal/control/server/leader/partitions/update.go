@@ -15,6 +15,10 @@ func (a *Assigner) updateAssignments() {
 
 	cmd := a.makeUpdateAssignments(partitions.ItemsVersion, curr, next)
 
+	if cmd.IsEmpty() {
+		return
+	}
+
 	if _, err := a.store.UpdateAssignments(cmd); err != nil {
 		log.WithError(err).Error("Update assignments failed.")
 	}

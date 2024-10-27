@@ -14,7 +14,7 @@ import (
 
 var (
 	_                Store = (*store)(nil)
-	debounceInterval       = 100 * time.Millisecond
+	debounceInterval       = 50 * time.Millisecond
 )
 
 // Store defines all possilbe way to interact with the Raft group and its backing FSM storage.
@@ -182,6 +182,10 @@ func (s *store) Register(cmd *Register) (*RegisterResult, error) {
 		}
 	}
 
+	// Gives the subscribers/the session tracker a chance to observe the
+	// newly added server before returning to caller. This way the very
+	// first new session request is not rejected.
+	<-time.After(3 * debounceInterval)
 	return result, nil
 }
 

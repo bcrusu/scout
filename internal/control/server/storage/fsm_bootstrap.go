@@ -20,6 +20,7 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 		Items:         map[uint64]*Server{},
 		StatusVersion: 1,
 		Status:        map[uint64]*ServerStatus{},
+		Tokens:        map[string]uint64{},
 	}
 
 	for _, server := range cmd.Servers {

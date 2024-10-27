@@ -46,11 +46,26 @@ func (a *Assigner) mainLoop(ctx context.Context) {
 	serversSub := eventbus.Subscribe[*storage.Servers]()
 	defer serversSub.Unsubscribe()
 
+	for {
+		select {
+		case servers := <-serversSub.Items():
+			if x := len(servers.DataServers()); x > 0 {
+				log.Infof("Found %d data servers. Starting the assign loop...", x)
+				go a.assignLoop(ctx)
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (a *Assigner) assignLoop(ctx context.Context) {
 	var initTimer *time.Timer
 	var rebalanceTicker *time.Ticker
 
 	if !a.store.Partitions().IsInitialized() {
-		initTimer = time.NewTimer(a.config.InitalDelay)
+		initTimer = time.NewTimer(a.config.InitDelay)
 	} else {
 		rebalanceTicker = time.NewTicker(a.config.RebalanceInterval)
 	}

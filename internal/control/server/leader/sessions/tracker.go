@@ -24,10 +24,9 @@ import (
 )
 
 var (
-	logS                                       = logging.WithComponent("session_tracker")
-	_                          utils.Lifecycle = (*Tracker)(nil)
-	updateServerListDebounce                   = 200 * time.Millisecond
-	updateServerConfigDebounce                 = 200 * time.Millisecond
+	logS                             = logging.WithComponent("session_tracker")
+	_                utils.Lifecycle = (*Tracker)(nil)
+	debounceInterval                 = 20 * time.Millisecond
 )
 
 type Tracker struct {
@@ -74,8 +73,8 @@ func NewTracker(store storage.Store) *Tracker {
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
 		globalTimeOffset:      newGlobalTimeOffset(c.TimeOffset),
-		dataServiceConfigJson: c.Service.DataClient.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc, txn.TxnService_ServiceDesc),
-		apiServiceConfigJson:  c.Service.ApiClient.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
+		dataServiceConfigJson: c.Service.Data.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc, txn.TxnService_ServiceDesc),
+		apiServiceConfigJson:  c.Service.Api.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
 	}
 }
 
@@ -129,10 +128,10 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	defer partitionsSub.Unsubscribe()
 	defer writeLatestStatusTicker.Stop()
 
-	dsUpdateCh, dsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
-	asUpdateCh, asUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerListDebounce, 1)
-	dsConfigsUpdateCh, dsConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerConfigDebounce, 1)
-	asConfigsUpdateCh, asConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, updateServerConfigDebounce, 1)
+	dsUpdateCh, dsUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
+	asUpdateCh, asUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
+	dsConfigsUpdateCh, dsConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
+	asConfigsUpdateCh, asConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
 
 	servers := t.store.Servers()
 	partitions := t.store.Partitions()
@@ -162,7 +161,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 		case x := <-t.startSessionCh:
 			server := servers.ByID(x.serverID)
 			if server == nil {
-				logS.Warnf(ctx, "Session hello for unknwon server %d at %s.", x.serverID, x.serverAddress)
+				logS.Warnf(ctx, "Session hello for unknown server %d at %s.", x.serverID, x.serverAddress)
 				x.waitCh <- errors.NotRegistered
 				continue
 			}
@@ -248,11 +247,11 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			for serverID, sess := range sessionsByServer {
 				if newServers.ByID(serverID) == nil {
 					closeSession(sess.id, errors.NotRegistered)
-					status.removeServer(serverID)
 				}
 			}
 
 			servers = newServers
+			status.updateServers(newServers)
 			dsUpdateCh <- true
 			asUpdateCh <- true
 			dsConfigsUpdateCh <- true

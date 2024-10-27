@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/keyspace"
 	"github.com/linxGnu/grocksdb"
@@ -29,8 +30,8 @@ func getCFName(pid uint32) string {
 	return fmt.Sprintf("%s%d", cfNamePrefix, pid)
 }
 
-func getCFPath(dataDir, name string) string {
-	return path.Join(dataDir, name)
+func getCFPath(config config.RocksDB, name string) string {
+	return path.Join(config.DataDir, name)
 }
 
 func initCF(db *grocksdb.DB, cf *grocksdb.ColumnFamilyHandle, pid uint32) error {

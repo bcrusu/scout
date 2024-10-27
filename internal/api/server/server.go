@@ -117,5 +117,5 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 		return identity.NewInmem(), nil
 	}
 
-	return identity.NewStore(n.config.IdentityFilePath())
+	return identity.NewStore(n.config.IdentityFile())
 }

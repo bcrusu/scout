@@ -38,7 +38,7 @@ func makeCFOptions(config config.RocksDB, name string) *grocksdb.Options {
 	paths := []*grocksdb.DBPath{
 		// using an arbitrarily large value here just to force each cf to
 		// use a separate directory.
-		grocksdb.NewDBPath(getCFPath(config.DataDir, name), 1<<40),
+		grocksdb.NewDBPath(getCFPath(config, name), 1<<40),
 	}
 
 	opts.SetCFPaths(paths)

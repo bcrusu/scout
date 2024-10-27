@@ -106,8 +106,9 @@ func (p *Serving) mainLoop(ctx context.Context) {
 
 			// Setting to nil will reject new incoming requests with Unavailable error
 			// until the new partition leader/follower transition is ready.
-			old := p.partition.Swap(nil)
-			go old.Stop()
+			if old := p.partition.Swap(nil); old != nil {
+				go old.Stop()
+			}
 
 			var new service
 			store := &raftStore{raft: raft}

@@ -17,7 +17,7 @@ func newTransport(config Config, clusterName, localAddress string) *transport.Ma
 		transport.WithHeartbeatTimeout(config.HeartbeatTimeout),
 	}
 
-	scj := config.TransportClient.GetServiceConfigJson(serviceconfig.LBNameRoundRobin, proto.RaftTransport_ServiceDesc)
+	scj := config.Transport.GetServiceConfigJson(serviceconfig.LBNameRoundRobin, proto.RaftTransport_ServiceDesc)
 
 	dialOpts := append(rpc.DefaultDialOptions(clusterName),
 		grpc.WithDefaultServiceConfig(scj),
