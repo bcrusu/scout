@@ -38,7 +38,7 @@ func NewService(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB, c
 		batcher: newBatcher(raftStore),
 		reader:  newReader(pid, manager, db),
 		manager: manager,
-		log:     logging.WithComponent("txn").With("partition", pid),
+		log:     logging.New("txn").With("partition", pid),
 	}
 
 	s.components = []utils.Lifecycle{

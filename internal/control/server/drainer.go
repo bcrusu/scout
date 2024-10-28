@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
@@ -27,7 +28,7 @@ func newRoleDrainer(inner role) *roleDrainer {
 }
 
 func (s *roleDrainer) Start(ctx context.Context) error {
-	s.drainer = utils.NewDrainer(ctx)
+	s.drainer = utils.NewDrainer(ctx, logging.New("role_drainer"))
 	return s.inner.Start(ctx)
 }
 

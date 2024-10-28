@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -106,7 +105,7 @@ func buildRetryPolicy(c Config) *MethodConfig_RetryPolicy {
 func (c *ServiceConfig) ToJson() string {
 	data, err := protojson.Marshal(c)
 	if err != nil {
-		logging.NoContext().WithError(err).Warnf("Unexpected error when marshal ServiceConfig json")
+		utils.ShutdownNowf("Unexpected error %s when marshal ServiceConfig json", err)
 	}
 
 	return string(data)

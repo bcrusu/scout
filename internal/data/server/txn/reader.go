@@ -47,7 +47,7 @@ func newReader(pid uint32, manager *Manager, db mvcc.DB) *reader {
 		pid:          pid,
 		manager:      manager,
 		db:           db,
-		log:          logging.WithComponent("txn").With("partition", pid),
+		log:          logging.New("txn").With("partition", pid),
 		prepared:     map[id]*Txn{},
 		preparedTime: map[id]time.Time{},
 	}

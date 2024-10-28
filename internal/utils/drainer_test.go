@@ -7,16 +7,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gmeasure"
 )
 
+func newTestDrainer() *utils.Drainer {
+	return utils.NewDrainer(context.Background(), logging.New("drainer_tests"))
+}
+
 var _ = Describe("Drainer tests", func() {
 	Context("When stopping", func() {
 		It("Should drain all in-flight work", func() {
-			drainer := utils.NewDrainer(context.Background())
+			drainer := newTestDrainer()
 
 			var wg sync.WaitGroup
 			wg.Add(10)
@@ -41,7 +46,7 @@ var _ = Describe("Drainer tests", func() {
 
 	Context("When no work is in-flight", func() {
 		It("Stop should return", func() {
-			drainer := utils.NewDrainer(context.Background())
+			drainer := newTestDrainer()
 
 			_, cancel := drainer.WithDrain(context.Background())
 			cancel()
@@ -52,7 +57,7 @@ var _ = Describe("Drainer tests", func() {
 
 	Context("When draining", func() {
 		It("WithDrain should return canceled context", func() {
-			drainer := utils.NewDrainer(context.Background())
+			drainer := newTestDrainer()
 			longRunning := make(chan any)
 
 			go func() {
@@ -76,7 +81,7 @@ var _ = Describe("Drainer tests", func() {
 
 	Context("When stoppped", func() {
 		It("WithDrain return canceled context", func() {
-			drainer := utils.NewDrainer(context.Background())
+			drainer := newTestDrainer()
 			drainer.Stop()
 
 			ctx, cancel := drainer.WithDrain(context.Background())
@@ -91,7 +96,7 @@ var _ = Describe("Drainer tests", func() {
 			ex := NewExperiment("bench")
 			AddReportEntry(ex.Name, ex)
 
-			drainer := utils.NewDrainer(context.Background())
+			drainer := newTestDrainer()
 
 			ex.SampleDuration("time",
 				func(idx int) {
@@ -109,7 +114,7 @@ var _ = Describe("Drainer tests", func() {
 })
 
 func BenchmarkDrainer(b *testing.B) {
-	drainer := utils.NewDrainer(context.Background())
+	drainer := newTestDrainer()
 	b.ResetTimer()
 
 	b.RunParallel(func(pb *testing.PB) {

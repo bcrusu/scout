@@ -15,7 +15,7 @@ func newBootstrapCmd() *cobra.Command {
 		Aliases: []string{"b"},
 		Short:   "Bootstraps a new cluster. Must be executed using the same params on all bootstrapped servers.",
 		RunE: func(c *cobra.Command, args []string) error {
-			log := logging.WithComponent("cmd_bootstrap")
+			log := logging.New("cmd_bootstrap")
 
 			if config.Get().Bootstrap == nil {
 				return errors.Error("missing bootstrap config")

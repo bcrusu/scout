@@ -45,7 +45,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient clie
 		multiraft:   multiraft,
 		dataClient:  dataClient,
 		db:          db,
-		log:         logging.WithComponent("replica_serving").With("partition", pid, "replica", replica),
+		log:         logging.New("replica_serving").With("partition", pid, "replica", replica),
 		getStatusCh: make(chan chan<- *control.DataServerStatus_Replica),
 	}
 }
@@ -121,7 +121,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 				new = follower.New(p.pid, p.db.KV(), txnService)
 			}
 
-			drainer := newPartitionDrainer(new)
+			drainer := newPartitionDrainer(new, p.log)
 
 			if err := drainer.Start(ctx); err != nil {
 				p.log.WithError(err).Errorf(ctx, "Failed to start. Shutting down...", "is_leader", isLeader)

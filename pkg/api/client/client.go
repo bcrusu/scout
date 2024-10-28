@@ -14,7 +14,7 @@ import (
 
 var (
 	_    Client = (*client)(nil)
-	logC        = logging.WithComponent("api_client")
+	logC        = logging.New("api_client")
 )
 
 func init() {

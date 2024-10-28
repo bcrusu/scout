@@ -8,6 +8,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	logRecovery = logging.New("rpc_recovery")
+)
+
 // UnaryRecoveryServerInterceptor returns a new interceptor for panic recovery.
 func UnaryRecoveryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (_ any, err error) {
@@ -38,6 +42,6 @@ func handlePanic(ctx context.Context, p any) error {
 	stack := make([]byte, 64<<10)
 	stack = stack[:runtime.Stack(stack, false)]
 
-	logging.Errorf(ctx, "Recovered from panic %s. Stack:%s", p, stack)
+	logRecovery.Errorf(ctx, "Recovered from panic %s. Stack:%s", p, stack)
 	return errInternal
 }

@@ -15,7 +15,7 @@ func newJoinCmd() *cobra.Command {
 		Aliases: []string{"j"},
 		Short:   "Joins an existing cluster.",
 		RunE: func(c *cobra.Command, args []string) error {
-			log := logging.WithComponent("cmd_join")
+			log := logging.New("cmd_join")
 
 			if config.Get().Register == nil {
 				return errors.Error("missing register config")

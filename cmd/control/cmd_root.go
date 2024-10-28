@@ -19,7 +19,6 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
-			cmd.SetLogLevel(c)
 			cfg, err := getConfig(c)
 			if err != nil {
 				return err

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +15,6 @@ func AddCommonParameters(c *cobra.Command) {
 	c.PersistentFlags().String("config-file", "config.yaml", "Specifies the configuration file path.")
 	c.PersistentFlags().String("bind-address", "", "The address to serve on.")
 	c.PersistentFlags().String("data-dir", "", "Directory to store data.")
-	c.PersistentFlags().String("log-level", "info", "Logging level.")
 }
 
 func GetConfigFlags(c *cobra.Command) (ConfigFlags, error) {
@@ -37,20 +35,4 @@ func GetConfigFlags(c *cobra.Command) (ConfigFlags, error) {
 		BindAddress: bindAddress,
 		DataDir:     dataDir,
 	}, nil
-}
-
-func SetLogLevel(cmd *cobra.Command) {
-	str, err := cmd.Flags().GetString("log-level")
-	if err != nil {
-		logging.Infof(cmd.Context(), "Could not set log level %v", err)
-		return
-	}
-
-	level, err := logging.ParseLevel(str)
-	if err != nil {
-		logging.Infof(cmd.Context(), "Invalid log level %q", str)
-		return
-	}
-
-	logging.SetLevel(level)
 }

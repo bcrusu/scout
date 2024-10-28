@@ -23,7 +23,7 @@ func NewPartitionStreamer(db kv.DB) *PartitionStreamer {
 	return &PartitionStreamer{
 		config: config.Get().DB,
 		db:     db,
-		log:    logging.WithComponent("streamer"),
+		log:    logging.New("streamer"),
 	}
 }
 

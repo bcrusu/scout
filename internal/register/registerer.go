@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	log = logging.WithComponent("register")
+	log = logging.New("register")
 )
 
 type Params struct {

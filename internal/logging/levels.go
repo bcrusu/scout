@@ -34,7 +34,7 @@ var levelNamesInv = map[string]slog.Level{
 	"ERROR": LevelError,
 }
 
-func ParseLevel(str string) (Level, error) {
+func parseLevel(str string) (Level, error) {
 	upper := strings.ToUpper(str)
 	result, ok := levelNamesInv[upper]
 	if !ok {

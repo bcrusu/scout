@@ -17,7 +17,7 @@ type logAdapter struct {
 }
 
 func newLogAdapter(name string) *logAdapter {
-	return &logAdapter{log: logging.WithComponent(name).NoContext()}
+	return &logAdapter{log: logging.New(name).NoContext()}
 }
 
 func (l *logAdapter) Log(level hclog.Level, msg string, args ...any) {
@@ -90,7 +90,7 @@ func (l *logAdapter) ResetNamed(name string) hclog.Logger {
 func (l *logAdapter) SetLevel(level hclog.Level) {}
 
 func (l *logAdapter) GetLevel() hclog.Level {
-	switch logging.GetLevel() {
+	switch l.log.GetLevel() {
 	case logging.LevelTrace:
 		return hclog.Trace
 	case logging.LevelDebug:
@@ -131,6 +131,6 @@ func getLogLevel(level hclog.Level) logging.Level {
 	case hclog.Off:
 		return logging.LevelOff
 	default:
-		return logging.GetLevel()
+		return logging.LevelDebug
 	}
 }

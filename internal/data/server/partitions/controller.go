@@ -19,7 +19,7 @@ import (
 
 var (
 	_                     utils.Lifecycle = (*Controller)(nil)
-	logC                                  = logging.WithComponent("partition_controller").NoContext()
+	logC                                  = logging.New("partition_controller").NoContext()
 	debounceInterval                      = 100 * time.Millisecond
 	publishStatusInterval                 = 20 * time.Second
 )

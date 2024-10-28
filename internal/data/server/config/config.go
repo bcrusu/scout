@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -50,6 +51,7 @@ type Config struct {
 	Raft         multiraft.Config    `yaml:"raft"`
 	DB           DB                  `yaml:"db"`
 	Transactions Transactions        `yaml:"transactions"`
+	LogLevels    string              `yaml:"logLevels" default:"*:info"`
 	identityFile string
 	raftDir      string
 }
@@ -106,6 +108,10 @@ func (c Config) Validate() error {
 }
 
 func (c *Config) prepare() error {
+	if err := logging.SetLevels(c.LogLevels); err != nil {
+		return errors.Wrap(err, "failed to set log levels")
+	}
+
 	if c.Register.Token == "GENERATE_RANDOM" {
 		c.Register.Token = uuid.New().String()
 	}

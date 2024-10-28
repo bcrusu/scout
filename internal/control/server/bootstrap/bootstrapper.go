@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	log = logging.WithComponent("control_bootstrap")
+	log = logging.New("control_bootstrap")
 )
 
 type Params struct {

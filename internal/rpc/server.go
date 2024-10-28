@@ -15,7 +15,7 @@ import (
 
 var (
 	_     utils.Lifecycle = (*Server)(nil)
-	logRS                 = logging.WithComponent("rpc_server")
+	logRS                 = logging.New("rpc_server")
 )
 
 // ServerConfig is the gRPC server configuration.

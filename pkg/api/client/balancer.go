@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	logLB = logging.WithComponent("api_balancer").NoContext()
+	logLB = logging.New("api_balancer").NoContext()
 )
 
 type balancerBuilder struct{}

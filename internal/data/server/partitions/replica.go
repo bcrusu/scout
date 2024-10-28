@@ -41,7 +41,7 @@ func newReplica(pid uint32, name string, multiraft *multiraft.Multi, dataClient 
 		multiraft:  multiraft,
 		dataClient: dataClient,
 		db:         db,
-		log:        logging.WithComponent("partition").With("id", pid, "replica", name).NoContext(),
+		log:        logging.New("partition").With("id", pid, "replica", name).NoContext(),
 	}
 }
 

@@ -30,7 +30,7 @@ type Follower struct {
 
 func New(pid uint32, db kv.DB, txn *txn.Service) *Follower {
 	return &Follower{
-		log:      logging.WithComponent("follower").With("partition", pid),
+		log:      logging.New("follower").With("partition", pid),
 		txn:      txn,
 		streamer: shared.NewPartitionStreamer(db),
 	}

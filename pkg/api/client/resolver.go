@@ -25,7 +25,7 @@ const (
 var (
 	resolveThrottle = utils.AddJitter(2 * time.Second)
 	resolveInterval = utils.AddJitter(5 * time.Second)
-	logR            = logging.WithComponent("api_resolver")
+	logR            = logging.New("api_resolver")
 )
 
 type resolverBuilder struct {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
@@ -47,6 +48,7 @@ type Config struct {
 	Register     Register            `yaml:"register"`
 	Session      Session             `yaml:"session"`
 	Transactions Transactions        `yaml:"transactions"`
+	LogLevels    string              `yaml:"logLevels" default:"*:info"`
 	identityFile string
 }
 
@@ -76,6 +78,10 @@ func (c Config) Validate() error {
 }
 
 func (c *Config) prepare() error {
+	if err := logging.SetLevels(c.LogLevels); err != nil {
+		return errors.Wrap(err, "failed to set log levels")
+	}
+
 	if c.Register.Token == "GENERATE_RANDOM" {
 		c.Register.Token = uuid.New().String()
 	}

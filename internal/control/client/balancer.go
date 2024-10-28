@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	logB = logging.WithComponent("control_balancer").NoContext()
+	logB = logging.New("control_balancer").NoContext()
 )
 
 type balancerBuilder struct{}

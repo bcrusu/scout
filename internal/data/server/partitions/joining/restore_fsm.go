@@ -67,7 +67,7 @@ func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient d
 		config:     config.Get().DB,
 		dataClient: dataClient,
 		db:         kv.NewDBBreaker(db),
-		log:        logging.WithComponent("replica_joining").With("partition", pid, "replica", replica),
+		log:        logging.New("replica_joining").With("partition", pid, "replica", replica),
 	}
 
 	f.setStatus(false)

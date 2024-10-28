@@ -16,7 +16,7 @@ import (
 var (
 	_   storage.DB      = (*RocksDB)(nil)
 	_   utils.Lifecycle = (*RocksDB)(nil)
-	log                 = logging.WithComponent("rocksdb").NoContext()
+	log                 = logging.New("rocksdb").NoContext()
 )
 
 type RocksDB struct {

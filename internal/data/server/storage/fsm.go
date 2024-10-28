@@ -31,7 +31,7 @@ func NewFSM(partitionID uint32, db kv.DB, txn *txn.Manager) *FSM {
 		partitionID: partitionID,
 		db:          db,
 		txn:         txn,
-		log:         logging.WithComponent("storage_fsm").With("parttition", partitionID).NoContext(),
+		log:         logging.New("storage_fsm").With("parttition", partitionID).NoContext(),
 	}
 }
 

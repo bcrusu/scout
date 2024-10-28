@@ -11,6 +11,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	logValidator = logging.New("rpc_validator")
+)
+
 // UnaryValidatorServerInterceptor validates the incoming requests.
 func UnaryValidatorServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
@@ -96,19 +100,19 @@ func (s *csWrapperForValidator) RecvMsg(m any) error {
 
 func validateMessage(ctx context.Context, value any) error {
 	if reflect.ValueOf(value).IsNil() {
-		logging.Error(ctx, "Nil message %T.", value)
+		logValidator.Errorf(ctx, "Nil message %T.", value)
 		return errors.InvalidRequest
 	}
 
 	v, ok := value.(validation.CanValidate)
 	if !ok {
-		logging.Debugf(ctx, "Message %T does not implement validation.", value)
+		logValidator.Debugf(ctx, "Message %T does not implement validation.", value)
 		return nil
 	}
 
 	err := v.Validate()
 	if err != nil {
-		logging.WithError(err).Errorf(ctx, "Invalid message %T.", value)
+		logValidator.WithError(err).Errorf(ctx, "Invalid message %T.", value)
 		return errors.InvalidRequest
 	}
 

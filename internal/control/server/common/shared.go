@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	log = logging.WithComponent("control_common")
+	log = logging.New("control_common")
 )
 
 // Shared implements common functionality for both leader and follower roles.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
@@ -52,6 +53,7 @@ type Config struct {
 	Partitions  Partitions       `yaml:"partitions"`
 	Register    *Register        `yaml:"register"`
 	Bootstrap   *Bootstrap       `yaml:"bootstrap"`
+	LogLevels   string           `yaml:"logLevels" default:"*:info"`
 }
 
 type Register struct {
@@ -110,6 +112,10 @@ func (c Config) Validate() error {
 }
 
 func (c *Config) prepare() error {
+	if err := logging.SetLevels(c.LogLevels); err != nil {
+		return errors.Wrap(err, "failed to set log levels")
+	}
+
 	if c.Register != nil && c.Register.Token == "GENERATE_RANDOM" {
 		c.Register.Token = uuid.New().String()
 	}

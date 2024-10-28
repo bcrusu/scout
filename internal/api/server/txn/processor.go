@@ -16,7 +16,7 @@ import (
 
 var (
 	_   utils.Lifecycle = (*Processor)(nil)
-	log                 = logging.WithComponent("txn")
+	log                 = logging.New("txn")
 )
 
 type Processor struct {

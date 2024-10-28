@@ -13,11 +13,11 @@ type handler struct {
 	*slog.TextHandler
 }
 
-func newHandler() *handler {
+func newHandler(level slog.Leveler) *handler {
 	return &handler{
 		TextHandler: slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource:   false,
-			Level:       dynamicLevel,
+			Level:       level,
 			ReplaceAttr: replaceAttr,
 		}),
 	}

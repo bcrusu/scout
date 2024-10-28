@@ -13,7 +13,7 @@ func main() {
 	cobra.EnableTraverseRunHooks = true
 	cmd := newRootCmd()
 	ctx := context.Background()
-	log := logging.WithComponent("main")
+	log := logging.New("main")
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		log.WithError(err).Error(ctx, "Unexpected error")

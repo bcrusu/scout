@@ -15,7 +15,7 @@ import (
 
 var (
 	_    DataClient = (*dataClient)(nil)
-	logC            = logging.WithComponent("data_client")
+	logC            = logging.New("data_client")
 )
 
 func init() {

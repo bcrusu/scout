@@ -37,7 +37,7 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		pid:        pid,
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
-		log:        logging.WithComponent("txn_manager").With("partition", pid).NoContext(),
+		log:        logging.New("txn_manager").With("partition", pid).NoContext(),
 		status:     map[id]*Status{},
 		prepared:   map[id]*Prepared{},
 	}

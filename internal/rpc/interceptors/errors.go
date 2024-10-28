@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	logErrors   = logging.New("rpc_errors")
 	errInternal = status.Error(codes.Internal, "Internal error")
 )
 
@@ -92,7 +93,7 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.InvalidArgument, x.Message)
 	}
 
-	logging.WithError(err).Error(ctx, "Unhandled error", "method", method)
+	logErrors.WithError(err).Error(ctx, "Unhandled error", "method", method)
 	return errInternal
 }
 

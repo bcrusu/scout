@@ -16,6 +16,7 @@ const (
 )
 
 var (
+	logLogger     = logging.New("rpc_logger")
 	streamCounter = &atomic.Uint64{}
 	logLevels     = map[codes.Code]logging.Level{
 		codes.OK: logging.LevelTrace,
@@ -28,14 +29,14 @@ func UnaryLoggerServerInterceptor() grpc.UnaryServerInterceptor {
 		startTime := time.Now()
 		resp, err := handler(ctx, req)
 
-		if level := getLevelForError(err); logging.Enabled(level) {
+		if level := getLevelForError(err); logLogger.Enabled(level) {
 			args := []any{
 				"method", info.FullMethod,
 				"code", status.Code(err),
 				"elapsed", time.Since(startTime),
 			}
 
-			logging.WithError(err).Log(ctx, level, "Handled", args...)
+			logLogger.WithError(err).Log(ctx, level, "Handled", args...)
 		}
 
 		return resp, err
@@ -54,7 +55,7 @@ func StreamLoggerServerInterceptor() grpc.StreamServerInterceptor {
 
 		err := handler(srv, wrapper)
 
-		if level := getLevelForError(err); logging.Enabled(level) {
+		if level := getLevelForError(err); logLogger.Enabled(level) {
 			args := []any{
 				"stream", wrapper.id,
 				"method", info.FullMethod,
@@ -62,7 +63,7 @@ func StreamLoggerServerInterceptor() grpc.StreamServerInterceptor {
 				"elapsed", time.Since(startTime),
 			}
 
-			logging.WithError(err).Log(ss.Context(), level, "Handled", args...)
+			logLogger.WithError(err).Log(ss.Context(), level, "Handled", args...)
 		}
 
 		return err
@@ -75,14 +76,14 @@ func UnaryLoggerClientInterceptor() grpc.UnaryClientInterceptor {
 		startTime := time.Now()
 		err := invoker(ctx, method, req, reply, cc, opts...)
 
-		if level := getLevelForError(err); logging.Enabled(level) {
+		if level := getLevelForError(err); logLogger.Enabled(level) {
 			args := []any{
 				"method", method,
 				"code", status.Code(err),
 				"elapsed", time.Since(startTime),
 			}
 
-			logging.WithError(err).Log(ctx, level, "Invoked", args...)
+			logLogger.WithError(err).Log(ctx, level, "Invoked", args...)
 		}
 
 		return err
@@ -96,7 +97,7 @@ func StreamLoggerClientInterceptor() grpc.StreamClientInterceptor {
 		id := streamCounter.Add(1)
 		cs, err := streamer(ctx, desc, cc, method, opts...)
 
-		if level := getLevelForError(err); logging.Enabled(level) {
+		if level := getLevelForError(err); logLogger.Enabled(level) {
 			args := []any{
 				"stream", id,
 				"method", method,
@@ -104,7 +105,7 @@ func StreamLoggerClientInterceptor() grpc.StreamClientInterceptor {
 				"elapsed", time.Since(startTime),
 			}
 
-			logging.WithError(err).Log(ctx, level, "Invoked", args...)
+			logLogger.WithError(err).Log(ctx, level, "Invoked", args...)
 		}
 
 		if err != nil {
@@ -134,14 +135,14 @@ type csWrapperForLogger struct {
 func (s *ssWrapperForLogger) SendMsg(m any) error {
 	err := s.ServerStream.SendMsg(m)
 
-	if level := getLevelForError(err); logging.Enabled(level) {
+	if level := getLevelForError(err); logLogger.Enabled(level) {
 		args := []any{
 			"stream", s.id,
 			"method", s.method,
 			"code", status.Code(err),
 		}
 
-		logging.WithError(err).Log(s.Context(), level, "Sent", args...)
+		logLogger.WithError(err).Log(s.Context(), level, "Sent", args...)
 	}
 
 	return err
@@ -150,14 +151,14 @@ func (s *ssWrapperForLogger) SendMsg(m any) error {
 func (s *ssWrapperForLogger) RecvMsg(m any) error {
 	err := s.ServerStream.RecvMsg(m)
 
-	if level := getLevelForError(err); logging.Enabled(level) {
+	if level := getLevelForError(err); logLogger.Enabled(level) {
 		args := []any{
 			"stream", s.id,
 			"method", s.method,
 			"code", status.Code(err),
 		}
 
-		logging.WithError(err).Log(s.Context(), level, "Received", args...)
+		logLogger.WithError(err).Log(s.Context(), level, "Received", args...)
 	}
 
 	return err
@@ -166,14 +167,14 @@ func (s *ssWrapperForLogger) RecvMsg(m any) error {
 func (s *csWrapperForLogger) SendMsg(m any) error {
 	err := s.ClientStream.SendMsg(m)
 
-	if level := getLevelForError(err); logging.Enabled(level) {
+	if level := getLevelForError(err); logLogger.Enabled(level) {
 		args := []any{
 			"stream", s.id,
 			"method", s.method,
 			"code", status.Code(err),
 		}
 
-		logging.WithError(err).Log(s.Context(), level, "Sent", args...)
+		logLogger.WithError(err).Log(s.Context(), level, "Sent", args...)
 	}
 
 	return err
@@ -182,14 +183,14 @@ func (s *csWrapperForLogger) SendMsg(m any) error {
 func (s *csWrapperForLogger) RecvMsg(m any) error {
 	err := s.ClientStream.RecvMsg(m)
 
-	if level := getLevelForError(err); logging.Enabled(level) {
+	if level := getLevelForError(err); logLogger.Enabled(level) {
 		args := []any{
 			"stream", s.id,
 			"method", s.method,
 			"code", status.Code(err),
 		}
 
-		logging.WithError(err).Log(s.Context(), level, "Received", args...)
+		logLogger.WithError(err).Log(s.Context(), level, "Received", args...)
 	}
 
 	return err

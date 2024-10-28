@@ -65,7 +65,7 @@ func newWatchdog2PC(pid uint32, service *Service, manager *Manager, client TxnSe
 		service:   service,
 		manager:   manager,
 		client:    client,
-		log:       logging.WithComponent("2pc_watchdog").With("partition", pid),
+		log:       logging.New("2pc_watchdog").With("partition", pid),
 		requestCh: make(chan running, 1),
 		breaker:   utils.NewRateLimiter(config.RetryBreakerLimit, time.Second),
 	}

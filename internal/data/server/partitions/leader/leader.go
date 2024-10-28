@@ -31,7 +31,7 @@ type Leader struct {
 func New(pid uint32, db kv.DB, txn *txn.Service) *Leader {
 	return &Leader{
 		pid:      pid,
-		log:      logging.WithComponent("leader").With("partition", pid),
+		log:      logging.New("leader").With("partition", pid),
 		txn:      txn,
 		streamer: shared.NewPartitionStreamer(db),
 	}

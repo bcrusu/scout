@@ -21,8 +21,8 @@ type Logger interface {
 	Errorf(ctx context.Context, format string, args ...any)
 	With(args ...any) Logger
 	WithError(err error) Logger
-	WithComponent(name string) Logger
 	Enabled(Level) bool
+	GetLevel() Level
 	NoContext() LoggerNoContext
 }
 
@@ -40,13 +40,34 @@ type LoggerNoContext interface {
 	Errorf(format string, args ...any)
 	With(args ...any) LoggerNoContext
 	WithError(err error) LoggerNoContext
-	WithComponent(name string) LoggerNoContext
 	WithContext() Logger
 	Enabled(Level) bool
+	GetLevel() Level
 }
 
 type slogLogger struct {
-	slog *slog.Logger
+	noCtx *loggerNoCtx
+	level *slog.LevelVar
+	slog  *slog.Logger
+}
+
+func newSlogLogger(name string, level Level) *slogLogger {
+	lvl := new(slog.LevelVar)
+	lvl.Set(LevelInfo)
+
+	slog := slog.New(newHandler(level)).With("com", name)
+
+	result := &slogLogger{
+		level: lvl,
+		slog:  slog,
+	}
+	result.noCtx = &loggerNoCtx{result}
+
+	return result
+}
+
+func (l *slogLogger) setLevel(level Level) {
+	l.level.Set(level)
 }
 
 func (l *slogLogger) Log(ctx context.Context, level Level, msg string, args ...any) {
@@ -104,7 +125,7 @@ func (l *slogLogger) Errorf(ctx context.Context, format string, args ...any) {
 }
 
 func (l *slogLogger) With(args ...any) Logger {
-	return &slogLogger{l.slog.With(args...)}
+	return &slogLogger{l.noCtx, l.level, l.slog.With(args...)}
 }
 
 func (l *slogLogger) WithError(err error) Logger {
@@ -114,16 +135,16 @@ func (l *slogLogger) WithError(err error) Logger {
 	return l.With("error", err)
 }
 
-func (l *slogLogger) WithComponent(name string) Logger {
-	return l.With("comp", name)
+func (l *slogLogger) Enabled(level Level) bool {
+	return l.slog.Enabled(context.Background(), level)
 }
 
-func (l *slogLogger) Enabled(level Level) bool {
-	return l.slog.Handler().Enabled(context.Background(), level)
+func (l *slogLogger) GetLevel() Level {
+	return l.level.Level()
 }
 
 func (l *slogLogger) NoContext() LoggerNoContext {
-	return &loggerNoCtx{l}
+	return l.noCtx
 }
 
 type loggerNoCtx struct {
@@ -182,12 +203,12 @@ func (l *loggerNoCtx) WithError(err error) LoggerNoContext {
 	return &loggerNoCtx{l.log.WithError(err)}
 }
 
-func (l *loggerNoCtx) WithComponent(name string) LoggerNoContext {
-	return &loggerNoCtx{l.log.WithComponent(name)}
-}
-
 func (l *loggerNoCtx) Enabled(level Level) bool {
 	return l.log.Enabled(level)
+}
+
+func (l *loggerNoCtx) GetLevel() Level {
+	return l.log.GetLevel()
 }
 
 func (l *loggerNoCtx) WithContext() Logger {

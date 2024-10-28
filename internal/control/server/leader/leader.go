@@ -17,7 +17,7 @@ import (
 var (
 	_    control.ServiceServer = (*Leader)(nil)
 	_    utils.Lifecycle       = (*Leader)(nil)
-	logL                       = logging.WithComponent("control_leader")
+	logL                       = logging.New("control_leader")
 )
 
 // Leader implements the Leader role.

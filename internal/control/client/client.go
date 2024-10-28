@@ -14,7 +14,7 @@ import (
 
 var (
 	_    ControlClient = (*controlClient)(nil)
-	logC               = logging.WithComponent("control_client")
+	logC               = logging.New("control_client")
 )
 
 func init() {

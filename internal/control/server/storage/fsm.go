@@ -13,7 +13,7 @@ import (
 
 var (
 	_    multiraft.FSM = (*FSM)(nil)
-	logF               = logging.WithComponent("storage_fsm").NoContext()
+	logF               = logging.New("storage_fsm").NoContext()
 )
 
 type FSM struct {

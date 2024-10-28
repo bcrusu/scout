@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	global atomic.Pointer[runInfo]
+	logLifecycle = logging.New("lifecycle").NoContext()
+	global       atomic.Pointer[runInfo]
 )
 
 type runInfo struct {
@@ -97,7 +98,7 @@ func GracefulShutdown(message string) {
 		panic("GracefulShutdown: global run info not found")
 	}
 
-	logging.NoContext().Error("GracefulShutdown: %s", message)
+	logLifecycle.Error("GracefulShutdown: %s", message)
 	info.triggerShutdown()
 }
 
@@ -109,10 +110,11 @@ func ShutdownNow(message string) {
 		time.Sleep(5 * time.Second)
 	}
 
-	logging.NoContext().Error("ShutdownNow: %s", message)
+	logLifecycle.Error("ShutdownNow: %s", message)
 	panic(message)
 }
 
+// ShutdownNowf triggers process shutdown and never returns.
 func ShutdownNowf(format string, args ...any) {
 	ShutdownNow(fmt.Sprintf(format, args...))
 }

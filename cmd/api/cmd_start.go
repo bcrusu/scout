@@ -13,7 +13,7 @@ func newStartCmd() *cobra.Command {
 		Aliases: []string{"s"},
 		Short:   "Starts from existing configuration on disk.",
 		RunE: func(c *cobra.Command, args []string) error {
-			log := logging.WithComponent("cmd_start")
+			log := logging.New("cmd_start")
 			s := server.NewServer(server.DoStart)
 			return utils.LifecycleRun(c.Context(), log, s)
 		},

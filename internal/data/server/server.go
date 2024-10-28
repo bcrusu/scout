@@ -28,7 +28,7 @@ const (
 
 var (
 	_   utils.Lifecycle = (*Server)(nil)
-	log                 = logging.WithComponent("data_server")
+	log                 = logging.New("data_server")
 )
 
 type Action string

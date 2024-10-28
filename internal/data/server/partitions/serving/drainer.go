@@ -6,6 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/txn"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
@@ -20,6 +21,7 @@ type partitionDrainer struct {
 	data.UnsafeServiceServer
 	txn.UnsafeTxnServiceServer
 	inner   service
+	log     logging.Logger
 	drainer *utils.Drainer
 }
 
@@ -28,9 +30,10 @@ type service interface {
 	utils.Lifecycle
 }
 
-func newPartitionDrainer(inner service) *partitionDrainer {
+func newPartitionDrainer(inner service, log logging.Logger) *partitionDrainer {
 	return &partitionDrainer{
 		inner: inner,
+		log:   log,
 	}
 }
 
@@ -39,7 +42,7 @@ func (d *partitionDrainer) Start(ctx context.Context) error {
 		return err
 	}
 
-	d.drainer = utils.NewDrainer(ctx)
+	d.drainer = utils.NewDrainer(ctx, d.log)
 	return nil
 }
 

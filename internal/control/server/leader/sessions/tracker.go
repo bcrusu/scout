@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	logS                             = logging.WithComponent("session_tracker")
+	logS                             = logging.New("session_tracker")
 	_                utils.Lifecycle = (*Tracker)(nil)
 	debounceInterval                 = 20 * time.Millisecond
 )

@@ -17,7 +17,7 @@ import (
 
 var (
 	_     utils.Lifecycle = (*Conn)(nil)
-	logRC                 = logging.WithComponent("rpc_conn").NoContext()
+	logRC                 = logging.New("rpc_conn").NoContext()
 )
 
 // Conn represents the client connection.
