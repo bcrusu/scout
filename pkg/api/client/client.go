@@ -59,9 +59,9 @@ func (c *client) Start(ctx context.Context) error {
 	c.KeyValueServiceClient = api.NewKeyValueServiceClient(c.conn)
 	c.GraphServiceClient = api.NewGraphServiceClient(c.conn)
 
-	return utils.LifecycleStart(ctx, logC, c.conn)
+	return c.conn.Start(ctx)
 }
 
 func (c *client) Stop() {
-	utils.LifecycleStop(logC.NoContext(), c.conn)
+	c.conn.Stop()
 }

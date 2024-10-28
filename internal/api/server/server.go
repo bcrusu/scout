@@ -55,14 +55,14 @@ func (n *Server) Start(ctx context.Context) error {
 		cclient.WithDiscovery(n.config.Discovery),
 	)
 
+	if err := controlClient.Start(ctx); err != nil {
+		return err
+	}
+
 	var id identity.Identity
 
 	switch n.action {
 	case DoRegister:
-		if err := controlClient.Start(ctx); err != nil {
-			return err
-		}
-
 		id, err = n.register(ctx, idStore, controlClient)
 		if err != nil {
 			return err
@@ -93,7 +93,7 @@ func (n *Server) Start(ctx context.Context) error {
 		server,
 	}
 
-	return utils.LifecycleStart(ctx, log, n.components...)
+	return utils.LifecycleStart(ctx, log, n.components[1:]...)
 }
 
 func (n *Server) Stop() {

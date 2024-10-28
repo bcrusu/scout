@@ -72,14 +72,7 @@ func newWatchdog2PC(pid uint32, service *Service, manager *Manager, client TxnSe
 }
 
 func (w *watchdog2PC) Start(ctx context.Context) error {
-	all, prepared, decided := w.loadRunning()
-
-	mainLoop, cancelFunc := utils.WithCancelAndWait(func(ctx context.Context) {
-		w.mainLoop(ctx, all, prepared, decided)
-	})
-
-	w.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	w.cancelFunc = utils.RunAsync(ctx, w.mainLoop)
 	return nil
 }
 
@@ -87,11 +80,13 @@ func (w *watchdog2PC) Stop() {
 	w.cancelFunc()
 }
 
-func (w *watchdog2PC) mainLoop(ctx context.Context, all map[id]bool, prepared, decided dogQueue) {
+func (w *watchdog2PC) mainLoop(ctx context.Context) {
 	tickerPhase1 := time.NewTicker(w.config.Phase1Timeout / 5)
 	tickerPhase2 := time.NewTicker(w.config.Phase2Timeout / 5)
 	defer tickerPhase1.Stop()
 	defer tickerPhase2.Stop()
+
+	all, prepared, decided := w.loadRunning()
 
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 	doneCh := make(chan bool, 1)

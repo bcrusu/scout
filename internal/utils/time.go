@@ -11,11 +11,9 @@ import (
 // If pct is not provided, will use 0.15 as the default value.
 func AddJitter(d time.Duration, pct ...float64) time.Duration {
 	p := GetOptionalParameter(0.15, pct)
-	if p < 1 {
+	if p > 1 {
 		p = 1
-	}
-
-	if p <= 0 {
+	} else if p <= 0 {
 		return d
 	}
 

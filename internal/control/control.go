@@ -362,7 +362,7 @@ func (x *DataServerStatus_Replica) Validate() error {
 		return errors.Error("Partition is nil")
 	}
 
-	if x.LeaderTerm == 0 || x.LeaderLastContact.AsDuration() < 0 {
+	if x.LeaderTerm == 0 || x.CommitedIndex == 0 {
 		return errors.Error("Partition has missing fields")
 	}
 

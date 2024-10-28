@@ -51,6 +51,7 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	}
 
 	f.index = index
+	f.notifyStore()
 	return result
 }
 
@@ -91,7 +92,6 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	f.version++
 	logF.Debugf("Applying command %T success", payload)
 
-	f.notifyStore()
 	return result
 }
 

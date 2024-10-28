@@ -59,8 +59,8 @@ func LifecycleStop[T Lifecycle](log logging.LoggerNoContext, instances ...T) {
 	}
 }
 
-// LifecycleRun starts the instance and runs until the context is done.
-func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, instance T) error {
+// LifecycleRun starts the instance and runs until a stop signal is received.
+func LifecycleRun(ctx context.Context, log logging.Logger, instance Lifecycle) error {
 	shutdownCh := make(chan any)
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt)
@@ -69,25 +69,44 @@ func LifecycleRun[T Lifecycle](ctx context.Context, log logging.Logger, instance
 		triggerShutdown: sync.OnceFunc(func() { close(shutdownCh) }),
 	})
 
-	// TODO: should be able to cancel start ctx to abort startup
-	if err := LifecycleStart(ctx, log, instance); err != nil {
-		return err
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	resultCh := make(chan error)
+	cancelCh := make(chan any)
+
+	go func() {
+		resultCh <- instance.Start(cancelCtx)
+	}()
+
+	go func() {
+		select {
+		case <-signalCh:
+			log.Debug(ctx, "Received interrupt signal.")
+		case <-ctx.Done():
+			log.Debug(ctx, "Context canceled.")
+		case <-shutdownCh:
+			log.Debug(ctx, "Shutdown was requested.")
+		}
+
+		close(cancelCh)
+	}()
+
+	select {
+	case <-cancelCh:
+		cancelFunc()
+		return <-resultCh
+	case err := <-resultCh:
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Info(ctx, "Running...")
-
-	select {
-	case <-signalCh:
-		log.Debug(ctx, "Received interrupt signal.")
-	case <-ctx.Done():
-		log.Debug(ctx, "Context canceled.")
-	case <-shutdownCh:
-		log.Debug(ctx, "Shutdown was requested.")
-	}
-
+	<-cancelCh
 	log.Info(ctx, "Stopping...")
 
-	LifecycleStop(log.NoContext(), instance)
+	instance.Stop()
 	return nil
 }
 
@@ -117,4 +136,21 @@ func ShutdownNow(message string) {
 // ShutdownNowf triggers process shutdown and never returns.
 func ShutdownNowf(format string, args ...any) {
 	ShutdownNow(fmt.Sprintf(format, args...))
+}
+
+func RunAsync(ctx context.Context, work func(ctx context.Context)) context.CancelFunc {
+	signalCh := make(chan any)
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
+
+	go func() {
+		work(cancelCtx)
+		close(signalCh)
+	}()
+
+	cancelAndWait := func() {
+		cancelFunc()
+		<-signalCh
+	}
+
+	return cancelAndWait
 }

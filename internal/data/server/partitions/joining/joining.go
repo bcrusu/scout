@@ -13,7 +13,6 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var (
@@ -55,10 +54,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient data
 }
 
 func (p *Joining) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(p.mainLoop)
-
-	p.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	p.cancelFunc = utils.RunAsync(ctx, p.mainLoop)
 	return nil
 }
 
@@ -121,13 +117,12 @@ func (p *Joining) mainLoop(ctx context.Context) {
 
 			x := raft.GetStats()
 			statusCh <- &control.DataServerStatus_Replica{
-				Name:              p.replica,
-				IsLeader:          x.IsLeader,
-				LeaderTerm:        x.LeaderTerm,
-				LeaderLastContact: durationpb.New(x.LeaderLastContact),
-				CommitedIndex:     x.CommitedIndex,
-				AppliedIndex:      fsm.index.Load(),
-				JoiningStatus:     fsm.status.Load(),
+				Name:          p.replica,
+				IsLeader:      x.IsLeader,
+				LeaderTerm:    x.LeaderTerm,
+				CommitedIndex: x.CommitedIndex,
+				AppliedIndex:  fsm.index.Load(),
+				JoiningStatus: fsm.status.Load(),
 			}
 		case <-ctx.Done():
 			if raft != nil {

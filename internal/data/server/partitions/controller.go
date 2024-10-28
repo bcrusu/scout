@@ -47,22 +47,12 @@ func NewController(id identity.Identity, db storage.DB, multiraft *multiraft.Mul
 }
 
 func (c *Controller) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(c.mainLoop)
-
-	c.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	c.cancelFunc = utils.RunAsync(ctx, c.mainLoop)
 	return nil
 }
 
 func (c *Controller) Stop() {
 	c.cancelFunc()
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	for _, part := range c.replicas {
-		part.Stop()
-	}
 }
 
 func (c *Controller) mainLoop(ctx context.Context) {
@@ -83,6 +73,7 @@ func (c *Controller) mainLoop(ctx context.Context) {
 		case <-publishStatusTicker.C:
 			eventbus.TryPublish(c.getPartitionsStatus())
 		case <-ctx.Done():
+			c.stopPartitions()
 			return
 		}
 	}
@@ -125,8 +116,17 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 
 		replica := newReplica(pid, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
 
-		go replica.Start(ctx, config)
+		go replica.Start(ctx)
 		c.replicas[pid] = replica
+	}
+}
+
+func (c *Controller) stopPartitions() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for _, part := range c.replicas {
+		part.Stop()
 	}
 }
 

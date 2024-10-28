@@ -57,9 +57,9 @@ func (c *controlClient) Start(ctx context.Context) error {
 	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
 	c.ServiceClient = control.NewServiceClient(c.conn)
 
-	return utils.LifecycleStart(ctx, logC, c.conn)
+	return c.conn.Start(ctx)
 }
 
 func (c *controlClient) Stop() {
-	utils.LifecycleStop(logC.NoContext(), c.conn)
+	c.conn.Stop()
 }

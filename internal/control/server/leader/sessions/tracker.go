@@ -79,10 +79,7 @@ func NewTracker(store storage.Store) *Tracker {
 }
 
 func (t *Tracker) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(t.mainLoop)
-	t.cancelFunc = cancelFunc
-
-	go mainLoop(ctx)
+	t.cancelFunc = utils.RunAsync(ctx, t.mainLoop)
 	return nil
 }
 
@@ -262,6 +259,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			}
 
 			partitions = newPartitions
+			status.updatePartitions(newPartitions)
 			dsUpdateCh <- true
 			dsConfigsUpdateCh <- true
 		case <-writeLatestStatusTicker.C:

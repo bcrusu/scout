@@ -44,10 +44,7 @@ func New(id identity.Identity, address string, client client.ControlClient) *Ses
 }
 
 func (m *Session) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(m.mainLoop)
-	m.cancelFunc = cancelFunc
-
-	go mainLoop(ctx)
+	m.cancelFunc = utils.RunAsync(ctx, m.mainLoop)
 	return nil
 }
 

@@ -31,7 +31,8 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 				endSession(errors.ResourceExhausted)
 				return
 			}
-			sess.log.Error(sess.ctx, "Session triggered receive rate limiter. Dropping message.")
+
+			sess.log.Errorf(sess.ctx, "Session triggered receive rate limiter. Dropping message %T.", in.Payload)
 			continue
 		}
 

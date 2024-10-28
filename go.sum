@@ -21,6 +21,8 @@ github.com/bcrusu/raft-grpc-transport v0.0.0-20241026083029-0534fcda4cbf h1:wEuZ
 github.com/bcrusu/raft-grpc-transport v0.0.0-20241026083029-0534fcda4cbf/go.mod h1:HbOjEdu/yzCJ/mjTF6wEOJNbAUpHfU2UOA2hVD4CNFg=
 github.com/bcrusu/raft-rocksdb v0.0.0-20241026073150-8d55fa8db840 h1:YqfmvtaqrLxNWTw3krPiKBgTNgUItpQCjKEWbh4DRR8=
 github.com/bcrusu/raft-rocksdb v0.0.0-20241026073150-8d55fa8db840/go.mod h1:6FvZMLRoQX4G9DM40eL3VZKbtzCXQW6F9YO3aGzln/4=
+github.com/bcrusu/raft-rocksdb v0.0.0-20241028075717-ef2afb4585b2 h1:b+N/F7Z5yDKB+PQgH89cPTeo9tmzOnuAO0tUlSEvuzc=
+github.com/bcrusu/raft-rocksdb v0.0.0-20241028075717-ef2afb4585b2/go.mod h1:6FvZMLRoQX4G9DM40eL3VZKbtzCXQW6F9YO3aGzln/4=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=

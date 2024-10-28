@@ -5,7 +5,6 @@ package control.storage;
 option go_package = "github.com/bcrusu/scout/internal/control/server/storage";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
 
 message Command {
     // [optional] The FSM checks its current version with the one
@@ -179,10 +178,9 @@ message PartitionStatus {
 
     message Replica {
         google.protobuf.Timestamp last_update = 1;
-        google.protobuf.Duration leader_last_contact = 2;
-        uint64 applied_index = 3;
-        JoiningStatus joining_status = 4;
-        LeavingStatus leaving_status = 5;
+        uint64 applied_index = 2;
+        JoiningStatus joining_status = 3;
+        LeavingStatus leaving_status = 4;
     }
 
     uint64 version = 1;

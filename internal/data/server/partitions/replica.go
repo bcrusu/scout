@@ -45,11 +45,8 @@ func newReplica(pid uint32, name string, multiraft *multiraft.Multi, dataClient 
 	}
 }
 
-func (p *replica) Start(ctx context.Context, config *control.DataServerConfig_Partition) {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(p.mainLoop)
-
-	p.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+func (p *replica) Start(ctx context.Context) {
+	p.cancelFunc = utils.RunAsync(ctx, p.mainLoop)
 }
 
 func (p *replica) Stop() {
@@ -139,7 +136,10 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	}
 
 	if new != old {
-		new.Start(ctx)
+		if err := new.Start(ctx); err != nil {
+			p.log.WithError(err).Error("Failed to start replica.", "state", newState)
+			return
+		}
 	}
 
 	p.holder.Store(&holder{

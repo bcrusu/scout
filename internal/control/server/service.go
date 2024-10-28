@@ -46,10 +46,7 @@ func (s *ControlService) RegisterToServer(server *grpc.Server) {
 }
 
 func (s *ControlService) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(s.mainLoop)
-
-	s.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	s.cancelFunc = utils.RunAsync(ctx, s.mainLoop)
 	return nil
 }
 

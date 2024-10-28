@@ -113,27 +113,30 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 	hasLeaderChanges := false
 
 	for id, update := range updates {
-		status := t.partitions[id]
+		pStatus := t.partitions[id]
 
-		replica := status.Replicas[update.Name]
-		if replica == nil {
-			replica = &storage.PartitionStatus_Replica{}
-			status.Replicas[update.Name] = replica
+		if pStatus.Replicas == nil {
+			pStatus.Replicas = map[string]*storage.PartitionStatus_Replica{}
 		}
 
-		replica.LastUpdate = timestamppb.New(time.Now().UTC())
-		replica.LeaderLastContact = update.LeaderLastContact
-		replica.AppliedIndex = update.AppliedIndex
-		replica.JoiningStatus = convert.ToPartitionJoiningStatus(update.JoiningStatus)
-		replica.LeavingStatus = convert.ToPartitionLeavingStatus(update.LeavingStatus)
+		rStatus := pStatus.Replicas[update.Name]
+		if rStatus == nil {
+			rStatus = &storage.PartitionStatus_Replica{}
+			pStatus.Replicas[update.Name] = rStatus
+		}
 
-		leaderChanged := update.IsLeader && update.LeaderTerm > status.LeaderTerm
+		rStatus.LastUpdate = timestamppb.New(time.Now().UTC())
+		rStatus.AppliedIndex = update.AppliedIndex
+		rStatus.JoiningStatus = convert.ToPartitionJoiningStatus(update.JoiningStatus)
+		rStatus.LeavingStatus = convert.ToPartitionLeavingStatus(update.LeavingStatus)
+
+		leaderChanged := update.IsLeader && update.LeaderTerm > pStatus.LeaderTerm
 		if leaderChanged {
-			status.Leader = update.Name
+			pStatus.Leader = update.Name
 		}
 
-		status.LeaderTerm = max(status.LeaderTerm, update.LeaderTerm)
-		status.CommitedIndex = max(status.CommitedIndex, update.CommitedIndex)
+		pStatus.LeaderTerm = max(pStatus.LeaderTerm, update.LeaderTerm)
+		pStatus.CommitedIndex = max(pStatus.CommitedIndex, update.CommitedIndex)
 
 		t.partitionsDirty[id] = true
 		hasLeaderChanges = hasLeaderChanges || leaderChanged
@@ -157,6 +160,16 @@ func (t *statusTracker) updateServers(newServers *storage.Servers) {
 	for serverID, status := range newServers.Status {
 		if _, ok := t.servers[serverID]; !ok {
 			t.servers[serverID] = utils.CloneProto(status)
+		}
+	}
+}
+
+func (t *statusTracker) updatePartitions(newPartitions *storage.Partitions) {
+	for pid, part := range t.partitions {
+		for name := range part.Replicas {
+			if _, ok := newPartitions.Items[pid].Replicas[name]; !ok {
+				delete(part.Replicas, name)
+			}
 		}
 	}
 }

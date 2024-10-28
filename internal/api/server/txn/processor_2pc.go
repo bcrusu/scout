@@ -6,7 +6,6 @@ import (
 	"github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
@@ -288,7 +287,7 @@ func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
 	}
 
 	if err := errors.Join(errs...); err != nil {
-		logging.WithError(err).Errorf(ctx, "2pc txn=%s abort failed.", t.id)
+		log.WithError(err).Errorf(ctx, "2pc txn=%s abort failed.", t.id)
 	}
 }
 

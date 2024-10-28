@@ -9,7 +9,7 @@ replace github.com/linxGnu/grocksdb => ../grocksdb_fork
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2
 	github.com/Jille/raft-grpc-transport v1.6.1
-	github.com/bcrusu/raft-rocksdb v0.0.0-20241026073150-8d55fa8db840
+	github.com/bcrusu/raft-rocksdb v0.0.0-20241028075717-ef2afb4585b2
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0

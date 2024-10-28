@@ -113,7 +113,7 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 
 	doneCh := make(chan any)
 
-	initalWrite, cancelFunc := utils.WithCancelAndWait(func(ctx context.Context) {
+	cancelFunc := utils.RunAsync(ctx, func(ctx context.Context) {
 		log.Debug(ctx, "Performing initial write...")
 
 		if err := b.initalWriteWithRetry(ctx, p); err != nil {
@@ -133,8 +133,6 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 		log.Debug(ctx, "Bootstrap success.")
 		close(doneCh)
 	})
-
-	go initalWrite(ctx)
 
 	select {
 	case <-ctx.Done():

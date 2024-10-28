@@ -40,10 +40,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, db kv.DB) *Leav
 }
 
 func (p *Leaving) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(p.mainLoop)
-
-	p.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	p.cancelFunc = utils.RunAsync(ctx, p.mainLoop)
 	return nil
 }
 

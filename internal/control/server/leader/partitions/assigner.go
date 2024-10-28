@@ -31,10 +31,7 @@ func NewAssigner(store storage.Store) *Assigner {
 }
 
 func (a *Assigner) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(a.mainLoop)
-	a.cancelFunc = cancelFunc
-
-	go mainLoop(ctx)
+	a.cancelFunc = utils.RunAsync(ctx, a.mainLoop)
 	return nil
 }
 

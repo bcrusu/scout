@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	_ DB = (*dbx)(nil)
+	_ DB = (*db)(nil)
 )
 
 // DB represents the possible features a backing storage implementation can provide.
@@ -23,7 +23,7 @@ type DB interface {
 	MVCC() mvcc.DB
 }
 
-type dbx struct {
+type db struct {
 	kv   kv.DB
 	mvcc mvcc.DB
 }
@@ -34,7 +34,7 @@ func NewDB(impl any) DB {
 	}
 
 	if x, ok := impl.(kv.DB); ok {
-		return &dbx{
+		return &db{
 			kv:   x,
 			mvcc: mvcc.NewEmulated(x),
 		}
@@ -43,22 +43,22 @@ func NewDB(impl any) DB {
 	panic(fmt.Sprintf("Could not create DB for param %T", impl))
 }
 
-func (p *dbx) KV() kv.DB {
+func (p *db) KV() kv.DB {
 	return p.kv
 }
 
-func (p *dbx) MVCC() mvcc.DB {
+func (p *db) MVCC() mvcc.DB {
 	return p.mvcc
 }
 
-func (p *dbx) Start(ctx context.Context) error {
+func (p *db) Start(ctx context.Context) error {
 	if l, ok := p.kv.(utils.Lifecycle); ok {
 		return l.Start(ctx)
 	}
 	return nil
 }
 
-func (p *dbx) Stop() {
+func (p *db) Stop() {
 	if l, ok := p.kv.(utils.Lifecycle); ok {
 		l.Stop()
 	}

@@ -18,7 +18,6 @@ import (
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 var (
@@ -51,10 +50,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient clie
 }
 
 func (p *Serving) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(p.mainLoop)
-
-	p.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	p.cancelFunc = utils.RunAsync(ctx, p.mainLoop)
 	return nil
 }
 
@@ -152,12 +148,11 @@ func (p *Serving) mainLoop(ctx context.Context) {
 
 			x := raft.GetStats()
 			statusCh <- &control.DataServerStatus_Replica{
-				Name:              p.replica,
-				IsLeader:          isLeader,
-				LeaderTerm:        x.LeaderTerm,
-				LeaderLastContact: durationpb.New(x.LeaderLastContact),
-				CommitedIndex:     x.CommitedIndex,
-				AppliedIndex:      fsm.AppliedIndex(),
+				Name:          p.replica,
+				IsLeader:      isLeader,
+				LeaderTerm:    x.LeaderTerm,
+				CommitedIndex: x.CommitedIndex,
+				AppliedIndex:  fsm.AppliedIndex(),
 			}
 		case <-ctx.Done():
 			if old := p.partition.Swap(nil); old != nil {

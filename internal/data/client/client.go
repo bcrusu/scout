@@ -59,11 +59,11 @@ func (c *dataClient) Start(ctx context.Context) error {
 	c.client = data.NewServiceClient(c.conn)
 	c.txnClient = txn.NewTxnServiceClient(c.conn)
 
-	return utils.LifecycleStart(ctx, logC, c.conn)
+	return c.conn.Start(ctx)
 }
 
 func (c *dataClient) Stop() {
-	utils.LifecycleStop(logC.NoContext(), c.conn)
+	c.conn.Stop()
 }
 
 func (c *dataClient) Autocommit(ctx context.Context, req *txn.AutocommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {

@@ -54,10 +54,7 @@ func newReader(pid uint32, manager *Manager, db mvcc.DB) *reader {
 }
 
 func (p *reader) Start(ctx context.Context) error {
-	mainLoop, cancelFunc := utils.WithCancelAndWait(p.mainLoop)
-
-	p.cancelFunc = cancelFunc
-	go mainLoop(ctx)
+	p.cancelFunc = utils.RunAsync(ctx, p.mainLoop)
 	return nil
 }
 

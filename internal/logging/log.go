@@ -53,9 +53,9 @@ type slogLogger struct {
 
 func newSlogLogger(name string, level Level) *slogLogger {
 	lvl := new(slog.LevelVar)
-	lvl.Set(LevelInfo)
+	lvl.Set(level)
 
-	slog := slog.New(newHandler(level)).With("com", name)
+	slog := slog.New(newHandler(lvl)).With("com", name)
 
 	result := &slogLogger{
 		level: lvl,

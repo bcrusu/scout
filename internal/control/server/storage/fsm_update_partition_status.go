@@ -11,24 +11,29 @@ func (f *FSM) applyUpdatePartitionStatus(_ time.Time, cmd *UpdatePartitionStatus
 		return nil, errors.FailedPrecondition
 	}
 
-	for id, update := range cmd.Items {
-		status := f.partitions.Status[id]
+	for pid, pUpdate := range cmd.Items {
+		pStatus := f.partitions.Status[pid]
 
-		status.Version++
-		status.LeaderTerm = update.LeaderTerm
-		status.CommitedIndex = update.CommitedIndex
+		pStatus.Version++
+		pStatus.Leader = pUpdate.Leader
+		pStatus.LeaderTerm = pUpdate.LeaderTerm
+		pStatus.CommitedIndex = pUpdate.CommitedIndex
 
-		for name, replicaUpdate := range update.Replicas {
-			if _, ok := f.partitions.Items[id].Replicas[name]; !ok {
+		for name, rUpdate := range pUpdate.Replicas {
+			if _, ok := f.partitions.Items[pid].Replicas[name]; !ok {
 				continue
 			}
-			status := f.partitions.Status[id].Replicas[name]
 
-			status.LastUpdate = replicaUpdate.LastUpdate
-			status.LeaderLastContact = replicaUpdate.LeaderLastContact
-			status.AppliedIndex = replicaUpdate.AppliedIndex
-			status.JoiningStatus = replicaUpdate.JoiningStatus
-			status.LeavingStatus = replicaUpdate.LeavingStatus
+			rStatus := pStatus.Replicas[name]
+			if rStatus == nil {
+				rStatus = &PartitionStatus_Replica{}
+				pStatus.Replicas[name] = rStatus
+			}
+
+			rStatus.LastUpdate = rUpdate.LastUpdate
+			rStatus.AppliedIndex = rUpdate.AppliedIndex
+			rStatus.JoiningStatus = rUpdate.JoiningStatus
+			rStatus.LeavingStatus = rUpdate.LeavingStatus
 		}
 	}
 
