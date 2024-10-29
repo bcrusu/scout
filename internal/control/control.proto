@@ -192,22 +192,13 @@ message ApiServers {
 }
 
 message DataServerStatus {
-    message JoiningStatus {
-        bool completed = 1;
-    }
-
-    message LeavingStatus {
-        bool completed = 1;
-    }
-
     message Replica {
         string name = 1;
         bool is_leader = 2;
         uint64 leader_term = 3;
 		uint64 commited_index = 4;
 		uint64 applied_index = 5;
-        JoiningStatus joining_status = 6;
-        LeavingStatus leaving_status = 7;
+        bool ready = 6;
     }
 
     map<uint32, Replica> replicas = 1;

@@ -5,108 +5,144 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/control"
-	"github.com/bcrusu/scout/internal/control/server/convert"
 	"github.com/bcrusu/scout/internal/control/server/storage"
-	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (t *Tracker) writeLatestStatus(ctx context.Context, tracker *statusTracker) {
-	t.writeServerStatus(ctx, tracker)
-	t.writePartitionStatus(ctx, tracker)
-}
+	update := &storage.UpdateStatus{
+		Servers:    map[uint64]*storage.UpdateStatus_Server{},
+		Partitions: map[uint32]*storage.UpdateStatus_Partition{},
+	}
 
-func (t *Tracker) writeServerStatus(ctx context.Context, tracker *statusTracker) {
-	if len(tracker.serversDirty) == 0 {
+	for id, server := range tracker.servers {
+		if server.Dirty {
+			update.Servers[id] = &storage.UpdateStatus_Server{
+				LastSeen:    timestamppb.New(server.LastSeen),
+				LastAddress: server.LastAddress,
+			}
+		}
+	}
+
+	for id, part := range tracker.partitions {
+		if !part.Dirty {
+			continue
+		}
+
+		replicas := map[string]*storage.UpdateStatus_Replica{}
+		for name, replica := range part.Replicas {
+			replicas[name] = &storage.UpdateStatus_Replica{
+				LastUpdate:   timestamppb.New(replica.LastUpdate),
+				AppliedIndex: replica.AppliedIndex,
+				Ready:        replica.Ready,
+			}
+		}
+
+		update.Partitions[id] = &storage.UpdateStatus_Partition{
+			Replicas:      replicas,
+			Leader:        part.Leader,
+			LeaderTerm:    part.LeaderTerm,
+			CommitedIndex: part.CommitedIndex,
+		}
+	}
+
+	if len(update.Servers) == 0 && len(update.Partitions) == 0 {
 		return
 	}
 
-	updateServers := &storage.UpdateServerStatus{
-		IfMatch: tracker.serversVersion,
-		Items:   make(map[uint64]*storage.ServerStatus),
-	}
-
-	for id := range tracker.serversDirty {
-		updateServers.Items[id] = tracker.servers[id]
-	}
-
-	result, err := t.store.UpdateServerStatus(updateServers)
-	if err != nil {
+	if err := t.store.UpdateStatus(update); err != nil {
 		logS.WithError(err).Error(ctx, "UpdateServerStatus failed")
 		return
 	}
 
-	tracker.serversVersion = result.NewVersion
-	clear(tracker.serversDirty)
-}
-
-func (t *Tracker) writePartitionStatus(ctx context.Context, tracker *statusTracker) {
-	if len(tracker.partitionsDirty) == 0 {
-		return
+	for _, server := range tracker.servers {
+		server.Dirty = false
 	}
 
-	updatePartitions := &storage.UpdatePartitionStatus{
-		IfMatch: tracker.partitionsVersion,
-		Items:   map[uint32]*storage.PartitionStatus{},
+	for _, part := range tracker.partitions {
+		part.Dirty = false
 	}
-
-	for id := range tracker.partitionsDirty {
-		updatePartitions.Items[id] = tracker.partitions[id]
-	}
-
-	result, err := t.store.UpdatePartitionStatus(updatePartitions)
-	if err != nil {
-		logS.WithError(err).Error(ctx, "UpdatePartitionStatus failed")
-		return
-	}
-
-	tracker.partitionsVersion = result.NewVersion
-	clear(tracker.partitionsDirty)
 }
 
 type statusTracker struct {
-	serversVersion    uint64
-	servers           map[uint64]*storage.ServerStatus
-	serversDirty      map[uint64]bool
-	partitionsVersion uint64
-	partitions        map[uint32]*storage.PartitionStatus
-	partitionsDirty   map[uint32]bool
+	servers    map[uint64]*serverStatus
+	partitions map[uint32]*partitionStatus
+}
+
+type serverStatus struct {
+	LastSeen    time.Time
+	LastAddress string
+	Dirty       bool
+}
+
+type replicaStatus struct {
+	LastUpdate   time.Time
+	AppliedIndex uint64
+	Ready        bool
+}
+
+type partitionStatus struct {
+	Replicas      map[string]*replicaStatus
+	Leader        string
+	LeaderTerm    uint64
+	CommitedIndex uint64
+	Dirty         bool
 }
 
 func newStatusTracker(servers *storage.Servers, partitions *storage.Partitions) *statusTracker {
+	sStatus := map[uint64]*serverStatus{}
+	for sid, server := range servers.Items {
+		sStatus[sid] = &serverStatus{
+			LastSeen:    server.LastSeen.AsTime(),
+			LastAddress: server.LastAddress,
+		}
+	}
+
+	pStatus := map[uint32]*partitionStatus{}
+	for pid, part := range partitions.Items {
+		rStatus := map[string]*replicaStatus{}
+		for name, replica := range part.Replicas {
+			rStatus[name] = &replicaStatus{
+				LastUpdate:   replica.LastUpdate.AsTime(),
+				AppliedIndex: replica.AppliedIndex,
+				Ready:        replica.Ready,
+			}
+		}
+
+		pStatus[pid] = &partitionStatus{
+			Replicas:      rStatus,
+			Leader:        part.Leader,
+			LeaderTerm:    part.LeaderTerm,
+			CommitedIndex: part.CommitedIndex,
+		}
+	}
+
 	return &statusTracker{
-		serversVersion:    servers.StatusVersion,
-		servers:           utils.CloneProtoMap(servers.Status),
-		serversDirty:      map[uint64]bool{},
-		partitionsVersion: partitions.StatusVersion,
-		partitions:        utils.CloneProtoMap(partitions.Status),
-		partitionsDirty:   map[uint32]bool{},
+		servers:    sStatus,
+		partitions: pStatus,
 	}
 }
 
 func (t *statusTracker) recordNewSession(sess *session) {
-	serverID := sess.serverID
-	status := t.servers[serverID]
+	status := t.servers[sess.serverID]
 	if status == nil {
-		status = &storage.ServerStatus{}
-		t.servers[serverID] = status
+		status = &serverStatus{}
+		t.servers[sess.serverID] = status
 	}
 
-	t.servers[serverID].LastSeen = timestamppb.New(time.Now().UTC())
-	t.servers[serverID].LastAddress = sess.serverAddress
-	t.serversDirty[serverID] = true
+	status.LastSeen = time.Now().UTC()
+	status.LastAddress = sess.serverAddress
+	status.Dirty = true
 }
 
 func (t *statusTracker) recordSessionReceived(sess *session) {
-	serverID := sess.serverID
-	status := t.servers[serverID]
+	status := t.servers[sess.serverID]
 	if status == nil {
-		status = &storage.ServerStatus{}
-		t.servers[serverID] = status
+		return
 	}
 
-	t.servers[serverID].LastSeen = timestamppb.New(time.Now().UTC())
-	t.serversDirty[serverID] = true
+	status.LastSeen = time.Now().UTC()
+	status.Dirty = true
 }
 
 func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServerStatus_Replica) bool {
@@ -114,21 +150,16 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 
 	for id, update := range updates {
 		pStatus := t.partitions[id]
-
-		if pStatus.Replicas == nil {
-			pStatus.Replicas = map[string]*storage.PartitionStatus_Replica{}
-		}
-
 		rStatus := pStatus.Replicas[update.Name]
+
 		if rStatus == nil {
-			rStatus = &storage.PartitionStatus_Replica{}
+			rStatus = &replicaStatus{}
 			pStatus.Replicas[update.Name] = rStatus
 		}
 
-		rStatus.LastUpdate = timestamppb.New(time.Now().UTC())
+		rStatus.LastUpdate = time.Now().UTC()
 		rStatus.AppliedIndex = update.AppliedIndex
-		rStatus.JoiningStatus = convert.ToPartitionJoiningStatus(update.JoiningStatus)
-		rStatus.LeavingStatus = convert.ToPartitionLeavingStatus(update.LeavingStatus)
+		rStatus.Ready = update.Ready
 
 		leaderChanged := update.IsLeader && update.LeaderTerm > pStatus.LeaderTerm
 		if leaderChanged {
@@ -138,33 +169,43 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 		pStatus.LeaderTerm = max(pStatus.LeaderTerm, update.LeaderTerm)
 		pStatus.CommitedIndex = max(pStatus.CommitedIndex, update.CommitedIndex)
 
-		t.partitionsDirty[id] = true
+		pStatus.Dirty = true
 		hasLeaderChanges = hasLeaderChanges || leaderChanged
 	}
 
 	return hasLeaderChanges
 }
 
-func (t *statusTracker) getServerLastAddress(serverID uint64) string {
-	return t.servers[serverID].LastAddress
+func (t *statusTracker) getServerAddress(serverID uint64) string {
+	server, ok := t.servers[serverID]
+	if !ok {
+		return ""
+	}
+	return server.LastAddress
 }
 
-func (t *statusTracker) updateServers(newServers *storage.Servers) {
-	for serverID := range t.servers {
-		if _, ok := newServers.Items[serverID]; !ok {
-			delete(t.servers, serverID)
-			delete(t.serversDirty, serverID)
+func (t *statusTracker) getPartitionLeader(pid uint32) string {
+	return t.partitions[pid].Leader
+}
+
+func (t *statusTracker) syncServers(newServers *storage.Servers) {
+	for sid := range t.servers {
+		if _, ok := newServers.Items[sid]; !ok {
+			delete(t.servers, sid)
 		}
 	}
 
-	for serverID, status := range newServers.Status {
-		if _, ok := t.servers[serverID]; !ok {
-			t.servers[serverID] = utils.CloneProto(status)
+	for sid, server := range newServers.Items {
+		if _, ok := t.servers[sid]; !ok {
+			t.servers[sid] = &serverStatus{
+				LastSeen:    server.LastSeen.AsTime(),
+				LastAddress: server.LastAddress,
+			}
 		}
 	}
 }
 
-func (t *statusTracker) updatePartitions(newPartitions *storage.Partitions) {
+func (t *statusTracker) syncPartitions(newPartitions *storage.Partitions) {
 	for pid, part := range t.partitions {
 		for name := range part.Replicas {
 			if _, ok := newPartitions.Items[pid].Replicas[name]; !ok {

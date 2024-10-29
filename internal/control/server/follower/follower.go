@@ -15,7 +15,7 @@ import (
 var (
 	_   control.ServiceServer = (*Follower)(nil)
 	_   utils.Lifecycle       = (*Follower)(nil)
-	log                       = logging.New("control_follower")
+	log                       = logging.New("follower")
 )
 
 // Follower implements the follower role.

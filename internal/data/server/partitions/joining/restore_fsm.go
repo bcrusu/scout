@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/data/server/config"
@@ -42,9 +41,9 @@ type restoreFsm struct {
 	dataClient data.ServiceClient
 	db         *kv.DBBreaker
 	log        logging.Logger
-	candidates atomic.Pointer[candidates]                             // updated by the joining replica
-	index      atomic.Uint64                                          // updated during restore
-	status     atomic.Pointer[control.DataServerStatus_JoiningStatus] // updated during restore
+	candidates atomic.Pointer[candidates] // updated by the joining replica
+	index      atomic.Uint64              // updated during restore
+	ready      atomic.Bool                // updated during restore
 }
 
 type address struct {
@@ -60,7 +59,7 @@ type checkpoint struct {
 }
 
 func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient data.ServiceClient, db kv.DB) *restoreFsm {
-	f := &restoreFsm{
+	return &restoreFsm{
 		ctx:        ctx,
 		pid:        pid,
 		replica:    replica,
@@ -69,9 +68,6 @@ func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient d
 		db:         kv.NewDBBreaker(db),
 		log:        logging.New("replica_joining").With("partition", pid, "replica", replica),
 	}
-
-	f.setStatus(false)
-	return f
 }
 
 func (f *restoreFsm) Apply(_ uint64, _ time.Time, _ []byte) any {
@@ -104,7 +100,7 @@ func (f *restoreFsm) Restore(snapshot []byte) error {
 		}
 	}
 
-	f.setStatus(true)
+	f.ready.Store(true)
 	f.log.Info(f.ctx, "Restore partition completed.")
 	return nil
 }
@@ -235,12 +231,6 @@ func (f *restoreFsm) newCheckpoint(minIndex uint64, lastAddress *data.KVAddress,
 	}
 
 	return errors.Assert2(json.Marshal(chk))
-}
-
-func (f *restoreFsm) setStatus(completed bool) {
-	f.status.Store(&control.DataServerStatus_JoiningStatus{
-		Completed: completed,
-	})
 }
 
 func newKVAddress(addr kv.Address) *data.KVAddress {

@@ -1,6 +1,8 @@
 package storage
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func (s *Servers) ByID(id uint64) *Server {
 	return s.Items[id]
@@ -35,7 +37,7 @@ func (s ReplicaState) IsServing() bool {
 }
 
 func (p *Partitions) IsInitialized() bool {
-	return p.ItemsVersion > 1
+	return p.AssignmentsVersion > 0
 }
 
 func (p *Partition) nextReplicaName() string {

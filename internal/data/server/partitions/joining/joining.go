@@ -122,7 +122,7 @@ func (p *Joining) mainLoop(ctx context.Context) {
 				LeaderTerm:    x.LeaderTerm,
 				CommitedIndex: x.CommitedIndex,
 				AppliedIndex:  fsm.index.Load(),
-				JoiningStatus: fsm.status.Load(),
+				Ready:         fsm.ready.Load(),
 			}
 		case <-ctx.Done():
 			if raft != nil {

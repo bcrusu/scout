@@ -13,7 +13,7 @@ import (
 
 var (
 	_   utils.Lifecycle = (*Assigner)(nil)
-	log                 = logging.New("partition_assigner").NoContext()
+	log                 = logging.New("assigner").NoContext()
 )
 
 // Assigner is the one that assigns partitions to servers.

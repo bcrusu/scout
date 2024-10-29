@@ -23,10 +23,9 @@ message Command {
     oneof payload {
         Bootstrap bootstrap = 2;
         Register register = 3;
-        UpdateServerStatus update_server_status = 4;
-        UpdatePartitionStatus update_partition_status = 5;
-        InitAssignments init_assignments = 6;
-        UpdateAssignments update_assignments = 7;
+        UpdateStatus update_status = 4;
+        InitAssignments init_assignments = 5;
+        UpdateAssignments update_assignments = 6;
     }
 }
 
@@ -58,14 +57,27 @@ message Register {
     string address = 3;
 }
 
-message UpdateServerStatus {
-    uint64 if_match = 1;
-    map<uint64, ServerStatus> items = 2;
-}
+message UpdateStatus {
+    message Server {
+        google.protobuf.Timestamp last_seen = 1;
+        string last_address = 2;
+    }
 
-message UpdatePartitionStatus {
-    uint64 if_match = 1;
-    map<uint32, PartitionStatus> items = 2;
+    message Replica {
+        google.protobuf.Timestamp last_update = 1;
+        uint64 applied_index = 2;
+        bool ready = 3;
+    }
+
+    message Partition {
+        map<string, Replica> replicas = 1;
+        string leader = 2;
+        uint64 leader_term = 3;
+        uint64 commited_index = 4;
+    }
+
+    map<uint64, Server> servers = 1;
+    map<uint32, Partition> partitions = 2;
 }
 
 message InitAssignments {
@@ -119,26 +131,20 @@ enum ServerType {
 }
 
 message Server {
-    uint64 version = 1;
-    uint64 id = 2;
-    string name = 3;
-    ServerType type = 4;
-    google.protobuf.Timestamp registered_at = 5;
-}
-
-message ServerStatus {
-    uint64 version = 1;
-    google.protobuf.Timestamp last_seen = 2;
-    string last_address = 3;
+    uint64 id = 1;
+    string name = 2;
+    ServerType type = 3;
+    google.protobuf.Timestamp registered_at = 4;
+    google.protobuf.Timestamp last_seen = 5;
+    string last_address = 6;
 }
 
 message Servers {
-    uint64 items_version = 1;
-    map<uint64, Server> items = 2;
-    uint64 status_version = 3;
-    map<uint64, ServerStatus> status = 4;
-    uint64 last_id = 5;
-    map<string, uint64> tokens = 6;
+    uint64 version = 1;
+    uint64 register_version = 2;
+    map<uint64, Server> items = 3;
+    uint64 last_id = 4;
+    map<string, uint64> tokens = 5;
 }
 
 enum ReplicaState {
@@ -159,40 +165,22 @@ message Partition {
         ReplicaState state = 3;
         google.protobuf.Timestamp created_time = 4;
         google.protobuf.Timestamp state_transition_time = 5;
+        google.protobuf.Timestamp last_update = 6;
+        uint64 applied_index = 7;
+        bool ready = 8;
     }
 
-    uint64 version = 1;
-    uint32 id = 2;
-    map<string, Replica> replicas = 3;
-    uint64 last_replica_id = 4;
-}
-
-message PartitionStatus {
-    message JoiningStatus {
-        bool completed = 1;
-    }
-
-    message LeavingStatus {
-        bool completed = 1;
-    }
-
-    message Replica {
-        google.protobuf.Timestamp last_update = 1;
-        uint64 applied_index = 2;
-        JoiningStatus joining_status = 3;
-        LeavingStatus leaving_status = 4;
-    }
-
-    uint64 version = 1;
+    uint32 id = 1;
     map<string, Replica> replicas = 2;
-    string leader = 3;
-    uint64 leader_term = 4;
-    uint64 commited_index = 5;
+    uint64 last_replica_id = 3;
+    uint64 assignments_version = 4;
+    string leader = 5;
+    uint64 leader_term = 6;
+    uint64 commited_index = 7;
 }
 
 message Partitions {
-    uint64 items_version = 1;
-    map<uint32, Partition> items = 2;
-    uint64 status_version = 3;
-    map<uint32, PartitionStatus> status = 4;
+    uint64 version = 1;
+    uint64 assignments_version = 2;
+    map<uint32, Partition> items = 3;
 }

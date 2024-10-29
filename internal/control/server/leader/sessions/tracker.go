@@ -236,7 +236,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				logS.Errorf(ctx, "Unknown session message type %T", msg)
 			}
 		case newServers := <-serversSub.Items():
-			if newServers.ItemsVersion == servers.ItemsVersion {
+			if newServers.RegisterVersion == servers.RegisterVersion {
 				continue
 			}
 
@@ -248,18 +248,18 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			}
 
 			servers = newServers
-			status.updateServers(newServers)
+			status.syncServers(newServers)
 			dsUpdateCh <- true
 			asUpdateCh <- true
 			dsConfigsUpdateCh <- true
 			asConfigsUpdateCh <- true
 		case newPartitions := <-partitionsSub.Items():
-			if newPartitions.ItemsVersion == partitions.ItemsVersion {
+			if newPartitions.AssignmentsVersion == partitions.AssignmentsVersion {
 				continue
 			}
 
 			partitions = newPartitions
-			status.updatePartitions(newPartitions)
+			status.syncPartitions(newPartitions)
 			dsUpdateCh <- true
 			dsConfigsUpdateCh <- true
 		case <-writeLatestStatusTicker.C:
@@ -314,7 +314,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 	for id := range servers.DataServers() {
 		new.Servers[id] = &control.DataServers_Server{
 			Id:      id,
-			Address: status.getServerLastAddress(id),
+			Address: status.getServerAddress(id),
 		}
 	}
 
@@ -329,7 +329,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 		}
 		slices.Sort(replicaServerIDs)
 
-		if leader := partitions.Status[id].Leader; leader != "" {
+		if leader := status.getPartitionLeader(id); leader != "" {
 			leaderServerId = part.Replicas[leader].ServerId
 		}
 
@@ -369,7 +369,7 @@ func (t *Tracker) updateApiServerList(sessions sessions, servers *storage.Server
 	for id := range servers.ApiServers() {
 		new.Servers[id] = &control.ApiServers_Server{
 			Id:      id,
-			Address: status.getServerLastAddress(id),
+			Address: status.getServerAddress(id),
 		}
 	}
 

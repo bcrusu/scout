@@ -13,7 +13,7 @@ import (
 
 var (
 	_    multiraft.FSM = (*FSM)(nil)
-	logF               = logging.New("storage_fsm").NoContext()
+	logF               = logging.New("fsm").NoContext()
 )
 
 type FSM struct {
@@ -72,10 +72,8 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 		result, err = f.applyBootstrap(appendedAt, x)
 	case *Register:
 		result, err = f.applyRegister(appendedAt, x)
-	case *UpdateServerStatus:
-		result, err = f.applyUpdateServerStatus(appendedAt, x)
-	case *UpdatePartitionStatus:
-		result, err = f.applyUpdatePartitionStatus(appendedAt, x)
+	case *UpdateStatus:
+		f.applyUpdateStatus(x)
 	case *InitAssignments:
 		result, err = f.applyInitAssignments(appendedAt, x)
 	case *UpdateAssignments:

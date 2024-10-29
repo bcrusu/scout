@@ -13,7 +13,7 @@ func (a *Assigner) updateAssignments() {
 	curr := a.makeState(servers, partitions)
 	next := NextState(a.config, curr)
 
-	cmd := a.makeUpdateAssignments(partitions.ItemsVersion, curr, next)
+	cmd := a.makeUpdateAssignments(partitions.AssignmentsVersion, curr, next)
 
 	if cmd.IsEmpty() {
 		return
@@ -36,23 +36,14 @@ func (a *Assigner) makeState(servers *storage.Servers, partitions *storage.Parti
 
 		for name, replica := range part.Replicas {
 			sid := replica.ServerId
-			ready := false
 
 			switch {
 			case replica.State.IsServing():
-				ready = true
 				result.AddServing(sid, pid)
-
 			case replica.State == storage.ReplicaState_Joining:
-				status := partitions.Status[pid].Replicas[name]
-				ready = status != nil && status.JoiningStatus != nil && status.JoiningStatus.Completed
 				result.AddJoining(sid, pid)
-
 			case replica.State == storage.ReplicaState_Leaving:
-				status := partitions.Status[pid].Replicas[name]
-				ready = status != nil && status.LeavingStatus != nil && status.LeavingStatus.Completed
 				result.AddLeaving(sid, pid)
-
 			default:
 				panic(fmt.Sprintf("unhandled replica state %s", replica.State))
 			}
@@ -61,7 +52,7 @@ func (a *Assigner) makeState(servers *storage.Servers, partitions *storage.Parti
 				Pid:         pid,
 				Name:        name,
 				CreatedTime: replica.CreatedTime.AsTime(),
-				Ready:       ready,
+				Ready:       replica.Ready,
 			})
 		}
 	}

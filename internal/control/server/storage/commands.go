@@ -18,10 +18,8 @@ func newCommand(payload payload) *Command {
 		p = &Command_Bootstrap{Bootstrap: x}
 	case *Register:
 		p = &Command_Register{Register: x}
-	case *UpdateServerStatus:
-		p = &Command_UpdateServerStatus{UpdateServerStatus: x}
-	case *UpdatePartitionStatus:
-		p = &Command_UpdatePartitionStatus{UpdatePartitionStatus: x}
+	case *UpdateStatus:
+		p = &Command_UpdateStatus{UpdateStatus: x}
 	case *InitAssignments:
 		p = &Command_InitAssignments{InitAssignments: x}
 	case *UpdateAssignments:
@@ -39,10 +37,8 @@ func getPayload(cmd *Command) payload {
 		return x.Bootstrap
 	case *Command_Register:
 		return x.Register
-	case *Command_UpdateServerStatus:
-		return x.UpdateServerStatus
-	case *Command_UpdatePartitionStatus:
-		return x.UpdatePartitionStatus
+	case *Command_UpdateStatus:
+		return x.UpdateStatus
 	case *Command_InitAssignments:
 		return x.InitAssignments
 	case *Command_UpdateAssignments:
@@ -52,9 +48,8 @@ func getPayload(cmd *Command) payload {
 	}
 }
 
-func (*Bootstrap) isPayload()             {}
-func (*Register) isPayload()              {}
-func (*UpdateServerStatus) isPayload()    {}
-func (*UpdatePartitionStatus) isPayload() {}
-func (*InitAssignments) isPayload()       {}
-func (*UpdateAssignments) isPayload()     {}
+func (*Bootstrap) isPayload()         {}
+func (*Register) isPayload()          {}
+func (*UpdateStatus) isPayload()      {}
+func (*InitAssignments) isPayload()   {}
+func (*UpdateAssignments) isPayload() {}

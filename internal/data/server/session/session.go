@@ -23,7 +23,7 @@ import (
 var (
 	_                          utils.Lifecycle = (*Session)(nil)
 	refreshDataServersThrottle                 = utils.AddJitter(2 * time.Second)
-	log                                        = logging.New("data_session").NoContext()
+	log                                        = logging.New("session").NoContext()
 )
 
 type Session struct {
@@ -199,7 +199,7 @@ func (m *Session) sendLoop(stream stream, sendCh <-chan *control.SessionIn, done
 				return
 			}
 		case <-stream.Context().Done():
-			doneCh <- nil
+			doneCh <- stream.Context().Err()
 			return
 		}
 	}

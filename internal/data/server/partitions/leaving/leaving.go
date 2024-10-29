@@ -26,7 +26,7 @@ type Leaving struct {
 	db         *kv.DBBreaker
 	log        logging.Logger
 	cancelFunc context.CancelFunc
-	status     atomic.Pointer[control.DataServerStatus_LeavingStatus]
+	ready      atomic.Bool
 }
 
 func New(pid uint32, replica string, multiraft *multiraft.Multi, db kv.DB) *Leaving {
@@ -49,13 +49,11 @@ func (p *Leaving) Stop() {
 }
 
 func (p *Leaving) mainLoop(ctx context.Context) {
-	p.setStatus(false)
-
 	for {
 		if err := p.cleanup(); err != nil {
 			p.log.WithError(err).Error(ctx, "Cleanup failed. Retrying...")
 		} else {
-			p.setStatus(true)
+			p.ready.Store(true)
 			break
 		}
 
@@ -74,21 +72,10 @@ func (p *Leaving) GetService() shared.Service {
 }
 
 func (p *Leaving) GetStatus() *control.DataServerStatus_Replica {
-	status := p.status.Load()
-	if status == nil {
-		return nil
-	}
-
 	return &control.DataServerStatus_Replica{
-		Name:          p.replica,
-		LeavingStatus: status,
+		Name:  p.replica,
+		Ready: p.ready.Load(),
 	}
-}
-
-func (p *Leaving) setStatus(completed bool) {
-	p.status.Store(&control.DataServerStatus_LeavingStatus{
-		Completed: completed,
-	})
 }
 
 func (p *Leaving) cleanup() error {

@@ -153,6 +153,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 				LeaderTerm:    x.LeaderTerm,
 				CommitedIndex: x.CommitedIndex,
 				AppliedIndex:  fsm.AppliedIndex(),
+				Ready:         true,
 			}
 		case <-ctx.Done():
 			if old := p.partition.Swap(nil); old != nil {

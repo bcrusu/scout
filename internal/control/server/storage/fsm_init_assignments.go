@@ -32,13 +32,14 @@ func (f *FSM) applyInitAssignments(appendedAt time.Time, cmd *InitAssignments) (
 			StateTransitionTime: timestamppb.New(appendedAt),
 		}
 
-		part.Version++
+		part.AssignmentsVersion = 1
 	}
 
-	f.partitions.ItemsVersion++
+	f.partitions.AssignmentsVersion = 1
+	f.partitions.Version = 1
 
 	return &UpdateResult{
-		NewVersion: f.partitions.ItemsVersion,
+		NewVersion: 1,
 	}, nil
 }
 

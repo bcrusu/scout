@@ -26,7 +26,7 @@ const (
 
 var (
 	_   utils.Lifecycle = (*Server)(nil)
-	log                 = logging.New("api_server")
+	log                 = logging.New("server")
 )
 
 type Action string

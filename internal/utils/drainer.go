@@ -43,9 +43,9 @@ func (d *Drainer) Stop() {
 
 	if err != nil {
 		d.log.WithError(err).Warn(d.ctx, "Drain failed.")
+	} else {
+		d.log.Debug(d.ctx, "Drain success.")
 	}
-
-	d.log.Debug(d.ctx, "Drain success.")
 }
 
 // WithDrain returns a child context that will be canceled when drainer is stopped.

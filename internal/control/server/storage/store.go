@@ -44,8 +44,7 @@ type Store interface {
 
 	Bootstrap(*Bootstrap) (*BootstrapResult, error)
 	Register(*Register) (*RegisterResult, error)
-	UpdateServerStatus(*UpdateServerStatus) (*UpdateResult, error)
-	UpdatePartitionStatus(*UpdatePartitionStatus) (*UpdateResult, error)
+	UpdateStatus(*UpdateStatus) error
 	InitAssignments(*InitAssignments) (*UpdateResult, error)
 	UpdateAssignments(*UpdateAssignments) (*UpdateResult, error)
 }
@@ -91,15 +90,13 @@ func (s *store) mainLoop(ctx context.Context) {
 			s.partitionCount = s.fsm.partitionCount
 
 			publishServers := false
-			if s.servers == nil || s.servers.ItemsVersion != s.fsm.servers.ItemsVersion ||
-				s.servers.StatusVersion != s.fsm.servers.StatusVersion {
+			if s.servers == nil || s.servers.Version != s.fsm.servers.Version {
 				s.servers = utils.CloneProto(s.fsm.servers)
 				publishServers = true
 			}
 
 			publishPartitions := false
-			if s.partitions == nil || s.partitions.ItemsVersion != s.fsm.partitions.ItemsVersion ||
-				s.partitions.StatusVersion != s.fsm.partitions.StatusVersion {
+			if s.partitions == nil || s.partitions.Version != s.fsm.partitions.Version {
 				s.partitions = utils.CloneProto(s.fsm.partitions)
 				publishPartitions = true
 			}
@@ -186,12 +183,8 @@ func (s *store) Register(cmd *Register) (*RegisterResult, error) {
 	return result, nil
 }
 
-func (s *store) UpdateServerStatus(cmd *UpdateServerStatus) (*UpdateResult, error) {
-	return applyR[*UpdateResult](s.raft, cmd)
-}
-
-func (s *store) UpdatePartitionStatus(cmd *UpdatePartitionStatus) (*UpdateResult, error) {
-	return applyR[*UpdateResult](s.raft, cmd)
+func (s *store) UpdateStatus(cmd *UpdateStatus) error {
+	return apply(s.raft, cmd)
 }
 
 func (s *store) InitAssignments(cmd *InitAssignments) (*UpdateResult, error) {
@@ -221,4 +214,19 @@ func applyR[R any](raft *multiraft.Raft, payload payload) (R, error) {
 	} else {
 		return t, nil
 	}
+}
+
+func apply(raft *multiraft.Raft, payload payload) error {
+	cmd := newCommand(payload)
+
+	data, err := utils.MarshalProto(cmd)
+	if err != nil {
+		return err
+	}
+
+	if _, err := raft.Apply(data); err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -42,25 +42,21 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 		}, nil
 	}
 
-	f.servers.ItemsVersion++
-
 	id := f.nextServerID()
 	name := fmt.Sprintf("%s%d", serverNamePrefix[cmd.Type], id)
 
 	f.servers.Items[id] = &Server{
-		Version:      1,
 		Id:           id,
 		Name:         name,
 		Type:         cmd.Type,
 		RegisteredAt: timestamppb.New(appendedAt),
-	}
-	f.servers.Status[id] = &ServerStatus{
-		Version:     1,
-		LastSeen:    timestamppb.New(appendedAt),
-		LastAddress: cmd.Address,
+		LastSeen:     timestamppb.New(appendedAt),
+		LastAddress:  cmd.Address,
 	}
 
 	f.servers.Tokens[cmd.Token] = id
+	f.servers.RegisterVersion++
+	f.servers.Version++
 
 	return &RegisterResult{
 		ServerID:   id,

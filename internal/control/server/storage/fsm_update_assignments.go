@@ -8,7 +8,7 @@ import (
 )
 
 func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignments) (*UpdateResult, error) {
-	if cmd.IfMatch != 0 && cmd.IfMatch != f.partitions.ItemsVersion {
+	if cmd.IfMatch != 0 && cmd.IfMatch != f.partitions.AssignmentsVersion {
 		return nil, errors.FailedPrecondition
 	} else if !f.partitions.IsInitialized() {
 		// init assignments did not happen
@@ -48,13 +48,14 @@ func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignment
 
 	for pid := range changed {
 		part := f.getPartition(pid)
-		part.Version++
+		part.AssignmentsVersion++
 	}
 
-	f.partitions.ItemsVersion++
+	f.partitions.AssignmentsVersion++
+	f.partitions.Version++
 
 	return &UpdateResult{
-		NewVersion: f.partitions.ItemsVersion,
+		NewVersion: f.partitions.AssignmentsVersion,
 	}, nil
 }
 
