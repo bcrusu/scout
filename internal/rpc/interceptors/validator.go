@@ -9,6 +9,7 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/validation"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -102,6 +103,10 @@ func validateMessage(ctx context.Context, value any) error {
 	if reflect.ValueOf(value).IsNil() {
 		logValidator.Errorf(ctx, "Nil message %T.", value)
 		return errors.InvalidRequest
+	}
+
+	if _, ok := value.(*emptypb.Empty); ok {
+		return nil
 	}
 
 	v, ok := value.(validation.CanValidate)

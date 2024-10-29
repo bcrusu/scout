@@ -168,12 +168,12 @@ func (s *ControlService) NewSession(stream grpc.BidiStreamingServer[control.Sess
 	}
 }
 
-func (s *ControlService) GetCluster(ctx context.Context, req *emptypb.Empty) (*control.Cluster, error) {
+func (s *ControlService) GetClusterInfo(ctx context.Context, req *emptypb.Empty) (*control.ClusterInfo, error) {
 	if !s.store.Bootstrapped() {
 		return nil, errors.Unavailable
 	} else if role, err := s.getRole(); err != nil {
 		return nil, err
 	} else {
-		return role.GetCluster(ctx, req)
+		return role.GetClusterInfo(ctx, req)
 	}
 }

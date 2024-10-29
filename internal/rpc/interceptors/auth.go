@@ -16,7 +16,7 @@ var (
 // UnaryAuthServerInterceptor checks that incoming requests can be authenticated.
 func UnaryAuthServerInterceptor(clusterName string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		if err := checkAuth(ctx, clusterName); err != nil {
+		if err := checkAuth(ctx, info.FullMethod, clusterName); err != nil {
 			return nil, err
 		}
 
@@ -27,7 +27,7 @@ func UnaryAuthServerInterceptor(clusterName string) grpc.UnaryServerInterceptor 
 // StreamAuthServerInterceptor checks that incoming requests can be authenticated.
 func StreamAuthServerInterceptor(clusterName string) grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		if err := checkAuth(ss.Context(), clusterName); err != nil {
+		if err := checkAuth(ss.Context(), info.FullMethod, clusterName); err != nil {
 			return err
 		}
 
@@ -55,7 +55,11 @@ func appendAuth(ctx context.Context, clusterName string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, "scout-cluster-name", clusterName)
 }
 
-func checkAuth(ctx context.Context, clusterName string) error {
+func checkAuth(ctx context.Context, fullMethod, clusterName string) error {
+	if isAdmin(fullMethod) {
+		return nil
+	}
+
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return errUnauthenticated

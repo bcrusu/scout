@@ -28,18 +28,18 @@ func IsValidPartitionCount(value uint32) bool {
 }
 
 func (s *Servers) ControlServers() map[uint64]*Server {
-	return s.ByType(ServerType_Control)
+	return s.ForType(ServerType_Control)
 }
 
 func (s *Servers) DataServers() map[uint64]*Server {
-	return s.ByType(ServerType_Data)
+	return s.ForType(ServerType_Data)
 }
 
 func (s *Servers) ApiServers() map[uint64]*Server {
-	return s.ByType(ServerType_Api)
+	return s.ForType(ServerType_Api)
 }
 
-func (s *Servers) ByType(stype ServerType) map[uint64]*Server {
+func (s *Servers) ForType(stype ServerType) map[uint64]*Server {
 	result := map[uint64]*Server{}
 
 	for id, s := range s.Items {
@@ -49,6 +49,15 @@ func (s *Servers) ByType(stype ServerType) map[uint64]*Server {
 	}
 
 	return result
+}
+
+func (s *Servers) ForName(name string) *Server {
+	for _, server := range s.Items {
+		if server.Name == name {
+			return server
+		}
+	}
+	return nil
 }
 
 func (p *Partitions) HasAssignments() bool {
@@ -72,6 +81,16 @@ func (p *Partition) ServingReplicaCount() int {
 		}
 	}
 	return result
+}
+
+func (p *Partition) ReplicaCountForState(state ReplicaState) int {
+	count := 0
+	for _, replica := range p.Replicas {
+		if replica.State == state {
+			count++
+		}
+	}
+	return count
 }
 
 func (s ReplicaState) IsServing() bool {

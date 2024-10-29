@@ -31,8 +31,8 @@ service Service {
     // starting a new session.
     rpc NewSession(stream SessionIn) returns (stream SessionOut);
 
-    // GetCluster returns the current cluster state.
-    rpc GetCluster(google.protobuf.Empty) returns (Cluster);
+    // GetClusterInfo returns the current cluster info.
+    rpc GetClusterInfo(google.protobuf.Empty) returns (ClusterInfo);
 }
 
 // ====================================================================
@@ -82,6 +82,11 @@ message RegisterResponse {
 // ====================================================================
 // Cluster state:
 // ====================================================================
+
+message ClusterInfo {
+    Cluster cluster = 1;
+    uint64 control_leader_id = 2;
+}
 
 message Cluster {
     uint64 index = 1;

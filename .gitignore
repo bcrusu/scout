@@ -1,5 +1,6 @@
 .vscode
 Procfile
+/admin
 /control
 /data
 /api

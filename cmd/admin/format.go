@@ -1,0 +1,52 @@
+package main
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/bcrusu/scout/internal/control"
+	"google.golang.org/protobuf/types/known/timestamppb"
+)
+
+type Signed interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64
+}
+
+type Unsigned interface {
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
+
+func formatInt[T Signed](val T) string {
+	return strconv.FormatInt(int64(val), 10)
+}
+
+func formatUint[T Unsigned](val T) string {
+	return strconv.FormatUint(uint64(val), 10)
+}
+
+func formatTime(val *timestamppb.Timestamp) string {
+	return val.AsTime().Format(time.RFC3339)
+}
+
+func formatTrue(val bool) string {
+	if val {
+		return "TRUE"
+	}
+	return "✗"
+}
+
+func formatFlase(val bool) string {
+	if !val {
+		return "FALSE"
+	}
+	return "✓"
+}
+
+func formatServer(cluster *control.Cluster, serverID uint64) string {
+	server := cluster.Servers.Items[serverID]
+	if server == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s (%d)", server.Name, serverID)
+}

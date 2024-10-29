@@ -62,10 +62,10 @@ func (s *roleDrainer) NewSession(stream grpc.BidiStreamingServer[control.Session
 	return s.inner.NewSession(w)
 }
 
-func (s *roleDrainer) GetCluster(ctx context.Context, req *emptypb.Empty) (*control.Cluster, error) {
+func (s *roleDrainer) GetClusterInfo(ctx context.Context, req *emptypb.Empty) (*control.ClusterInfo, error) {
 	cctx, cancel := s.drainer.WithDrain(ctx)
 	defer cancel()
-	return s.inner.GetCluster(cctx, req)
+	return s.inner.GetClusterInfo(cctx, req)
 }
 
 type sessionStreamWrapper struct {

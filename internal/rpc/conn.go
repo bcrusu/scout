@@ -38,6 +38,17 @@ func NewConn(target, clusterName string, opts ...grpc.DialOption) *Conn {
 	}
 }
 
+// NewAdminConn creates a new admin cli tool connection.
+func NewAdminConn(target string, opts ...grpc.DialOption) *Conn {
+	all := AdminDialOptions()
+	all = append(all, opts...)
+
+	return &Conn{
+		target: target,
+		opts:   all,
+	}
+}
+
 // DefaultDialOptions returns the default Conn dial options.
 func DefaultDialOptions(clusterName string) []grpc.DialOption {
 	return []grpc.DialOption{
@@ -57,6 +68,27 @@ func DefaultDialOptions(clusterName string) []grpc.DialOption {
 			interceptors.StreamValidatorClientInterceptor(),
 			interceptors.StreamErrorsClientInterceptor(),
 			interceptors.StreamLoggerClientInterceptor(),
+		),
+		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff:           backoff.DefaultConfig,
+			MinConnectTimeout: 3 * time.Second,
+		}),
+	}
+}
+
+// AdminDialOptions returns the dial options for admin calls.
+// Used by cmd/admin cli tool.
+func AdminDialOptions() []grpc.DialOption {
+	return []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()), // TODO
+		grpc.WithChainUnaryInterceptor(
+			interceptors.UnaryMetadataClientInterceptor(),
+			interceptors.UnaryErrorsClientInterceptor(),
+		),
+		grpc.WithChainStreamInterceptor(
+			interceptors.StreamMetadataClientInterceptor(),
+			interceptors.StreamErrorsClientInterceptor(),
 		),
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 		grpc.WithConnectParams(grpc.ConnectParams{

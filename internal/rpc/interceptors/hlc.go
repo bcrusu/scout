@@ -13,7 +13,7 @@ import (
 // UnaryHlcServerInterceptor updates with the incoming Hybrid Logical Clock timestamp.
 func UnaryHlcServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		if err := updateHlc(ctx); err != nil {
+		if err := updateHlc(ctx, info.FullMethod); err != nil {
 			return nil, err
 		}
 
@@ -24,7 +24,7 @@ func UnaryHlcServerInterceptor() grpc.UnaryServerInterceptor {
 // StreamHlcServerInterceptor updates with the incoming Hybrid Logical Clock timestamp.
 func StreamHlcServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		if err := updateHlc(ss.Context()); err != nil {
+		if err := updateHlc(ss.Context(), info.FullMethod); err != nil {
 			return err
 		}
 
@@ -56,7 +56,11 @@ func appendHlc(ctx context.Context) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, kv...)
 }
 
-func updateHlc(ctx context.Context) error {
+func updateHlc(ctx context.Context, fullMethod string) error {
+	if isAdmin(fullMethod) {
+		return nil
+	}
+
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return errors.ValidationError{Message: "missing hlc timestamp"}

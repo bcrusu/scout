@@ -36,6 +36,7 @@ func New(store storage.Store) *Shared {
 func (n *Shared) Discover(ctx context.Context, _ *emptypb.Empty) (*control.DiscoverResponse, error) {
 	raft := n.store.Raft()
 
+	// TODO: beter encapsulation for reuse in GetClusterInfo
 	leaderID, _, ok := raft.GetLeader()
 	if !ok {
 		log.Debug(ctx, "Discover failed. Leader not available.")
@@ -61,4 +62,24 @@ func (n *Shared) Discover(ctx context.Context, _ *emptypb.Empty) (*control.Disco
 		Servers:           servers,
 		ServiceConfigJson: n.serviceConfigJson,
 	}, nil
+}
+
+func (n *Shared) GetClusterInfo(ctx context.Context, req *emptypb.Empty) (*control.ClusterInfo, error) {
+	cluster := n.store.Cluster()
+	raft := n.store.Raft()
+	var leader *control.Server
+
+	if name, _, ok := raft.GetLeader(); ok {
+		leader = cluster.Servers.ForName(string(name))
+	}
+
+	result := &control.ClusterInfo{
+		Cluster: cluster,
+	}
+
+	if leader != nil {
+		result.ControlLeaderId = leader.Id
+	}
+
+	return result, nil
 }
