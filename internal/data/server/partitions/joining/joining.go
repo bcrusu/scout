@@ -175,7 +175,7 @@ func (p *Joining) makeCandidates(config *control.DataServerConfig_Partition, par
 			return -1
 		case a.replica.State != b.replica.State:
 			// non-voter replicas first
-			if a.replica.State == control.DataServerConfig_NonVoter {
+			if a.replica.State == control.ReplicaState_NonVoter {
 				return -1
 			}
 			return 1

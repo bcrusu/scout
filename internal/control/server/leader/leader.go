@@ -5,13 +5,13 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/common"
-	"github.com/bcrusu/scout/internal/control/server/convert"
 	"github.com/bcrusu/scout/internal/control/server/leader/partitions"
 	"github.com/bcrusu/scout/internal/control/server/leader/sessions"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -59,7 +59,7 @@ func (n *Leader) Stop() {
 
 func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {
 	cmd := &storage.Register{
-		Type:    convert.ToServerType(req.Type),
+		Type:    req.Type,
 		Token:   req.Token,
 		Address: req.Address,
 	}
@@ -77,4 +77,8 @@ func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*c
 
 func (n *Leader) NewSession(stream grpc.BidiStreamingServer[control.SessionIn, control.SessionOut]) error {
 	return n.sessionTracker.NewSession(stream)
+}
+
+func (n *Leader) GetCluster(ctx context.Context, req *emptypb.Empty) (*control.Cluster, error) {
+	return n.store.Cluster(), nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -37,7 +38,7 @@ func (s *roleDrainer) Stop() {
 	s.inner.Stop()
 }
 
-func (s *roleDrainer) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
+func (s *roleDrainer) Discover(ctx context.Context, req *emptypb.Empty) (*control.DiscoverResponse, error) {
 	cctx, cancel := s.drainer.WithDrain(ctx)
 	defer cancel()
 	return s.inner.Discover(cctx, req)
@@ -59,6 +60,12 @@ func (s *roleDrainer) NewSession(stream grpc.BidiStreamingServer[control.Session
 	}
 
 	return s.inner.NewSession(w)
+}
+
+func (s *roleDrainer) GetCluster(ctx context.Context, req *emptypb.Empty) (*control.Cluster, error) {
+	cctx, cancel := s.drainer.WithDrain(ctx)
+	defer cancel()
+	return s.inner.GetCluster(cctx, req)
 }
 
 type sessionStreamWrapper struct {

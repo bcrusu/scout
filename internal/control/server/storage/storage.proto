@@ -4,6 +4,7 @@ package control.storage;
 
 option go_package = "github.com/bcrusu/scout/internal/control/server/storage";
 
+import "internal/control/control.proto";
 import "google/protobuf/timestamp.proto";
 
 message Command {
@@ -111,76 +112,4 @@ message UpdateAssignments {
     repeated Add add = 2;
     repeated Update update = 3;
     repeated Remove remove = 4;
-}
-
-message Snapshot {
-    uint64 index = 1;
-    uint64 version = 2;
-    string cluster_name = 3;
-    google.protobuf.Timestamp cluster_created_time = 4;
-    Servers servers = 5;
-    Partitions partitions = 6;
-    uint32 partition_count = 7;
-}
-
-enum ServerType {
-    Unknown = 0;
-    Control = 1;
-    Data = 2;
-    Api = 3;
-}
-
-message Server {
-    uint64 id = 1;
-    string name = 2;
-    ServerType type = 3;
-    google.protobuf.Timestamp registered_at = 4;
-    google.protobuf.Timestamp last_seen = 5;
-    string last_address = 6;
-}
-
-message Servers {
-    uint64 version = 1;
-    uint64 register_version = 2;
-    map<uint64, Server> items = 3;
-    uint64 last_id = 4;
-    map<string, uint64> tokens = 5;
-}
-
-enum ReplicaState {
-    Joining = 0;
-    Voter = 1;
-    NonVoter = 2;
-    Leaving = 3;
-}
-
-// Partition represents a data storage partition which has a one-to-one
-// mapping to a Raft replication group. Each partition contains a set of
-// replicas and thir placement to servers. Each replica corresponds to
-// one Raft group member.
-message Partition {
-    message Replica {
-        string name = 1;
-        uint64 server_id = 2;
-        ReplicaState state = 3;
-        google.protobuf.Timestamp created_time = 4;
-        google.protobuf.Timestamp state_transition_time = 5;
-        google.protobuf.Timestamp last_update = 6;
-        uint64 applied_index = 7;
-        bool ready = 8;
-    }
-
-    uint32 id = 1;
-    map<string, Replica> replicas = 2;
-    uint64 last_replica_id = 3;
-    uint64 assignments_version = 4;
-    string leader = 5;
-    uint64 leader_term = 6;
-    uint64 commited_index = 7;
-}
-
-message Partitions {
-    uint64 version = 1;
-    uint64 assignments_version = 2;
-    map<uint32, Partition> items = 3;
 }

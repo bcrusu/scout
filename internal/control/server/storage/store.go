@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/multiraft"
@@ -39,8 +40,9 @@ type Store interface {
 	Bootstrapped() bool
 	ClusterName() string
 	PartitionCount() uint32
-	Servers() *Servers
-	Partitions() *Partitions
+	Cluster() *control.Cluster
+	Servers() *control.Servers
+	Partitions() *control.Partitions
 
 	Bootstrap(*Bootstrap) (*BootstrapResult, error)
 	Register(*Register) (*RegisterResult, error)
@@ -53,12 +55,8 @@ type store struct {
 	raft       *multiraft.Raft
 	fsm        *FSM
 	cancelFunc context.CancelFunc
-	// all below are cached copies of FSM fields
-	lock           sync.RWMutex
-	clusterName    string
-	partitionCount uint32
-	servers        *Servers
-	partitions     *Partitions
+	lock       sync.RWMutex
+	cluster    *control.Cluster // cached copy of FSM.Cluster()
 }
 
 func NewStore(raft *multiraft.Raft, fsm *FSM) *store {
@@ -83,35 +81,24 @@ func (s *store) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case <-notifyDebounced:
+			next := utils.CloneProto(s.fsm.Cluster())
+
 			s.lock.Lock()
-			s.fsm.lock.RLock()
 
-			s.clusterName = s.fsm.clusterName
-			s.partitionCount = s.fsm.partitionCount
+			prev := s.cluster
+			s.cluster = next
+			publishServers := prev == nil || prev.Servers.Version != next.Servers.Version
+			publishPartitions := prev == nil || prev.Partitions.Version != next.Partitions.Version
 
-			publishServers := false
-			if s.servers == nil || s.servers.Version != s.fsm.servers.Version {
-				s.servers = utils.CloneProto(s.fsm.servers)
-				publishServers = true
-			}
-
-			publishPartitions := false
-			if s.partitions == nil || s.partitions.Version != s.fsm.partitions.Version {
-				s.partitions = utils.CloneProto(s.fsm.partitions)
-				publishPartitions = true
-			}
-
-			s.fsm.lock.RUnlock()
+			s.lock.Unlock()
 
 			if publishServers {
-				eventbus.TryPublish(s.servers)
+				eventbus.TryPublish(next.Servers)
 			}
 
 			if publishPartitions {
-				eventbus.TryPublish(s.partitions)
+				eventbus.TryPublish(next.Partitions)
 			}
-
-			s.lock.Unlock()
 		case <-ctx.Done():
 			return
 		}
@@ -125,29 +112,47 @@ func (s *store) Raft() *multiraft.Raft {
 func (s *store) ClusterName() string {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.clusterName
+	if s.cluster == nil {
+		return ""
+	}
+	return s.cluster.Name
 }
 
 func (s *store) PartitionCount() uint32 {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.partitionCount
+	if s.cluster == nil {
+		return 0
+	}
+	return s.cluster.PartitionCount
 }
 
 func (s *store) Bootstrapped() bool {
 	return s.ClusterName() != ""
 }
 
-func (s *store) Servers() *Servers {
+func (s *store) Cluster() *control.Cluster {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.servers
+	return s.cluster
 }
 
-func (s *store) Partitions() *Partitions {
+func (s *store) Servers() *control.Servers {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.partitions
+	if s.cluster == nil {
+		return nil
+	}
+	return s.cluster.Servers
+}
+
+func (s *store) Partitions() *control.Partitions {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	if s.cluster == nil {
+		return nil
+	}
+	return s.cluster.Partitions
 }
 
 func (s *store) Bootstrap(cmd *Bootstrap) (*BootstrapResult, error) {
@@ -160,7 +165,7 @@ func (s *store) Register(cmd *Register) (*RegisterResult, error) {
 		return nil, err
 	}
 
-	if cmd.Type == ServerType_Control {
+	if cmd.Type == control.ServerType_Control {
 		// For control plane servers, add them immediately to the Raft group.
 		// If the operation fails, the server can retry later with the same token
 		// to recover the original id/name pair assigned above by the store in the

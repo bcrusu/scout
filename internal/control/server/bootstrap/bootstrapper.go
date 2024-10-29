@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/identity"
@@ -52,8 +53,8 @@ func NewBootstrapper(store storage.Store, idStore identity.Store, backoff utils.
 
 // ValidateParams ensures that we have everything required to start the show.
 func ValidateParams(p *Params) error {
-	if p == nil || !storage.IsValidClusterName(p.ClusterName) || !storage.IsValidAddress(p.LocalAddress) ||
-		!storage.IsValidPartitionCount(p.PartitionCount) {
+	if p == nil || !control.IsValidClusterName(p.ClusterName) || !control.IsValidAddress(p.LocalAddress) ||
+		!control.IsValidPartitionCount(p.PartitionCount) {
 		return errors.Error("invalid bootstrap parameters")
 	}
 

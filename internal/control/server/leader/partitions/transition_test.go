@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/config"
 	"github.com/bcrusu/scout/internal/control/server/leader/partitions"
-	"github.com/bcrusu/scout/internal/control/server/storage"
 )
 
 const (
@@ -47,17 +47,17 @@ func newRandomState(seed1, seed2 int) *partitions.State {
 		return min + (rand.Int() % (max - min))
 	}
 
-	randReplicaState := func() storage.ReplicaState {
+	randReplicaState := func() control.ReplicaState {
 		x := rand.IntN(100)
 		switch {
 		case x < 5:
-			return storage.ReplicaState_Leaving
+			return control.ReplicaState_Leaving
 		case x < 20:
-			return storage.ReplicaState_Joining
+			return control.ReplicaState_Joining
 		case x < 60:
-			return storage.ReplicaState_NonVoter
+			return control.ReplicaState_NonVoter
 		default:
-			return storage.ReplicaState_Voter
+			return control.ReplicaState_Voter
 		}
 	}
 
@@ -97,10 +97,10 @@ func newRandomState(seed1, seed2 int) *partitions.State {
 			switch {
 			case replicaState.IsServing():
 				state.AddServing(sid, pid)
-			case replicaState == storage.ReplicaState_Joining:
+			case replicaState == control.ReplicaState_Joining:
 				ready = randBool()
 				state.AddJoining(sid, pid)
-			case replicaState == storage.ReplicaState_Leaving:
+			case replicaState == control.ReplicaState_Leaving:
 				ready = randBool()
 				state.AddLeaving(sid, pid)
 			}

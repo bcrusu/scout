@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
@@ -17,15 +18,15 @@ var (
 )
 
 type FSM struct {
-	notifyCh           chan bool    // notify store
-	lock               sync.RWMutex // guards all below
-	index              uint64       // last applied raft index
-	version            uint64       // used for optimistic concurrency control
-	clusterName        string       // read-only cluster name set during bootstrap
-	clusterCreatedTime time.Time    // records the time when the cluster was created (UTC)
-	partitionCount     uint32       // fixed number of data partitions
-	servers            *Servers
-	partitions         *Partitions
+	notifyCh       chan bool    // notify store
+	lock           sync.RWMutex // guards all below
+	index          uint64       // last applied raft index
+	version        uint64       // used for optimistic concurrency control
+	clusterName    string       // read-only cluster name set during bootstrap
+	createdTime    time.Time    // records the time when the cluster was created (UTC)
+	partitionCount uint32       // fixed number of data partitions
+	servers        *control.Servers
+	partitions     *control.Partitions
 	// TODO: store HCL timestamp
 }
 
@@ -94,24 +95,12 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 }
 
 func (f *FSM) Snapshot() ([]byte, error) {
-	f.lock.RLock()
-	defer f.lock.RUnlock()
-
-	snap := &Snapshot{
-		Index:              f.index,
-		Version:            f.version,
-		ClusterName:        f.clusterName,
-		ClusterCreatedTime: timestamppb.New(f.clusterCreatedTime),
-		Servers:            f.servers,
-		Partitions:         f.partitions,
-		PartitionCount:     f.partitionCount,
-	}
-
-	return utils.MarshalProto(snap)
+	c := f.Cluster()
+	return utils.MarshalProto(c)
 }
 
 func (f *FSM) Restore(data []byte) error {
-	snap, err := utils.UnmarshalProto[Snapshot](data)
+	c, err := utils.UnmarshalProto[control.Cluster](data)
 	if err != nil {
 		return err
 	}
@@ -119,16 +108,31 @@ func (f *FSM) Restore(data []byte) error {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	f.index = snap.Index
-	f.version = snap.Version
-	f.clusterName = snap.ClusterName
-	f.clusterCreatedTime = snap.ClusterCreatedTime.AsTime()
-	f.servers = snap.Servers
-	f.partitions = snap.Partitions
-	f.partitionCount = snap.PartitionCount
+	f.version = c.Version
+	f.index = c.Index
+	f.clusterName = c.Name
+	f.createdTime = c.CreatedTime.AsTime()
+	f.servers = c.Servers
+	f.partitions = c.Partitions
+	f.partitionCount = c.PartitionCount
 
 	f.notifyStore()
 	return nil
+}
+
+func (f *FSM) Cluster() *control.Cluster {
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	return &control.Cluster{
+		Index:          f.index,
+		Version:        f.version,
+		Name:           f.clusterName,
+		CreatedTime:    timestamppb.New(f.createdTime),
+		Servers:        f.servers,
+		Partitions:     f.partitions,
+		PartitionCount: f.partitionCount,
+	}
 }
 
 func (f *FSM) notifyStore() {

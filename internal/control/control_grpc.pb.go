@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -22,6 +23,7 @@ const (
 	Service_Discover_FullMethodName   = "/control.Service/Discover"
 	Service_Register_FullMethodName   = "/control.Service/Register"
 	Service_NewSession_FullMethodName = "/control.Service/NewSession"
+	Service_GetCluster_FullMethodName = "/control.Service/GetCluster"
 )
 
 // ServiceClient is the client API for Service service.
@@ -34,7 +36,7 @@ type ServiceClient interface {
 	// plane cluster servers and it is the only method that can be
 	// invoked both on leader and followers. All the other methods
 	// below must be invoked on the control plane leader.
-	Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error)
+	Discover(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DiscoverResponse, error)
 	// Register adds a new server to the control or data planes.
 	// It is the first operation performed by all new servers.
 	// Once registered, a Control plane server is added to the
@@ -49,6 +51,7 @@ type ServiceClient interface {
 	// control plane. A server must first register itself before
 	// starting a new session.
 	NewSession(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SessionIn, SessionOut], error)
+	GetCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Cluster, error)
 }
 
 type serviceClient struct {
@@ -59,7 +62,7 @@ func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
 	return &serviceClient{cc}
 }
 
-func (c *serviceClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
+func (c *serviceClient) Discover(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DiscoverResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DiscoverResponse)
 	err := c.cc.Invoke(ctx, Service_Discover_FullMethodName, in, out, cOpts...)
@@ -92,6 +95,16 @@ func (c *serviceClient) NewSession(ctx context.Context, opts ...grpc.CallOption)
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Service_NewSessionClient = grpc.BidiStreamingClient[SessionIn, SessionOut]
 
+func (c *serviceClient) GetCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Cluster, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Cluster)
+	err := c.cc.Invoke(ctx, Service_GetCluster_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
@@ -102,7 +115,7 @@ type ServiceServer interface {
 	// plane cluster servers and it is the only method that can be
 	// invoked both on leader and followers. All the other methods
 	// below must be invoked on the control plane leader.
-	Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error)
+	Discover(context.Context, *emptypb.Empty) (*DiscoverResponse, error)
 	// Register adds a new server to the control or data planes.
 	// It is the first operation performed by all new servers.
 	// Once registered, a Control plane server is added to the
@@ -117,6 +130,7 @@ type ServiceServer interface {
 	// control plane. A server must first register itself before
 	// starting a new session.
 	NewSession(grpc.BidiStreamingServer[SessionIn, SessionOut]) error
+	GetCluster(context.Context, *emptypb.Empty) (*Cluster, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -127,7 +141,7 @@ type ServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedServiceServer struct{}
 
-func (UnimplementedServiceServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
+func (UnimplementedServiceServer) Discover(context.Context, *emptypb.Empty) (*DiscoverResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
 func (UnimplementedServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
@@ -135,6 +149,9 @@ func (UnimplementedServiceServer) Register(context.Context, *RegisterRequest) (*
 }
 func (UnimplementedServiceServer) NewSession(grpc.BidiStreamingServer[SessionIn, SessionOut]) error {
 	return status.Errorf(codes.Unimplemented, "method NewSession not implemented")
+}
+func (UnimplementedServiceServer) GetCluster(context.Context, *emptypb.Empty) (*Cluster, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCluster not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -158,7 +175,7 @@ func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
 }
 
 func _Service_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DiscoverRequest)
+	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -170,7 +187,7 @@ func _Service_Discover_Handler(srv interface{}, ctx context.Context, dec func(in
 		FullMethod: Service_Discover_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Discover(ctx, req.(*DiscoverRequest))
+		return srv.(ServiceServer).Discover(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -200,6 +217,24 @@ func _Service_NewSession_Handler(srv interface{}, stream grpc.ServerStream) erro
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type Service_NewSessionServer = grpc.BidiStreamingServer[SessionIn, SessionOut]
 
+func _Service_GetCluster_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetCluster(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_GetCluster_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetCluster(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -214,6 +249,10 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Register",
 			Handler:    _Service_Register_Handler,
+		},
+		{
+			MethodName: "GetCluster",
+			Handler:    _Service_GetCluster_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

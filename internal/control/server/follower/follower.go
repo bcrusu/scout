@@ -10,6 +10,7 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -45,4 +46,8 @@ func (n *Follower) Register(ctx context.Context, req *control.RegisterRequest) (
 
 func (n *Follower) NewSession(stream grpc.BidiStreamingServer[control.SessionIn, control.SessionOut]) error {
 	return errors.NotLeader
+}
+
+func (n *Follower) GetCluster(ctx context.Context, req *emptypb.Empty) (*control.Cluster, error) {
+	return nil, errors.NotLeader
 }

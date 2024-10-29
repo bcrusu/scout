@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/config"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/eventbus"
@@ -40,7 +41,7 @@ func (a *Assigner) Stop() {
 }
 
 func (a *Assigner) mainLoop(ctx context.Context) {
-	serversSub := eventbus.Subscribe[*storage.Servers]()
+	serversSub := eventbus.Subscribe[*control.Servers]()
 	defer serversSub.Unsubscribe()
 
 	for {
@@ -61,7 +62,7 @@ func (a *Assigner) assignLoop(ctx context.Context) {
 	var initTimer *time.Timer
 	var rebalanceTicker *time.Ticker
 
-	if !a.store.Partitions().IsInitialized() {
+	if !a.store.Partitions().HasAssignments() {
 		initTimer = time.NewTimer(a.config.InitDelay)
 	} else {
 		rebalanceTicker = time.NewTicker(a.config.RebalanceInterval)
@@ -76,7 +77,7 @@ func (a *Assigner) assignLoop(ctx context.Context) {
 			initTimer = nil
 			rebalanceTicker = time.NewTicker(a.config.RebalanceInterval)
 		case <-utils.GetTickerChan(rebalanceTicker):
-			if !a.store.Partitions().IsInitialized() {
+			if !a.store.Partitions().HasAssignments() {
 				a.initAssignments()
 			} else {
 				a.updateAssignments()

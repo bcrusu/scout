@@ -3,6 +3,7 @@ package storage
 import (
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -12,37 +13,37 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 	}
 
 	f.clusterName = cmd.ClusterName
-	f.clusterCreatedTime = appendedAt
+	f.createdTime = appendedAt
 	f.partitionCount = cmd.PartitionCount
 
-	f.servers = &Servers{
+	f.servers = &control.Servers{
 		Version:         1,
 		RegisterVersion: 1,
-		Items:           map[uint64]*Server{},
+		Items:           map[uint64]*control.Server{},
 		Tokens:          map[string]uint64{},
 	}
 
 	for _, server := range cmd.Servers {
 		f.servers.LastId = max(f.servers.LastId, server.Id)
 
-		f.servers.Items[server.Id] = &Server{
+		f.servers.Items[server.Id] = &control.Server{
 			Id:           server.Id,
 			Name:         server.Name,
-			Type:         ServerType_Control,
+			Type:         control.ServerType_Control,
 			RegisteredAt: timestamppb.New(appendedAt),
 			LastSeen:     timestamppb.New(appendedAt),
 			LastAddress:  server.Address,
 		}
 	}
 
-	f.partitions = &Partitions{
-		Items: map[uint32]*Partition{},
+	f.partitions = &control.Partitions{
+		Items: map[uint32]*control.Partition{},
 	}
 
 	for id := range cmd.PartitionCount {
-		f.partitions.Items[id] = &Partition{
+		f.partitions.Items[id] = &control.Partition{
 			Id:       id,
-			Replicas: map[string]*Partition_Replica{},
+			Replicas: map[string]*control.Partition_Replica{},
 		}
 	}
 

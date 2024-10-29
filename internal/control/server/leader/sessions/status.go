@@ -89,7 +89,7 @@ type partitionStatus struct {
 	Dirty         bool
 }
 
-func newStatusTracker(servers *storage.Servers, partitions *storage.Partitions) *statusTracker {
+func newStatusTracker(servers *control.Servers, partitions *control.Partitions) *statusTracker {
 	sStatus := map[uint64]*serverStatus{}
 	for sid, server := range servers.Items {
 		sStatus[sid] = &serverStatus{
@@ -188,7 +188,7 @@ func (t *statusTracker) getPartitionLeader(pid uint32) string {
 	return t.partitions[pid].Leader
 }
 
-func (t *statusTracker) syncServers(newServers *storage.Servers) {
+func (t *statusTracker) syncServers(newServers *control.Servers) {
 	for sid := range t.servers {
 		if _, ok := newServers.Items[sid]; !ok {
 			delete(t.servers, sid)
@@ -205,7 +205,7 @@ func (t *statusTracker) syncServers(newServers *storage.Servers) {
 	}
 }
 
-func (t *statusTracker) syncPartitions(newPartitions *storage.Partitions) {
+func (t *statusTracker) syncPartitions(newPartitions *control.Partitions) {
 	for pid, part := range t.partitions {
 		for name := range part.Replicas {
 			if _, ok := newPartitions.Items[pid].Replicas[name]; !ok {

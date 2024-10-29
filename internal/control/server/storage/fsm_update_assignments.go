@@ -3,6 +3,7 @@ package storage
 import (
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -10,7 +11,7 @@ import (
 func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignments) (*UpdateResult, error) {
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.partitions.AssignmentsVersion {
 		return nil, errors.FailedPrecondition
-	} else if !f.partitions.IsInitialized() {
+	} else if !f.partitions.HasAssignments() {
 		// init assignments did not happen
 		return nil, errors.InvalidRequest
 	} else if err := f.validateUpdateAssignments(cmd); err != nil {
@@ -20,13 +21,13 @@ func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignment
 	changed := map[uint32]bool{}
 
 	for _, x := range cmd.Add {
-		part := f.getPartition(x.PartitionId)
-		name := part.nextReplicaName()
+		part := f.partitions.Items[x.PartitionId]
+		name := f.nextReplicaName(part.Id)
 
-		part.Replicas[name] = &Partition_Replica{
+		part.Replicas[name] = &control.Partition_Replica{
 			Name:                name,
 			ServerId:            x.ServerId,
-			State:               ReplicaState_Joining,
+			State:               control.ReplicaState_Joining,
 			CreatedTime:         timestamppb.New(appendedAt),
 			StateTransitionTime: timestamppb.New(appendedAt),
 		}
@@ -34,20 +35,20 @@ func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignment
 	}
 
 	for _, x := range cmd.Update {
-		replica := f.getReplicaByName(x.PartitionId, x.Replica)
+		replica := f.getReplica(x.PartitionId, x.Replica)
 		replica.State = x.State
 		replica.StateTransitionTime = timestamppb.New(appendedAt)
 		changed[x.PartitionId] = true
 	}
 
 	for _, x := range cmd.Remove {
-		part := f.getPartition(x.PartitionId)
+		part := f.partitions.Items[x.PartitionId]
 		delete(part.Replicas, x.Replica)
 		changed[x.PartitionId] = true
 	}
 
 	for pid := range changed {
-		part := f.getPartition(pid)
+		part := f.partitions.Items[pid]
 		part.AssignmentsVersion++
 	}
 
@@ -84,8 +85,8 @@ func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
 			return errors.Error("has invalid state transition")
 		}
 
-		part := f.getPartition(x.PartitionId)
-		servingCount := part.getServingReplicaCount()
+		part := f.partitions.Items[x.PartitionId]
+		servingCount := part.ServingReplicaCount()
 
 		// does not allow the last serving replica to leave
 		if servingCount == 1 && !x.State.IsServing() {
@@ -99,7 +100,7 @@ func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
 		}
 
 		// it first needs to transition to leaving, then it can be removed
-		if replica := f.getReplicaByName(x.PartitionId, x.Replica); replica.State != ReplicaState_Leaving {
+		if replica := f.getReplica(x.PartitionId, x.Replica); replica.State != control.ReplicaState_Leaving {
 			return errors.Error("cannot remove non-leaving replica")
 		}
 	}

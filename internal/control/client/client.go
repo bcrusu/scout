@@ -5,7 +5,6 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
@@ -13,8 +12,7 @@ import (
 )
 
 var (
-	_    ControlClient = (*controlClient)(nil)
-	logC               = logging.New("control_client")
+	_ ControlClient = (*controlClient)(nil)
 )
 
 func init() {

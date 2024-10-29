@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const (
@@ -127,7 +128,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 	}
 	defer conn.Stop()
 
-	resp, err := client.Discover(ctx, &control.DiscoverRequest{})
+	resp, err := client.Discover(ctx, &emptypb.Empty{})
 	if err != nil {
 		logR.WithError(err).Warnf(ctx, "Discover call failed")
 		r.clientConn.ReportError(err)

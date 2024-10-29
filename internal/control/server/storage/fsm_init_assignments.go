@@ -3,12 +3,13 @@ package storage
 import (
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (f *FSM) applyInitAssignments(appendedAt time.Time, cmd *InitAssignments) (*UpdateResult, error) {
-	if f.partitions.IsInitialized() {
+	if f.partitions.HasAssignments() {
 		// init needs to happen only once right after bootstrap
 		return nil, errors.InvalidRequest
 	} else if err := f.validateInitAssignments(cmd); err != nil {
@@ -17,14 +18,14 @@ func (f *FSM) applyInitAssignments(appendedAt time.Time, cmd *InitAssignments) (
 
 	for _, x := range cmd.Add {
 		part := f.partitions.Items[x.PartitionId]
-		name := part.nextReplicaName()
+		name := f.nextReplicaName(part.Id)
 
-		state := ReplicaState_Voter
+		state := control.ReplicaState_Voter
 		if !x.Voter {
-			state = ReplicaState_NonVoter
+			state = control.ReplicaState_NonVoter
 		}
 
-		part.Replicas[name] = &Partition_Replica{
+		part.Replicas[name] = &control.Partition_Replica{
 			Name:                name,
 			ServerId:            x.ServerId,
 			State:               state,

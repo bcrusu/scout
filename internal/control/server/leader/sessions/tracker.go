@@ -9,7 +9,6 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/config"
-	"github.com/bcrusu/scout/internal/control/server/convert"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/txn"
@@ -118,8 +117,8 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 }
 
 func (t *Tracker) mainLoop(ctx context.Context) {
-	serversSub := eventbus.Subscribe[*storage.Servers]()
-	partitionsSub := eventbus.Subscribe[*storage.Partitions]()
+	serversSub := eventbus.Subscribe[*control.Servers]()
+	partitionsSub := eventbus.Subscribe[*control.Partitions]()
 	writeLatestStatusTicker := time.NewTicker(t.config.Sessions.WriteStatusInterval)
 	defer serversSub.Unsubscribe()
 	defer partitionsSub.Unsubscribe()
@@ -156,13 +155,13 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case x := <-t.startSessionCh:
-			server := servers.ByID(x.serverID)
+			server := servers.Items[x.serverID]
 			if server == nil {
 				logS.Warnf(ctx, "Session hello for unknown server %d at %s.", x.serverID, x.serverAddress)
 				x.waitCh <- errors.NotRegistered
 				continue
 			}
-			if server.Type == storage.ServerType_Control {
+			if server.Type == control.ServerType_Control {
 				logS.Warnf(ctx, "Control server %d at %s trying to start session.", x.serverID, x.serverAddress)
 				x.waitCh <- errors.PermissionDenied
 				continue
@@ -175,7 +174,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			new := &session{
 				id:            sessionCounter,
 				serverID:      x.serverID,
-				serverType:    convert.FromServerType(server.Type),
+				serverType:    server.Type,
 				serverAddress: x.serverAddress,
 				createdAt:     now,
 				sendBufferCh:  make(chan *control.SessionOut, t.config.Sessions.SendBufferSize),
@@ -242,7 +241,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 
 			// close sessions for removed servers
 			for serverID, sess := range sessionsByServer {
-				if newServers.ByID(serverID) == nil {
+				if newServers.Items[serverID] == nil {
 					closeSession(sess.id, errors.NotRegistered)
 				}
 			}
@@ -303,7 +302,7 @@ SHUTDOWN:
 	}
 }
 
-func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Servers, partitions *storage.Partitions, status *statusTracker) {
+func (t *Tracker) updateDataServerList(sessions sessions, servers *control.Servers, partitions *control.Partitions, status *statusTracker) {
 	new := &control.DataServers{
 		Servers:           map[uint64]*control.DataServers_Server{},
 		Partitions:        map[uint32]*control.DataServers_Partition{},
@@ -360,7 +359,7 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *storage.Serve
 	sessions.trySendAll(out)
 }
 
-func (t *Tracker) updateApiServerList(sessions sessions, servers *storage.Servers, status *statusTracker) {
+func (t *Tracker) updateApiServerList(sessions sessions, servers *control.Servers, status *statusTracker) {
 	new := &control.ApiServers{
 		Servers:           map[uint64]*control.ApiServers_Server{},
 		ServiceConfigJson: t.apiServiceConfigJson,
@@ -389,7 +388,7 @@ func (t *Tracker) updateApiServerList(sessions sessions, servers *storage.Server
 	sessions.trySendServerType(out, control.ServerType_Api)
 }
 
-func (t *Tracker) updateDataServerConfigs(sessions sessions, servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
+func (t *Tracker) updateDataServerConfigs(sessions sessions, servers *control.Servers, partitions *control.Partitions) dsConfigs {
 	new := t.makeDataServerConfigs(servers, partitions)
 
 	for _, sess := range sessions {
@@ -407,7 +406,7 @@ func (t *Tracker) updateDataServerConfigs(sessions sessions, servers *storage.Se
 	return new
 }
 
-func (t *Tracker) updateApiServerConfigs(sessions sessions, servers *storage.Servers) asConfigs {
+func (t *Tracker) updateApiServerConfigs(sessions sessions, servers *control.Servers) asConfigs {
 	new := t.makeApiServerConfigs(servers)
 
 	for _, sess := range sessions {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -18,10 +19,10 @@ const (
 )
 
 var (
-	serverNamePrefix = map[ServerType]string{
-		ServerType_Control: "control_",
-		ServerType_Data:    "data_",
-		ServerType_Api:     "api_",
+	serverNamePrefix = map[control.ServerType]string{
+		control.ServerType_Control: "control_",
+		control.ServerType_Data:    "data_",
+		control.ServerType_Api:     "api_",
 	}
 )
 
@@ -45,7 +46,7 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 	id := f.nextServerID()
 	name := fmt.Sprintf("%s%d", serverNamePrefix[cmd.Type], id)
 
-	f.servers.Items[id] = &Server{
+	f.servers.Items[id] = &control.Server{
 		Id:           id,
 		Name:         name,
 		Type:         cmd.Type,

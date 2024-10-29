@@ -3,6 +3,7 @@ package partitions
 import (
 	"fmt"
 
+	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/storage"
 )
 
@@ -24,7 +25,7 @@ func (a *Assigner) updateAssignments() {
 	}
 }
 
-func (a *Assigner) makeState(servers *storage.Servers, partitions *storage.Partitions) *State {
+func (a *Assigner) makeState(servers *control.Servers, partitions *control.Partitions) *State {
 	result := NewState()
 
 	for sid := range servers.DataServers() {
@@ -40,9 +41,9 @@ func (a *Assigner) makeState(servers *storage.Servers, partitions *storage.Parti
 			switch {
 			case replica.State.IsServing():
 				result.AddServing(sid, pid)
-			case replica.State == storage.ReplicaState_Joining:
+			case replica.State == control.ReplicaState_Joining:
 				result.AddJoining(sid, pid)
-			case replica.State == storage.ReplicaState_Leaving:
+			case replica.State == control.ReplicaState_Leaving:
 				result.AddLeaving(sid, pid)
 			default:
 				panic(fmt.Sprintf("unhandled replica state %s", replica.State))
@@ -84,7 +85,7 @@ func (a *Assigner) makeUpdateAssignments(version uint64, curr, next *State) *sto
 				cmd.Update = append(cmd.Update, &storage.UpdateAssignments_Update{
 					PartitionId: pid,
 					Replica:     replica.Name,
-					State:       storage.ReplicaState_Voter,
+					State:       control.ReplicaState_Voter,
 				})
 			}
 		}
@@ -96,7 +97,7 @@ func (a *Assigner) makeUpdateAssignments(version uint64, curr, next *State) *sto
 				cmd.Update = append(cmd.Update, &storage.UpdateAssignments_Update{
 					PartitionId: pid,
 					Replica:     replica.Name,
-					State:       storage.ReplicaState_Leaving,
+					State:       control.ReplicaState_Leaving,
 				})
 			}
 		}

@@ -58,11 +58,11 @@ func TryMakeRaftServerList(config *control.DataServerConfig_Partition, dataServe
 		var suffrage raft.ServerSuffrage
 
 		switch replica.State {
-		case control.DataServerConfig_Joining, control.DataServerConfig_NonVoter:
+		case control.ReplicaState_Joining, control.ReplicaState_NonVoter:
 			suffrage = raft.Nonvoter
-		case control.DataServerConfig_Voter:
+		case control.ReplicaState_Voter:
 			suffrage = raft.Voter
-		case control.DataServerConfig_Leaving:
+		case control.ReplicaState_Leaving:
 			// skip the leaving replica which results in it being removed from Raft configuration by the group leader
 			continue
 		default:

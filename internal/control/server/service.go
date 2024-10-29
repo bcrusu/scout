@@ -13,6 +13,7 @@ import (
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -137,7 +138,7 @@ func (s *ControlService) getRole() (role, error) {
 	return v, nil
 }
 
-func (s *ControlService) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
+func (s *ControlService) Discover(ctx context.Context, req *emptypb.Empty) (*control.DiscoverResponse, error) {
 	if !s.store.Bootstrapped() {
 		return nil, errors.Unavailable
 	} else if role, err := s.getRole(); err != nil {
@@ -164,5 +165,15 @@ func (s *ControlService) NewSession(stream grpc.BidiStreamingServer[control.Sess
 		return err
 	} else {
 		return role.NewSession(stream)
+	}
+}
+
+func (s *ControlService) GetCluster(ctx context.Context, req *emptypb.Empty) (*control.Cluster, error) {
+	if !s.store.Bootstrapped() {
+		return nil, errors.Unavailable
+	} else if role, err := s.getRole(); err != nil {
+		return nil, err
+	} else {
+		return role.GetCluster(ctx, req)
 	}
 }

@@ -5,15 +5,13 @@ import (
 	"strconv"
 
 	"github.com/bcrusu/scout/internal/control"
-	"github.com/bcrusu/scout/internal/control/server/convert"
-	"github.com/bcrusu/scout/internal/control/server/storage"
 )
 
 type dsConfigs map[uint64]*control.DataServerConfig
 type asConfigs map[uint64]*control.ApiServerConfig
 type dsPartMap map[uint32]*control.DataServerConfig_Partition
 
-func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *storage.Partitions) dsConfigs {
+func (t *Tracker) makeDataServerConfigs(servers *control.Servers, partitions *control.Partitions) dsConfigs {
 	byServer := map[uint64]dsPartMap{}
 
 	for _, p := range partitions.Items {
@@ -27,7 +25,7 @@ func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *st
 			partition.Replicas[replica.Name] = &control.DataServerConfig_Replica{
 				Name:     replica.Name,
 				ServerId: replica.ServerId,
-				State:    convert.FromReplicaState(replica.State),
+				State:    replica.State,
 			}
 		}
 
@@ -59,7 +57,7 @@ func (t *Tracker) makeDataServerConfigs(servers *storage.Servers, partitions *st
 	return result
 }
 
-func (t *Tracker) makeApiServerConfigs(servers *storage.Servers) asConfigs {
+func (t *Tracker) makeApiServerConfigs(servers *control.Servers) asConfigs {
 	result := asConfigs{}
 	for id := range servers.ApiServers() {
 		result[id] = &control.ApiServerConfig{

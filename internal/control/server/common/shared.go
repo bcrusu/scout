@@ -9,6 +9,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 var (
@@ -32,7 +33,7 @@ func New(store storage.Store) *Shared {
 
 // Discover is used early by control plane clients to discover the cluster servers.
 // Can be invoked on leader and followers.
-func (n *Shared) Discover(ctx context.Context, req *control.DiscoverRequest) (*control.DiscoverResponse, error) {
+func (n *Shared) Discover(ctx context.Context, _ *emptypb.Empty) (*control.DiscoverResponse, error) {
 	raft := n.store.Raft()
 
 	leaderID, _, ok := raft.GetLeader()

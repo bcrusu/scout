@@ -30,7 +30,7 @@ type replica struct {
 }
 
 type holder struct {
-	state    control.DataServerConfig_ReplicaState
+	state    control.ReplicaState
 	instance shared.Replica
 }
 
@@ -69,12 +69,12 @@ func (p *replica) mainLoop(ctx context.Context) {
 			} else if replica := x.GetReplica(p.pid, p.name); replica != nil {
 				p.updateReplicaState(ctx, replica.State)
 			} else {
-				p.updateReplicaState(ctx, control.DataServerConfig_Stopped)
+				p.updateReplicaState(ctx, control.ReplicaState_Stopped)
 			}
 
 			config = newConfig
 		case <-ctx.Done():
-			p.updateReplicaState(ctx, control.DataServerConfig_Stopped)
+			p.updateReplicaState(ctx, control.ReplicaState_Stopped)
 			return
 		}
 	}
@@ -85,8 +85,8 @@ func (p *replica) mainLoop(ctx context.Context) {
 //   - joining -> serving || leaving
 //   - serving -> leaving
 //   - leaving -> STOP.
-func (p *replica) updateReplicaState(ctx context.Context, newState control.DataServerConfig_ReplicaState) {
-	oldState := control.DataServerConfig_Stopped
+func (p *replica) updateReplicaState(ctx context.Context, newState control.ReplicaState) {
+	oldState := control.ReplicaState_Stopped
 	var old shared.Replica
 	var new shared.Replica
 
@@ -96,25 +96,25 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	}
 
 	switch newState {
-	case control.DataServerConfig_Stopped:
+	case control.ReplicaState_Stopped:
 		// stop signal
-	case control.DataServerConfig_Joining:
+	case control.ReplicaState_Joining:
 		switch oldState {
-		case control.DataServerConfig_Stopped:
+		case control.ReplicaState_Stopped:
 			new = joining.New(p.pid, p.name, p.multiraft, p.dataClient, p.db.KV())
-		case control.DataServerConfig_Joining:
+		case control.ReplicaState_Joining:
 			new = old
 		}
-	case control.DataServerConfig_NonVoter, control.DataServerConfig_Voter:
+	case control.ReplicaState_NonVoter, control.ReplicaState_Voter:
 		switch oldState {
-		case control.DataServerConfig_Stopped, control.DataServerConfig_Joining:
+		case control.ReplicaState_Stopped, control.ReplicaState_Joining:
 			new = serving.New(p.pid, p.name, p.multiraft, p.dataClient, p.db)
-		case control.DataServerConfig_Voter, control.DataServerConfig_NonVoter:
+		case control.ReplicaState_Voter, control.ReplicaState_NonVoter:
 			new = old
 		}
-	case control.DataServerConfig_Leaving:
+	case control.ReplicaState_Leaving:
 		switch oldState {
-		case control.DataServerConfig_Leaving:
+		case control.ReplicaState_Leaving:
 			new = old
 		default:
 			new = leaving.New(p.pid, p.name, p.multiraft, p.db.KV())
@@ -129,7 +129,7 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.DataS
 	}
 
 	if new == nil {
-		if newState != control.DataServerConfig_Stopped {
+		if newState != control.ReplicaState_Stopped {
 			p.log.Errorf("Replica failed to transition state from %s to %s.", oldState, newState)
 		}
 		return

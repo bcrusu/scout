@@ -1,19 +1,81 @@
 package control
 
 import (
-	"github.com/bcrusu/scout/internal/control/server/storage"
 	"github.com/bcrusu/scout/internal/errors"
 )
 
-func (s DataServerConfig_ReplicaState) IsServing() bool {
-	return s == DataServerConfig_Voter || s == DataServerConfig_NonVoter
+const (
+	maxClusterNameLen = 100
+	maxAddressLen     = 128
+	maxTokenLen       = 1024
+	maxPartitionCount = 1 << 16
+)
+
+func IsValidClusterName(value string) bool {
+	return len(value) > 0 && len(value) <= maxClusterNameLen
 }
 
-func (x *DiscoverRequest) Validate() error {
-	if x == nil {
-		return errors.Error("DiscoverRequest is nil")
+func IsValidAddress(value string) bool {
+	return len(value) > 0 && len(value) <= maxAddressLen
+}
+
+func IsValidToken(value string) bool {
+	return len(value) > 0 && len(value) <= maxTokenLen
+}
+
+func IsValidPartitionCount(value uint32) bool {
+	return value > 0 && value <= maxClusterNameLen
+}
+
+func (s *Servers) ControlServers() map[uint64]*Server {
+	return s.ByType(ServerType_Control)
+}
+
+func (s *Servers) DataServers() map[uint64]*Server {
+	return s.ByType(ServerType_Data)
+}
+
+func (s *Servers) ApiServers() map[uint64]*Server {
+	return s.ByType(ServerType_Api)
+}
+
+func (s *Servers) ByType(stype ServerType) map[uint64]*Server {
+	result := map[uint64]*Server{}
+
+	for id, s := range s.Items {
+		if s.Type == stype {
+			result[id] = s
+		}
+	}
+
+	return result
+}
+
+func (p *Partitions) HasAssignments() bool {
+	return p.AssignmentsVersion > 0
+}
+
+func (p *Partition) ReplicaForServer(serverID uint64) *Partition_Replica {
+	for _, x := range p.Replicas {
+		if x.ServerId == serverID {
+			return x
+		}
 	}
 	return nil
+}
+
+func (p *Partition) ServingReplicaCount() int {
+	result := 0
+	for _, x := range p.Replicas {
+		if x.State.IsServing() {
+			result++
+		}
+	}
+	return result
+}
+
+func (s ReplicaState) IsServing() bool {
+	return s == ReplicaState_Voter || s == ReplicaState_NonVoter
 }
 
 func (x *DiscoverResponse) Validate() error {
@@ -33,7 +95,7 @@ func (x *RegisterRequest) Validate() error {
 		return errors.Error("RegisterRequest is nil")
 	}
 
-	if !storage.IsValidAddress(x.Address) || !storage.IsValidToken(x.Token) {
+	if !IsValidAddress(x.Address) || !IsValidToken(x.Token) {
 		return errors.Error("RegisterRequest has missing fields")
 	}
 
@@ -218,7 +280,7 @@ func (x *DataServerConfig_Replica) Validate() error {
 		return errors.Error("Replica has missing fields")
 	}
 
-	if _, ok := DataServerConfig_ReplicaState_name[int32(x.State)]; !ok {
+	if _, ok := ReplicaState_name[int32(x.State)]; !ok {
 		return errors.Error("Replica.Mode is invalid")
 	}
 
