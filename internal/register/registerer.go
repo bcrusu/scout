@@ -20,6 +20,7 @@ type Params struct {
 	ClusterName string
 	BindAddress string
 	Token       string
+	Tags        []string
 }
 
 // Registerer is used to register a server in the cluster.
@@ -47,6 +48,7 @@ func (r *Registerer) Register(ctx context.Context, params Params) (identity.Iden
 		Token:   params.Token,
 		Address: params.BindAddress,
 		Type:    params.ServerType,
+		Tags:    params.Tags,
 	}
 
 	res, err := utils.RetryForeverR(ctx, &r.backoff, func() (*control.RegisterResponse, error) {

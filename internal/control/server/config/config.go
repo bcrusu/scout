@@ -58,6 +58,7 @@ type Config struct {
 
 type Register struct {
 	Token        string              `yaml:"token" default:"GENERATE_RANDOM" validate:"required,maxLen:1024"`
+	Tags         []string            `yaml:"tags" validate:"maxLen:10,maxItemLen:128"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	RetryBackoff utils.Backoff       `yaml:"retryBackoff"`
 }

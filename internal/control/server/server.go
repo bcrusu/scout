@@ -134,6 +134,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store) (identity
 		ClusterName: n.config.ClusterName,
 		BindAddress: n.config.Server.BindAddress,
 		Token:       n.config.Register.Token,
+		Tags:        n.config.Register.Tags,
 	}
 
 	registerer := register.NewRegisterer(idStore, client, n.config.Register.RetryBackoff)

@@ -56,6 +56,8 @@ message Register {
 
     // The addres where the server will be contacted. 
     string address = 3;
+
+    repeated string tags = 4;
 }
 
 message UpdateStatus {

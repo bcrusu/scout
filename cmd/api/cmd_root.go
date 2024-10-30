@@ -69,5 +69,9 @@ func getConfig(c *cobra.Command) (config.Config, error) {
 		cfg.DataDir = flags.DataDir
 	}
 
+	if len(flags.Tags) > 0 {
+		cfg.Register.Tags = flags.Tags
+	}
+
 	return cfg, nil
 }

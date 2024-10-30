@@ -61,6 +61,7 @@ func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*c
 		Type:    req.Type,
 		Token:   req.Token,
 		Address: req.Address,
+		Tags:    req.Tags,
 	}
 
 	result, err := n.store.Register(cmd)

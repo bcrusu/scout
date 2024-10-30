@@ -164,7 +164,7 @@ func (r *resolverImpl) updateState(resp *api.DiscoverResponse) error {
 	}
 
 	// update discovery target with latest servers
-	r.discoveryTarget = routing.FormatTargetStatic(resp.Servers)
+	r.discoveryTarget = routing.FormatTargetStatic(resp.Servers...)
 
 	parseResult := r.clientConn.ParseServiceConfig(resp.ServiceConfigJson)
 	if parseResult.Err != nil {

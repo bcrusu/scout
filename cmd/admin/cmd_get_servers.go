@@ -18,7 +18,7 @@ func newGetServersCmd() *cobra.Command {
 			}
 
 			renderTable(
-				[]string{"ID", "Name", "Type", "Registered", "Last seen", "Address"},
+				[]string{"ID", "Name", "Type", "Registered", "Last seen", "Address", "Tags"},
 				mapToTable(info.Cluster.Servers.Items,
 					func(a, b *control.Server) int {
 						return int(a.Id) - int(b.Id)
@@ -31,6 +31,7 @@ func newGetServersCmd() *cobra.Command {
 							formatTime(s.RegisteredAt),
 							formatTime(s.LastSeen),
 							s.LastAddress,
+							formatTags(s.Tags...),
 						}
 					}))
 

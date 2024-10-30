@@ -38,7 +38,7 @@ func (d Discovery) Target() string {
 
 func (d Discovery) getTarget() string {
 	if len(d.Servers) > 0 {
-		return routing.FormatTargetStatic(d.Servers)
+		return routing.FormatTargetStatic(d.Servers...)
 	}
 
 	target := d.DNS

@@ -11,11 +11,13 @@ import (
 
 var (
 	allValidators = map[string]valFn{
-		"min":      min,
-		"max":      max,
-		"minLen":   minLen,
-		"maxLen":   maxLen,
-		"positive": positive,
+		"min":        min,
+		"max":        max,
+		"minLen":     minLen,
+		"maxLen":     maxLen,
+		"positive":   positive,
+		"minItemLen": minItemLen,
+		"maxItemLen": maxItemLen,
 	}
 )
 
@@ -171,6 +173,52 @@ func maxLen(val reflect.Value, param string) string {
 	return ""
 }
 
+func minItemLen(val reflect.Value, param string) string {
+	target, err := strconv.ParseInt(param, 10, 0)
+	if err != nil {
+		return "invalid min item length value"
+	}
+
+	if !canIndex(val) {
+		return "does not have items"
+	}
+
+	for i := 0; i < val.Len(); i++ {
+		item := val.Index(i)
+
+		if !canLen(item) {
+			return fmt.Sprintf("item %d does not have length", i)
+		} else if item.Len() < int(target) {
+			return fmt.Sprintf("item %d length is less than %d", i, target)
+		}
+	}
+
+	return ""
+}
+
+func maxItemLen(val reflect.Value, param string) string {
+	target, err := strconv.ParseInt(param, 10, 0)
+	if err != nil {
+		return "invalid max item length value"
+	}
+
+	if !canIndex(val) {
+		return "does not have items"
+	}
+
+	for i := 0; i < val.Len(); i++ {
+		item := val.Index(i)
+
+		if !canLen(item) {
+			return fmt.Sprintf("item %d does not have length", i)
+		} else if item.Len() > int(target) {
+			return fmt.Sprintf("item %d length is greater than %d", i, target)
+		}
+	}
+
+	return ""
+}
+
 func positive(val reflect.Value, param string) string {
 	if param != "" {
 		return "unexpectetd param value"
@@ -187,6 +235,11 @@ func canIsNil(v reflect.Value) bool {
 func canLen(v reflect.Value) bool {
 	k := v.Kind()
 	return k == reflect.Array || k == reflect.Map || k == reflect.Slice || k == reflect.String
+}
+
+func canIndex(v reflect.Value) bool {
+	k := v.Kind()
+	return k == reflect.Array || k == reflect.Slice || k == reflect.String
 }
 
 func isNumeric(v reflect.Value) bool {

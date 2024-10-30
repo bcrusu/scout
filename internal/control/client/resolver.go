@@ -166,7 +166,7 @@ func (r *resolverImpl) updateState(ctx context.Context, resp *control.DiscoverRe
 	}
 
 	// update discovery target with latest cluster servers
-	r.discoveryTarget = routing.FormatTargetStatic(allAddresses)
+	r.discoveryTarget = routing.FormatTargetStatic(allAddresses...)
 
 	parseResult := r.clientConn.ParseServiceConfig(resp.ServiceConfigJson)
 	if parseResult.Err != nil {

@@ -186,7 +186,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				recvLimiter:   utils.NewRateLimiter(t.config.Sessions.ReceiveBurst, time.Second),
 			}
 
-			new.log = logS.With("server", server.Id, "session_id", new.id, "address", new.serverAddress)
+			new.log = logging.New("session").With("server", server.Id, "session_id", new.id, "address", new.serverAddress)
 
 			if old := sessionsByServer[x.serverID]; old != nil {
 				new.log.Debugf(ctx, "Closing old session %d created at %v.", old.id, old.createdAt)

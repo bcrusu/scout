@@ -12,6 +12,7 @@ func newGetCmd() *cobra.Command {
 	}
 
 	c.AddCommand(
+		newGetClusterCmd(),
 		newGetServersCmd(),
 		newGetPartitionsCmd(),
 		newGetReplicasCmd(),

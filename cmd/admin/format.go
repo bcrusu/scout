@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bcrusu/scout/internal/control"
@@ -49,4 +51,9 @@ func formatServer(cluster *control.Cluster, serverID uint64) string {
 		return ""
 	}
 	return fmt.Sprintf("%s (%d)", server.Name, serverID)
+}
+
+func formatTags(tags ...string) string {
+	sort.Strings(tags)
+	return strings.Join(tags, ",")
 }

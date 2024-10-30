@@ -6,7 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 )
 
-func FormatTargetStatic(addrs []string) string {
+func FormatTargetStatic(addrs ...string) string {
 	q := url.Values{}
 	for _, a := range addrs {
 		q.Add("a", a)

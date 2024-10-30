@@ -36,7 +36,7 @@ func newRootCmd() *cobra.Command {
 		},
 	}
 
-	root.PersistentFlags().StringSlice("servers", nil, "Servers.")
+	root.PersistentFlags().StringP("server", "s", "", "Servers.")
 
 	root.AddCommand(
 		newGetCmd(),
@@ -46,14 +46,14 @@ func newRootCmd() *cobra.Command {
 }
 
 func newConn(c *cobra.Command) (*rpc.Conn, error) {
-	servers, err := c.Flags().GetStringSlice("servers")
+	server, err := c.Flags().GetString("server")
 	if err != nil {
 		return nil, err
-	} else if len(servers) == 0 {
-		return nil, errors.Error("missing servers flag")
+	} else if server == "" {
+		return nil, errors.Error("missing server flag")
 	}
 
-	target := routing.FormatTargetStatic(servers)
+	target := routing.FormatTargetStatic(server)
 	conn := rpc.NewAdminConn(target)
 	if err := conn.Start(c.Context()); err != nil {
 		return nil, err

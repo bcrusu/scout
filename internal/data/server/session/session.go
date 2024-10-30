@@ -193,7 +193,8 @@ func (m *Session) sendLoop(stream stream, sendCh <-chan *control.SessionIn, done
 	for {
 		select {
 		case in := <-sendCh:
-			log.Tracef("Sending session message %T.", in.Payload)
+			log.Tracef("Sending message %T.", in.Payload)
+
 			if err := stream.Send(in); err != nil {
 				doneCh <- err
 				return
@@ -218,6 +219,8 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 		return
 	}
 
+	log.Trace("Received hello.")
+
 	recvCh <- payload.HelloDataServer
 
 	for {
@@ -226,6 +229,8 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 			doneCh <- err
 			return
 		}
+
+		log.Tracef("Received message %T.", out.Payload)
 
 		switch x := out.Payload.(type) {
 		case *control.SessionOut_HelloDataServer:

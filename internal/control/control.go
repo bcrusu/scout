@@ -8,6 +8,7 @@ const (
 	maxClusterNameLen = 100
 	maxAddressLen     = 128
 	maxTokenLen       = 1024
+	maxTagLen         = 128
 	maxPartitionCount = 1 << 16
 )
 
@@ -21,6 +22,19 @@ func IsValidAddress(value string) bool {
 
 func IsValidToken(value string) bool {
 	return len(value) > 0 && len(value) <= maxTokenLen
+}
+
+func IsValidTag(value string) bool {
+	return len(value) > 0 && len(value) <= maxTagLen
+}
+
+func IsValidTags(values ...string) bool {
+	for _, tag := range values {
+		if !IsValidTag(tag) {
+			return false
+		}
+	}
+	return true
 }
 
 func IsValidPartitionCount(value uint32) bool {
@@ -114,8 +128,8 @@ func (x *RegisterRequest) Validate() error {
 		return errors.Error("RegisterRequest is nil")
 	}
 
-	if !IsValidAddress(x.Address) || !IsValidToken(x.Token) {
-		return errors.Error("RegisterRequest has missing fields")
+	if !IsValidAddress(x.Address) || !IsValidToken(x.Token) || !IsValidTags(x.Tags...) {
+		return errors.Error("RegisterRequest has invalid fields")
 	}
 
 	if _, ok := ServerType_name[int32(x.Type)]; !ok {

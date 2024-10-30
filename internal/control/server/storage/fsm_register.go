@@ -50,6 +50,7 @@ func (f *FSM) applyRegister(appendedAt time.Time, cmd *Register) (*RegisterResul
 		Id:           id,
 		Name:         name,
 		Type:         cmd.Type,
+		Tags:         cmd.Tags,
 		RegisteredAt: timestamppb.New(appendedAt),
 		LastSeen:     timestamppb.New(appendedAt),
 		LastAddress:  cmd.Address,
