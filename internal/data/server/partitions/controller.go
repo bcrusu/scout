@@ -21,7 +21,7 @@ var (
 	_                     utils.Lifecycle = (*Controller)(nil)
 	logC                                  = logging.New("partition_controller").NoContext()
 	debounceInterval                      = 100 * time.Millisecond
-	publishStatusInterval                 = 20 * time.Second
+	publishStatusInterval                 = time.Second / 2
 )
 
 type Controller struct {

@@ -2,14 +2,15 @@ package client
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/bcrusu/scout/internal/api"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/rpc/routing"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc/balancer"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/resolver"
 )
 
@@ -20,23 +21,24 @@ var (
 type balancerBuilder struct{}
 
 type balancerImpl struct {
-	clientConn balancer.ClientConn
-	etag       string
-	conns      map[string]balancer.SubConn
-	connState  map[string]connectivity.State
+	conn *routing.ClientConn
+	etag string
 }
 
 type picker struct {
-	balancer *balancerImpl
-	conns    []balancer.SubConn
-	rr       atomic.Int32
+	conn  *routing.ClientConn
+	ready []balancer.SubConn
+	rr    atomic.Int32
+}
+
+type balancerCfg struct {
+	response          *api.DiscoverResponse
+	reconnectInterval time.Duration
 }
 
 func (b *balancerBuilder) Build(clientConn balancer.ClientConn, opt balancer.BuildOptions) balancer.Balancer {
 	return &balancerImpl{
-		clientConn: clientConn,
-		conns:      map[string]balancer.SubConn{},
-		connState:  map[string]connectivity.State{},
+		conn: routing.NewClientConn(clientConn),
 	}
 }
 
@@ -45,130 +47,39 @@ func (b *balancerBuilder) Name() string {
 }
 
 func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) error {
-	cfg := state.ResolverState.Attributes.Value(attrKey)
-	if cfg == nil {
+	cfgValue := state.ResolverState.Attributes.Value(attrKey)
+	if cfgValue == nil {
 		logLB.Error("UpdateClientConnState invoked with empty config.")
 		return balancer.ErrBadResolverState
 	}
 
-	resp, ok := cfg.(*api.DiscoverResponse)
+	cfg, ok := cfgValue.(balancerCfg)
 	if !ok {
 		logLB.Error("UpdateClientConnState invoked with bad config.")
 		return balancer.ErrBadResolverState
-	}
-
-	if b.etag == resp.ETag {
+	} else if b.etag == cfg.response.ETag {
 		return nil
 	}
 
-	addrs := utils.MakeSet(resp.Servers)
+	b.conn.SetLog(logLB)
+	b.conn.SetReconnectInterval(cfg.reconnectInterval)
+	b.conn.SetStateChangedCallback(b.updateState)
 
-	// close connections that are no longer necessary
-	for addr, conn := range b.conns {
-		if !addrs[addr] {
-			delete(b.conns, addr)
-			delete(b.connState, addr)
-			conn.Shutdown()
-			logLB.Debug("Connection closed.", "address", addr)
-		}
-	}
+	b.etag = cfg.response.ETag
 
-	// open connections
-	for addr := range addrs {
-		if _, ok := b.conns[addr]; ok {
-			continue
-		}
-
-		log := logLB.With("address", addr)
-		opts := balancer.NewSubConnOptions{
-			StateListener: b.makeStateListener(addr, log),
-		}
-
-		conn, err := b.clientConn.NewSubConn([]resolver.Address{{Addr: addr}}, opts)
-		if err != nil {
-			log.WithError(err).Error("NewSubConn failed")
-			return balancer.ErrBadResolverState
-		}
-
-		b.conns[addr] = conn
-		b.connState[addr] = connectivity.Idle
-		conn.Connect()
-		log.Debug("Connection created")
-	}
-
-	b.etag = resp.ETag
-	b.updateState()
-	return nil
+	return b.conn.Connect(cfg.response.Servers...)
 }
 
 func (b *balancerImpl) updateState() {
-	b.clientConn.UpdateState(balancer.State{
-		ConnectivityState: b.getLBConnectivityState(),
-		Picker:            b.makePicker(),
+	picker := &picker{
+		conn:  b.conn,
+		ready: utils.ShuffleSlice(b.conn.SubConnReady()),
+	}
+
+	b.conn.UpdateState(balancer.State{
+		ConnectivityState: b.conn.AggState(),
+		Picker:            picker,
 	})
-}
-
-func (b *balancerImpl) makeStateListener(address string, log logging.LoggerNoContext) func(balancer.SubConnState) {
-	return func(state balancer.SubConnState) {
-		switch state.ConnectivityState {
-		case connectivity.Idle:
-			log.Debug("Connection idle")
-		case connectivity.Connecting:
-			log.Debug("Connection connecting")
-		case connectivity.Ready:
-			log.Debug("Connection ready")
-		case connectivity.Shutdown:
-			log.Debug("Connection was shutdown")
-		case connectivity.TransientFailure:
-			log.WithError(state.ConnectionError).Warn("Transient failure")
-		default:
-			log.Warnf("Unexpected connectivity state %d", state.ConnectivityState)
-		}
-
-		// if conn was removed
-		if _, ok := b.conns[address]; !ok {
-			return
-		}
-
-		b.connState[address] = state.ConnectivityState
-		b.updateState()
-	}
-}
-
-func (b *balancerImpl) makePicker() *picker {
-	var ready []balancer.SubConn
-
-	for addr, conn := range b.conns {
-		if state := b.connState[addr]; state == connectivity.Ready {
-			ready = append(ready, conn)
-		}
-	}
-
-	return &picker{
-		balancer: b,
-		conns:    utils.ShuffleSlice(ready),
-	}
-}
-
-func (b *balancerImpl) getLBConnectivityState() connectivity.State {
-	if len(b.conns) == 0 {
-		return connectivity.Idle
-	}
-
-	states := map[connectivity.State]int{}
-	for _, state := range b.connState {
-		states[state]++
-	}
-
-	if states[connectivity.Ready] > 0 {
-		return connectivity.Ready
-	}
-
-	if states[connectivity.Connecting] >= states[connectivity.TransientFailure] {
-		return connectivity.Connecting
-	} else {
-		return connectivity.TransientFailure
-	}
 }
 
 func (b *balancerImpl) UpdateSubConnState(subConn balancer.SubConn, state balancer.SubConnState) {
@@ -180,14 +91,14 @@ func (b *balancerImpl) ResolverError(err error) {}
 func (b *balancerImpl) Close() {}
 
 func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
-	if len(p.conns) == 0 {
+	if len(p.ready) == 0 {
 		return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 	}
 
-	idx := int(p.rr.Add(1)) % len(p.conns)
+	idx := int(p.rr.Add(1)) % len(p.ready)
 
 	return balancer.PickResult{
-		SubConn: p.conns[idx],
+		SubConn: p.ready[idx],
 		Done:    p.rpcDone,
 	}, nil
 }
@@ -195,6 +106,6 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 func (p *picker) rpcDone(d balancer.DoneInfo) {
 	if errors.Is(d.Err, errors.Unavailable) {
 		// the resolver will throttle the ResolveNow calls
-		p.balancer.clientConn.ResolveNow(resolver.ResolveNowOptions{})
+		p.conn.ResolveNow(resolver.ResolveNowOptions{})
 	}
 }

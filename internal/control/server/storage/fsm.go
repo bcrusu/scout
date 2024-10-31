@@ -66,7 +66,7 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	var result any
 	var err error
 
-	log.Debugf("Applying command %T...", payload)
+	log.Tracef("Applying command %T...", payload)
 
 	switch x := payload.(type) {
 	case *Bootstrap:
@@ -84,12 +84,12 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	}
 
 	if err != nil {
-		log.WithError(err).Debugf("Applying command %T failed", payload)
+		log.WithError(err).Errorf("Apply command %T failed.", payload)
 		return err
 	}
 
 	f.version++
-	logF.Debugf("Applying command %T success", payload)
+	log.Debugf("Applied command %T.", payload)
 
 	return result
 }

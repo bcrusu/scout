@@ -32,7 +32,7 @@ type controlClient struct {
 }
 
 func New(opts ...Option) ControlClient {
-	o := &options{}
+	o := newOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -51,7 +51,7 @@ func (c *controlClient) Start(ctx context.Context) error {
 		return err
 	}
 
-	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts.clusterName}))
+	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
 	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
 	c.ServiceClient = control.NewServiceClient(c.conn)
 

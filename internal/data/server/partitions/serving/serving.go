@@ -144,6 +144,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 		case statusCh := <-p.getStatusCh:
 			if raft == nil {
 				statusCh <- nil
+				continue
 			}
 
 			x := raft.GetStats()

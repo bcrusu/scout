@@ -34,7 +34,7 @@ func LifecycleStart[T Lifecycle](ctx context.Context, log logging.Logger, instan
 		log.Tracef(ctx, "Starting %T...", instance)
 
 		if err := instance.Start(ctx); err != nil {
-			log.Debugf(ctx, "Start failed %T", instance)
+			log.Tracef(ctx, "Start failed %T", instance)
 
 			// rollback started instances so far
 			LifecycleStop(log.NoContext(), instances[:i]...)
@@ -42,7 +42,7 @@ func LifecycleStart[T Lifecycle](ctx context.Context, log logging.Logger, instan
 			return errors.Wrapf(err, "failed to start %T", instance)
 		}
 
-		log.Debugf(ctx, "Started %T", instance)
+		log.Tracef(ctx, "Started %T", instance)
 	}
 
 	return nil
@@ -55,7 +55,7 @@ func LifecycleStop[T Lifecycle](log logging.LoggerNoContext, instances ...T) {
 
 		log.Tracef("Stopping %T...", instance)
 		instance.Stop()
-		log.Debugf("Stopped %T", instance)
+		log.Tracef("Stopped %T", instance)
 	}
 }
 

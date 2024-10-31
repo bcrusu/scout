@@ -1,8 +1,6 @@
 package client
 
 import (
-	"time"
-
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
@@ -19,18 +17,20 @@ const (
 )
 
 var (
-	resolveThrottle = utils.AddJitter(2 * time.Second)
-	logR            = logging.New("data_resolver").NoContext()
+	logR = logging.New("data_resolver").NoContext()
 )
 
-type resolverBuilder struct{}
+type resolverBuilder struct {
+	options *options
+}
 
 func (b *resolverBuilder) Build(target resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
-	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](resolveThrottle, 1)
+	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](b.options.resolveThrottle, 1)
 
 	r := &resolverImpl{
+		options:        b.options,
 		clientConn:     clientConn,
-		opts:           opts,
+		buildOptions:   opts,
 		resolveNowCh:   resolveNowCh,
 		resolveNowChTh: resolveNowChTh,
 	}
@@ -45,8 +45,9 @@ func (b *resolverBuilder) Scheme() string {
 }
 
 type resolverImpl struct {
+	options        *options
 	clientConn     resolver.ClientConn
-	opts           resolver.BuildOptions
+	buildOptions   resolver.BuildOptions
 	resolveNowCh   chan<- resolver.ResolveNowOptions
 	resolveNowChTh <-chan resolver.ResolveNowOptions
 }
@@ -85,7 +86,12 @@ func (r *resolverImpl) updateState(ds *control.DataServers) error {
 		return errors.Wrap(parseResult.Err, "ParseServiceConfig call failed")
 	}
 
-	attr := attributes.New(attrKey, ds)
+	cfg := balancerCfg{
+		dataServers:       ds,
+		reconnectInterval: r.options.reconnectInterval,
+	}
+
+	attr := attributes.New(attrKey, cfg)
 
 	return r.clientConn.UpdateState(resolver.State{
 		Addresses:     []resolver.Address{{Addr: "dummy_addr"}},

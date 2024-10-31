@@ -63,7 +63,7 @@ func (f *FSM) AppliedIndex() uint64 {
 func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.LoggerNoContext) any {
 	var result any
 
-	log.Debugf("Applying command %T...", cmd.Payload)
+	log.Tracef("Applying command %T...", cmd.Payload)
 
 	switch x := cmd.Payload.(type) {
 	case *Command_Batch:
@@ -72,7 +72,7 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 		return errors.Errorf("apply: unhandled payload type %T", cmd.Payload)
 	}
 
-	log.Debugf("Applying command %T success", cmd.Payload)
+	log.Debugf("Applied command %T.", cmd.Payload)
 	return result
 }
 

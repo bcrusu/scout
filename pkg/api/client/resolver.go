@@ -23,13 +23,11 @@ const (
 )
 
 var (
-	resolveThrottle = utils.AddJitter(2 * time.Second)
-	resolveInterval = utils.AddJitter(5 * time.Second)
-	logR            = logging.New("api_resolver")
+	logR = logging.New("api_resolver")
 )
 
 type resolverBuilder struct {
-	clusterName string
+	options *options
 }
 
 func (b *resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
@@ -38,12 +36,12 @@ func (b *resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientCon
 		return nil, err
 	}
 
-	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](resolveThrottle, 1)
+	resolveNowCh, resolveNowChTh := utils.MakeThrottleChan[resolver.ResolveNowOptions](b.options.resolveThrottle, 1)
 
 	r := &resolverImpl{
+		options:         b.options,
 		clientConn:      clientConn,
-		opts:            opts,
-		clusterName:     b.clusterName,
+		buildOptions:    opts,
 		discoveryTarget: discoveryTarget,
 		resolveNowCh:    resolveNowCh,
 		resolveNowChTh:  resolveNowChTh,
@@ -59,9 +57,9 @@ func (b *resolverBuilder) Scheme() string {
 }
 
 type resolverImpl struct {
+	options         *options
 	clientConn      resolver.ClientConn
-	opts            resolver.BuildOptions
-	clusterName     string
+	buildOptions    resolver.BuildOptions
 	discoveryTarget string
 	resolveNowCh    chan<- resolver.ResolveNowOptions
 	resolveNowChTh  <-chan resolver.ResolveNowOptions
@@ -76,7 +74,7 @@ func (r *resolverImpl) Close() {
 }
 
 func (r *resolverImpl) mainLoop() {
-	ticker := time.NewTicker(resolveInterval)
+	ticker := time.NewTicker(utils.AddJitter(r.options.resolveInterval))
 	defer ticker.Stop()
 
 	resolving := false
@@ -145,14 +143,14 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 
 func (r *resolverImpl) createClient() (*rpc.Conn, api.AdminClient) {
 	dialOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(r.opts.DialCreds),
-		grpc.WithCredentialsBundle(r.opts.CredsBundle),
-		grpc.WithContextDialer(r.opts.Dialer),
+		grpc.WithTransportCredentials(r.buildOptions.DialCreds),
+		grpc.WithCredentialsBundle(r.buildOptions.CredsBundle),
+		grpc.WithContextDialer(r.buildOptions.Dialer),
 		grpc.WithDisableServiceConfig(),
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 	}
 
-	conn := rpc.NewConn(r.discoveryTarget, r.clusterName, dialOpts...)
+	conn := rpc.NewConn(r.discoveryTarget, r.options.clusterName, dialOpts...)
 	client := api.NewAdminClient(conn)
 
 	return conn, client
@@ -171,7 +169,12 @@ func (r *resolverImpl) updateState(resp *api.DiscoverResponse) error {
 		return errors.Wrap(parseResult.Err, "ParseServiceConfig call failed")
 	}
 
-	attr := attributes.New(attrKey, resp)
+	cfg := balancerCfg{
+		response:          resp,
+		reconnectInterval: r.options.reconnectInterval,
+	}
+
+	attr := attributes.New(attrKey, cfg)
 
 	return r.clientConn.UpdateState(resolver.State{
 		Addresses:     []resolver.Address{{Addr: "dummy_addr"}},

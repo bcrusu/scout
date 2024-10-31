@@ -5,7 +5,7 @@ import "context"
 type ctxKeyRoutingInfo struct{}
 type ctxKeyPreferredServer struct{}
 
-type routing struct {
+type routingInfo struct {
 	partitionID  uint32
 	snapshotRead bool
 }
@@ -15,17 +15,17 @@ type preferredServer struct {
 	enforce  bool
 }
 
-func withRouting(ctx context.Context, r routing) context.Context {
+func withRouting(ctx context.Context, r routingInfo) context.Context {
 	return context.WithValue(ctx, ctxKeyRoutingInfo{}, r)
 }
 
-func getRouting(ctx context.Context) (routing, bool) {
+func getRouting(ctx context.Context) (routingInfo, bool) {
 	v := ctx.Value(ctxKeyRoutingInfo{})
 	if v == nil {
-		return routing{}, false
+		return routingInfo{}, false
 	}
 
-	return v.(routing), true
+	return v.(routingInfo), true
 }
 
 // WithPreferredServer allows callers to select a preferred server to

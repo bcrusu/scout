@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/pkg/api"
@@ -13,8 +12,7 @@ import (
 )
 
 var (
-	_    Client = (*client)(nil)
-	logC        = logging.New("api_client")
+	_ Client = (*client)(nil)
 )
 
 func init() {
@@ -35,7 +33,7 @@ type client struct {
 }
 
 func New(opts ...Option) Client {
-	o := &options{}
+	o := newOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -54,7 +52,7 @@ func (c *client) Start(ctx context.Context) error {
 		return err
 	}
 
-	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts.clusterName}))
+	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
 	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
 	c.KeyValueServiceClient = api.NewKeyValueServiceClient(c.conn)
 	c.GraphServiceClient = api.NewGraphServiceClient(c.conn)

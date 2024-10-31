@@ -6,7 +6,6 @@ import (
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
@@ -14,8 +13,7 @@ import (
 )
 
 var (
-	_    DataClient = (*dataClient)(nil)
-	logC            = logging.New("data_client")
+	_ DataClient = (*dataClient)(nil)
 )
 
 func init() {
@@ -37,7 +35,7 @@ type dataClient struct {
 }
 
 func New(opts ...Option) DataClient {
-	o := &options{}
+	o := newOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -54,7 +52,7 @@ func (c *dataClient) Start(ctx context.Context) error {
 		return errors.Error("missing cluster name")
 	}
 
-	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{}))
+	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
 	c.conn = rpc.NewConn(dummyTarget, c.opts.clusterName, dialOpts...)
 	c.client = data.NewServiceClient(c.conn)
 	c.txnClient = txn.NewTxnServiceClient(c.conn)
@@ -67,7 +65,7 @@ func (c *dataClient) Stop() {
 }
 
 func (c *dataClient) Autocommit(ctx context.Context, req *txn.AutocommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {
-	ctx = withRouting(ctx, routing{
+	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.PartitionId,
 		snapshotRead: req.IsSnapshotRead(),
 	})
@@ -76,7 +74,7 @@ func (c *dataClient) Autocommit(ctx context.Context, req *txn.AutocommitRequest,
 }
 
 func (c *dataClient) Prepare(ctx context.Context, req *txn.PrepareRequest, opts ...grpc.CallOption) (*txn.Status, error) {
-	ctx = withRouting(ctx, routing{
+	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.ParticipantPid,
 		snapshotRead: false,
 	})
@@ -85,7 +83,7 @@ func (c *dataClient) Prepare(ctx context.Context, req *txn.PrepareRequest, opts 
 }
 
 func (c *dataClient) Commit(ctx context.Context, req *txn.CommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {
-	ctx = withRouting(ctx, routing{
+	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.ParticipantPid,
 		snapshotRead: false,
 	})
@@ -94,7 +92,7 @@ func (c *dataClient) Commit(ctx context.Context, req *txn.CommitRequest, opts ..
 }
 
 func (c *dataClient) Abort(ctx context.Context, req *txn.AbortRequest, opts ...grpc.CallOption) (*txn.Status, error) {
-	ctx = withRouting(ctx, routing{
+	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.ParticipantPid,
 		snapshotRead: false,
 	})
@@ -103,7 +101,7 @@ func (c *dataClient) Abort(ctx context.Context, req *txn.AbortRequest, opts ...g
 }
 
 func (c *dataClient) StoreDecision(ctx context.Context, dec *txn.Decision, opts ...grpc.CallOption) (*txn.Status, error) {
-	ctx = withRouting(ctx, routing{
+	ctx = withRouting(ctx, routingInfo{
 		partitionID:  dec.Id.PrincipalPid,
 		snapshotRead: false,
 	})
@@ -112,7 +110,7 @@ func (c *dataClient) StoreDecision(ctx context.Context, dec *txn.Decision, opts 
 }
 
 func (c *dataClient) StreamPartition(ctx context.Context, req *data.StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[data.StreamResponse], error) {
-	ctx = withRouting(ctx, routing{
+	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.PartitionId,
 		snapshotRead: true,
 	})

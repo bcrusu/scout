@@ -62,7 +62,7 @@ type Session struct {
 	NewSessionThrottle time.Duration `yaml:"newSessionThrottle" default:"3s" validate:"min:100ms"`
 	MaxTimeOffset      time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
 	HeartbeatInterval  time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
-	StatusInterval     time.Duration `yaml:"statusInterval" default:"15s" validate:"min:100ms"`
+	StatusInterval     time.Duration `yaml:"statusInterval" default:"3s" validate:"min:100ms"`
 	SendBufferSize     int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
 }
 

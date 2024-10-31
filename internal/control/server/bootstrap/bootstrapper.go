@@ -187,7 +187,7 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 		}
 
 		if !b.store.Raft().IsLeader() {
-			log.Info(ctx, "Not leader. Backing off...")
+			log.Debug(ctx, "Not leader. Backing off...")
 			return errors.NotLeader
 		}
 

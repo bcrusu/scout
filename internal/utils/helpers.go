@@ -82,6 +82,7 @@ func AppendMap[K comparable, V any](dest, source map[K]V) {
 	}
 }
 
+// CloneMap returns a surface-only map clone.
 func CloneMap[K comparable, V any](orig map[K]V) map[K]V {
 	result := map[K]V{}
 	for k, v := range orig {

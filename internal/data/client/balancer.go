@@ -2,10 +2,12 @@ package client
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/rpc/routing"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc/balancer"
@@ -23,40 +25,37 @@ var (
 type balancerBuilder struct{}
 
 type balancerImpl struct {
-	clientConn balancer.ClientConn
+	conn       *routing.ClientConn
 	etag       string
-	subConns   map[uint64]*subConn   // map[server_id]subConn
-	partitions map[uint32]*partition // map[part_id]part
+	partitions map[uint32]*partition
+	addrs      []string
 	picker     *picker
 }
 
-type subConn struct {
-	balancer.SubConn
-	serverID uint64
-	address  string
-	state    connectivity.State
-}
-
 type picker struct {
-	balancer       *balancerImpl
-	partitionCount uint32
-	partitions     map[uint32]*partition // map[part_id]part
+	conn       *routing.ClientConn
+	partitions map[uint32]*partition
 }
 
 type partition struct {
 	etag         string
 	id           uint32
-	leader       *subConn
+	leaderId     uint64 // server_id
+	leader       string // address
 	replicaCount int
-	replicaSlice []*subConn
-	replicaMap   map[uint64]*subConn // map[server_id]subConn
-	replicasRR   atomic.Int32
+	replicaSlice []string          // []address
+	replicaMap   map[uint64]string // map[server_id]address
+	replicaRR    atomic.Int32
+}
+
+type balancerCfg struct {
+	dataServers       *control.DataServers
+	reconnectInterval time.Duration
 }
 
 func (b *balancerBuilder) Build(clientConn balancer.ClientConn, opt balancer.BuildOptions) balancer.Balancer {
 	return &balancerImpl{
-		clientConn: clientConn,
-		subConns:   map[uint64]*subConn{},
+		conn: routing.NewClientConn(clientConn),
 	}
 }
 
@@ -65,114 +64,49 @@ func (b *balancerBuilder) Name() string {
 }
 
 func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) error {
-	cfg := state.ResolverState.Attributes.Value(attrKey)
-	if cfg == nil {
+	cfgValue := state.ResolverState.Attributes.Value(attrKey)
+	if cfgValue == nil {
 		logLB.Error("UpdateClientConnState invoked with empty config.")
 		return balancer.ErrBadResolverState
 	}
 
-	ds, ok := cfg.(*control.DataServers)
+	cfg, ok := cfgValue.(balancerCfg)
 	if !ok {
 		logLB.Error("UpdateClientConnState invoked with bad config.")
 		return balancer.ErrBadResolverState
 	}
 
-	if b.etag == ds.ETag {
+	if b.etag == cfg.dataServers.ETag {
 		return nil
 	}
 
-	// close connections that are no longer necessary
-	for serverID, conn := range b.subConns {
-		if _, ok := ds.Servers[serverID]; !ok {
-			delete(b.subConns, serverID)
-			conn.Shutdown()
-			logLB.Debug("Connection closed.", "server_id", serverID, "address", conn.address)
-		}
+	logLB.Debug("UpdateClientConnState with new config.", "etag", cfg.dataServers.ETag)
+
+	b.conn.SetLog(logLB)
+	b.conn.SetReconnectInterval(cfg.reconnectInterval)
+	b.conn.SetStateChangedCallback(b.updateState)
+
+	addrs := make([]string, 0, len(cfg.dataServers.Servers))
+	for _, server := range cfg.dataServers.Servers {
+		addrs = append(addrs, server.Address)
 	}
 
-	// open connections
-	for serverID, server := range ds.Servers {
-		if _, ok := b.subConns[serverID]; ok {
-			continue
-		}
+	b.updatePartitions(cfg.dataServers)
+	b.addrs = addrs
+	b.etag = cfg.dataServers.ETag
 
-		log := logLB.With("server_id", serverID, "address", server.Address)
-		opts := balancer.NewSubConnOptions{
-			StateListener: b.makeStateListener(serverID, server.Address, log),
-		}
-
-		newSubConn, err := b.clientConn.NewSubConn([]resolver.Address{{Addr: server.Address}}, opts)
-		if err != nil {
-			log.WithError(err).Error("NewSubConn failed")
-			return balancer.ErrBadResolverState
-		}
-
-		conn := &subConn{
-			serverID: serverID,
-			address:  server.Address,
-			SubConn:  newSubConn,
-			state:    connectivity.Idle,
-		}
-
-		b.subConns[serverID] = conn
-		conn.Connect()
-		log.Debug("Connection created")
-	}
-
-	b.updatePartitions(ds)
-
-	b.picker = &picker{
-		balancer:       b,
-		partitionCount: ds.PartitionCount,
-		partitions:     b.partitions,
-	}
-
-	b.etag = ds.ETag
-	b.updateState()
-	return nil
+	return b.conn.Connect(addrs...)
 }
 
 func (b *balancerImpl) updateState() {
-	b.clientConn.UpdateState(balancer.State{
+	b.conn.UpdateState(balancer.State{
 		ConnectivityState: b.getLBConnectivityState(),
 		Picker:            b.picker,
 	})
 }
 
-func (b *balancerImpl) makeStateListener(serverID uint64, address string, log logging.LoggerNoContext) func(balancer.SubConnState) {
-	return func(state balancer.SubConnState) {
-		switch state.ConnectivityState {
-		case connectivity.Idle:
-			log.Debug("Connection idle")
-		case connectivity.Connecting:
-			log.Debug("Connection connecting")
-		case connectivity.Ready:
-			log.Debug("Connection ready")
-		case connectivity.Shutdown:
-			log.Debug("Connection was shutdown")
-		case connectivity.TransientFailure:
-			log.WithError(state.ConnectionError).Warn("Transient failure")
-		default:
-			log.Warnf("Unexpected connectivity state %d", state.ConnectivityState)
-		}
-
-		// if server was removed or its address changed:
-		if conn, ok := b.subConns[serverID]; !ok || conn.address != address {
-			return
-		}
-
-		b.subConns[serverID].state = state.ConnectivityState
-		lbState := b.getLBConnectivityState()
-
-		b.clientConn.UpdateState(balancer.State{
-			ConnectivityState: lbState,
-			Picker:            b.picker,
-		})
-	}
-}
-
 func (b *balancerImpl) updatePartitions(ds *control.DataServers) {
-	// arrange conns per partitions for easy lookup during pick
+	// arrange by partitions for easy lookup during pick
 	partitions := map[uint32]*partition{}
 
 	for pid := range ds.PartitionCount {
@@ -185,23 +119,23 @@ func (b *balancerImpl) updatePartitions(ds *control.DataServers) {
 			}
 		}
 
-		var leader *subConn
-		if part.LeaderServerId != 0 {
-			leader = b.subConns[part.LeaderServerId]
+		var leader string
+		if server, ok := ds.Servers[part.LeaderServerId]; ok {
+			leader = server.Address
 		}
 
-		replicaSlice := make([]*subConn, len(part.ReplicaServerIds))
-		replicaMap := map[uint64]*subConn{}
-
-		for i, serverID := range part.ReplicaServerIds {
-			subConn := b.subConns[serverID]
-			replicaSlice[i] = subConn
-			replicaMap[serverID] = subConn
+		replicaSlice := make([]string, len(part.ReplicaServerIds))
+		replicaMap := map[uint64]string{}
+		for i, serverId := range part.ReplicaServerIds {
+			addr := ds.Servers[serverId].Address
+			replicaSlice[i] = addr
+			replicaMap[serverId] = addr
 		}
 
 		partitions[pid] = &partition{
 			etag:         part.ETag,
 			id:           pid,
+			leaderId:     part.LeaderServerId,
 			leader:       leader,
 			replicaCount: len(replicaSlice),
 			replicaSlice: utils.ShuffleSlice(replicaSlice),
@@ -210,10 +144,11 @@ func (b *balancerImpl) updatePartitions(ds *control.DataServers) {
 	}
 
 	b.partitions = partitions
+	b.picker = &picker{b.conn, partitions}
 }
 
 func (b *balancerImpl) getLBConnectivityState() connectivity.State {
-	if len(b.subConns) == 0 {
+	if b.conn.Count() == 0 {
 		return connectivity.Idle
 	}
 
@@ -230,7 +165,7 @@ func (b *balancerImpl) getLBConnectivityState() connectivity.State {
 	available := 0
 
 	for _, part := range b.partitions {
-		if part.leader != nil && part.leader.state == connectivity.Ready {
+		if b.conn.IsReady(part.leader) {
 			available++
 		}
 	}
@@ -242,19 +177,19 @@ func (b *balancerImpl) getLBConnectivityState() connectivity.State {
 	}
 
 	failure := 0
-	for _, conn := range b.subConns {
-		if conn.state == connectivity.TransientFailure {
+	for _, addr := range b.addrs {
+		if b.conn.State(addr) == connectivity.TransientFailure {
 			failure++
 		}
 	}
 
 	// 20% failing connections?
-	if float64(failure)/float64(len(b.subConns)) >= .2 {
-		logLB.Debugf("LB TransientFailure: %d/%d partitions available, %d/%d failing connections.", available, total, failure, len(b.subConns))
+	if float64(failure)/float64(b.conn.Count()) >= .2 {
+		logLB.Debugf("LB TransientFailure: %d/%d partitions available, %d/%d failing connections.", available, total, failure, b.conn.Count())
 		return connectivity.TransientFailure
 	}
 
-	logLB.Debugf("LB Connecting: %d/%d partitions available, %d/%d failing connections.", available, total, failure, len(b.subConns))
+	logLB.Debugf("LB Connecting: %d/%d partitions available, %d/%d failing connections.", available, total, failure, b.conn.Count())
 	return connectivity.Connecting
 }
 
@@ -270,12 +205,14 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	routing, ok := getRouting(info.Ctx)
 	if !ok {
 		return balancer.PickResult{}, status.Error(codes.Internal, "Missing routing info.")
-	} else if routing.partitionID >= p.partitionCount {
+	}
+
+	part, ok := p.partitions[routing.partitionID]
+	if !ok {
 		return balancer.PickResult{}, status.Error(codes.Internal, "Invalid partition ID.")
 	}
 
 	preferred, hasPreferred := getPreferredServer(info.Ctx)
-	part := p.partitions[routing.partitionID]
 
 	unavailableErr := func() error {
 		if hasPreferred && preferred.enforce {
@@ -286,18 +223,23 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 
 	if !routing.snapshotRead {
 		switch {
-		case part.leader == nil:
+		case part.leader == "":
 			logLB.Debug("Leader connection not available.", "partition", part.id)
 			return balancer.PickResult{}, unavailableErr()
-		case part.leader.state != connectivity.Ready:
+		case !p.conn.IsReady(part.leader):
 			logLB.Debug("Leader connection not ready.", "partition", part.id)
 			return balancer.PickResult{}, unavailableErr()
-		case hasPreferred && preferred.enforce && preferred.serverID != part.leader.serverID:
+		case hasPreferred && preferred.enforce && preferred.serverID != part.leaderId:
 			return balancer.PickResult{}, errPreferredUnavailable
 		}
 
+		conn := p.conn.SubConn(part.leader)
+		if conn == nil {
+			return balancer.PickResult{}, unavailableErr()
+		}
+
 		return balancer.PickResult{
-			SubConn: part.leader.SubConn,
+			SubConn: conn,
 			Done:    p.rpcDone,
 		}, nil
 	}
@@ -306,12 +248,13 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	case part.replicaCount == 0:
 		return balancer.PickResult{}, unavailableErr()
 	case hasPreferred:
-		subConn := part.replicaMap[preferred.serverID]
+		addr := part.replicaMap[preferred.serverID]
+		conn := p.conn.SubConn(addr)
 
 		switch {
-		case subConn != nil:
+		case conn != nil:
 			return balancer.PickResult{
-				SubConn: subConn,
+				SubConn: conn,
 				Done:    p.rpcDone,
 			}, nil
 		case preferred.enforce:
@@ -321,18 +264,19 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		}
 	}
 
-	curr := int(part.replicasRR.Add(1)) % part.replicaCount
+	curr := int(part.replicaRR.Add(1)) % part.replicaCount
 
 	for range part.replicaCount {
-		conn := part.replicaSlice[curr]
+		addr := part.replicaSlice[curr]
+		conn := p.conn.SubConn(addr)
 
-		if conn.state != connectivity.Ready {
+		if conn == nil || !p.conn.IsReady(addr) {
 			curr = (curr + 1) % part.replicaCount
 			continue
 		}
 
 		return balancer.PickResult{
-			SubConn: conn.SubConn,
+			SubConn: conn,
 			Done:    p.rpcDone,
 		}, nil
 	}
@@ -344,6 +288,6 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 func (p *picker) rpcDone(d balancer.DoneInfo) {
 	if errors.IsAny(d.Err, errors.Unavailable, errors.NotLeader) {
 		// the resolver will throttle the ResolveNow calls
-		p.balancer.clientConn.ResolveNow(resolver.ResolveNowOptions{})
+		p.conn.ResolveNow(resolver.ResolveNowOptions{})
 	}
 }
