@@ -52,8 +52,14 @@ func (c *dataClient) Start(ctx context.Context) error {
 		return errors.Error("missing cluster name")
 	}
 
+	config := rpc.ConnConfig{
+		Target:      dummyTarget,
+		ClusterName: c.opts.clusterName,
+		EnableHlc:   true,
+	}
+
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
-	c.conn = rpc.NewConn(dummyTarget, c.opts.clusterName, dialOpts...)
+	c.conn = rpc.NewConn(config, dialOpts...)
 	c.client = data.NewServiceClient(c.conn)
 	c.txnClient = txn.NewTxnServiceClient(c.conn)
 

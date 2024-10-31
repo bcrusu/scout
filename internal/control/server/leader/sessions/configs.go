@@ -61,7 +61,7 @@ func (t *Tracker) makeApiServerConfigs(servers *control.Servers) asConfigs {
 	result := asConfigs{}
 	for id := range servers.ApiServers() {
 		result[id] = &control.ApiServerConfig{
-			ETag:           "",
+			ETag:           "API",
 			PartitionCount: t.store.PartitionCount(),
 		}
 	}

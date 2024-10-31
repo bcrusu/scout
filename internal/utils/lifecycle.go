@@ -117,7 +117,7 @@ func GracefulShutdown(message string) {
 		panic("GracefulShutdown: global run info not found")
 	}
 
-	logLifecycle.Error("GracefulShutdown: %s", message)
+	logLifecycle.Errorf("GracefulShutdown: %s", message)
 	info.triggerShutdown()
 }
 
@@ -125,11 +125,11 @@ func GracefulShutdown(message string) {
 func ShutdownNow(message string) {
 	info := global.Load()
 	if info != nil {
+		logLifecycle.Errorf("ShutdownNow: %s", message)
 		info.triggerShutdown()
 		time.Sleep(5 * time.Second)
 	}
 
-	logLifecycle.Error("ShutdownNow: %s", message)
 	panic(message)
 }
 

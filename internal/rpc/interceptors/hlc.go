@@ -11,7 +11,11 @@ import (
 )
 
 // UnaryHlcServerInterceptor updates with the incoming Hybrid Logical Clock timestamp.
-func UnaryHlcServerInterceptor() grpc.UnaryServerInterceptor {
+func UnaryHlcServerInterceptor(enabled bool) grpc.UnaryServerInterceptor {
+	if !enabled {
+		return UnaryPassthroughServerInterceptor
+	}
+
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		if err := updateHlc(ctx, info.FullMethod); err != nil {
 			return nil, err
@@ -22,7 +26,11 @@ func UnaryHlcServerInterceptor() grpc.UnaryServerInterceptor {
 }
 
 // StreamHlcServerInterceptor updates with the incoming Hybrid Logical Clock timestamp.
-func StreamHlcServerInterceptor() grpc.StreamServerInterceptor {
+func StreamHlcServerInterceptor(enabled bool) grpc.StreamServerInterceptor {
+	if !enabled {
+		return StreamPassthroughServerInterceptor
+	}
+
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		if err := updateHlc(ss.Context(), info.FullMethod); err != nil {
 			return err
@@ -33,7 +41,11 @@ func StreamHlcServerInterceptor() grpc.StreamServerInterceptor {
 }
 
 // UnaryHlcClientInterceptor sets the outgoing Hybrid Logical Clock timestamp.
-func UnaryHlcClientInterceptor() grpc.UnaryClientInterceptor {
+func UnaryHlcClientInterceptor(enabled bool) grpc.UnaryClientInterceptor {
+	if !enabled {
+		return UnaryPassthroughClientInterceptor
+	}
+
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		ctx = appendHlc(ctx)
 		return invoker(ctx, method, req, reply, cc, opts...)
@@ -41,7 +53,11 @@ func UnaryHlcClientInterceptor() grpc.UnaryClientInterceptor {
 }
 
 // StreamHlcClientInterceptor sets the outgoing Hybrid Logical Clock timestamp.
-func StreamHlcClientInterceptor() grpc.StreamClientInterceptor {
+func StreamHlcClientInterceptor(enabled bool) grpc.StreamClientInterceptor {
+	if !enabled {
+		return StreamPassthroughClientInterceptor
+	}
+
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		ctx = appendHlc(ctx)
 		return streamer(ctx, desc, cc, method, opts...)

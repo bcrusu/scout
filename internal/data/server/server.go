@@ -84,7 +84,7 @@ func (n *Server) Start(ctx context.Context) error {
 	db := n.buildDB()
 	partitionController := partitions.NewController(id, db, multiraft, dataClient)
 	dataService := NewDataService(partitionController)
-	server := rpc.NewServer(n.config.Server, n.config.ClusterName, dataService, multiraft)
+	server := rpc.NewServer(n.config.Server, dataService, multiraft)
 
 	n.components = []utils.Lifecycle{
 		controlClient,

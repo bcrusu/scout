@@ -37,6 +37,7 @@ type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
 
 func New(id identity.Identity, address string, client client.ControlClient) *Session {
 	return &Session{
+		config:  config.Get().Session,
 		id:      id,
 		address: address,
 		client:  client,

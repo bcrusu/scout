@@ -269,7 +269,7 @@ func (t *Txn) Validate() error {
 	if err := t.Id.Validate(); err != nil {
 		return errors.Wrap(err, "Txn.Id is invalid")
 	}
-	if len(t.Actions) == 0 || len(t.ParticipantPids) == 0 {
+	if len(t.Actions) == 0 {
 		return errors.Error("Txn has missing fields")
 	}
 

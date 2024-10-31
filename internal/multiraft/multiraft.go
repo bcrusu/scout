@@ -77,6 +77,9 @@ func (r *Multi) RegisterToServer(server *grpc.Server) {
 
 // New creates a new Raft instance.
 func (r *Multi) New(id uint32, fsm FSM, localID raft.ServerID) (*Raft, error) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	if raft, ok := r.rafts[id]; ok {
 		return raft, nil
 	}

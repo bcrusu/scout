@@ -146,11 +146,17 @@ func (r *resolverImpl) createClient() (*rpc.Conn, control.ServiceClient) {
 		grpc.WithTransportCredentials(r.buildOptions.DialCreds),
 		grpc.WithCredentialsBundle(r.buildOptions.CredsBundle),
 		grpc.WithContextDialer(r.buildOptions.Dialer),
-		grpc.WithDisableServiceConfig(),
+		grpc.WithDisableServiceConfig(), // TODO
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 	}
 
-	conn := rpc.NewConn(r.discoveryTarget, r.options.clusterName, dialOpts...)
+	config := rpc.ConnConfig{
+		Target:      r.discoveryTarget,
+		ClusterName: r.options.clusterName,
+		EnableHlc:   true,
+	}
+
+	conn := rpc.NewConn(config, dialOpts...)
 	client := control.NewServiceClient(conn)
 
 	return conn, client

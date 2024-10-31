@@ -29,11 +29,15 @@ type FSM interface {
 }
 
 type Stats struct {
-	IsLeader          bool
-	LeaderTerm        uint64
-	LeaderLastContact time.Duration
-	CommitedIndex     uint64
-	AppliedIndex      uint64
+	IsLeader               bool
+	LeaderTerm             uint64
+	LeaderLastContact      time.Time
+	CommitedIndex          uint64
+	AppliedIndex           uint64
+	LastSnapshotIndex      uint64
+	LastSnapshotTerm       uint64
+	LastConfigurationIndex uint64
+	FsmPending             int
 }
 
 type AsyncResult struct {
@@ -214,30 +218,36 @@ func (r *Raft) ApplyAsync(cmd []byte) <-chan AsyncResult {
 func (r *Raft) GetStats() Stats {
 	rstats := r.raft.Stats()
 
-	termStr, ok := rstats["term"]
-	if !ok || termStr == "" {
-		panic("term missing from raft stats map")
-	}
+	parseStat := func(key string) uint64 {
+		str, ok := rstats[key]
+		if !ok || str == "" {
+			panic(fmt.Sprintf("key %s missing from raft stats map", key))
+		}
 
-	term, err := strconv.ParseUint(termStr, 10, 64)
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse raft term %q", termStr))
-	}
+		val, err := strconv.ParseUint(str, 10, 64)
+		if err != nil {
+			panic(fmt.Sprintf("failed to parse raft key %s value %s", key, str))
+		}
 
-	isLeader := r.IsLeader()
-
-	lastContact := time.Duration(0)
-	if !isLeader {
-		lastContact = max(0, time.Since(r.raft.LastContact()))
+		return val
 	}
 
 	return Stats{
-		IsLeader:          isLeader,
-		LeaderTerm:        term,
-		LeaderLastContact: lastContact,
-		CommitedIndex:     r.raft.CommitIndex(),
-		AppliedIndex:      r.raft.AppliedIndex(),
+		IsLeader:               r.IsLeader(),
+		LeaderTerm:             parseStat("term"),
+		LeaderLastContact:      r.raft.LastContact(),
+		CommitedIndex:          r.raft.CommitIndex(),
+		AppliedIndex:           r.raft.AppliedIndex(),
+		LastSnapshotIndex:      parseStat("last_snapshot_index"),
+		LastSnapshotTerm:       parseStat("last_snapshot_term"),
+		LastConfigurationIndex: parseStat("latest_configuration_index"),
+		FsmPending:             int(parseStat("fsm_pending")),
 	}
+}
+
+func (r *Raft) Barrier() error {
+	future := r.raft.Barrier(r.requestTimeout)
+	return future.Error()
 }
 
 func (r *Raft) checkLeader() error {
@@ -256,11 +266,16 @@ func (r *Raft) convertError(err error) error {
 	return err
 }
 
-func (f *fsmAdapter) Apply(log *raft.Log) any {
-	if log.Type != raft.LogCommand {
+func (f *fsmAdapter) Apply(l *raft.Log) any {
+	log.Trace("FSM apply log", "index", l.Index, "term", l.Term, "type", l.Type, "appended", l.AppendedAt)
+
+	switch l.Type {
+	case raft.LogCommand, raft.LogBarrier:
+		return f.fsm.Apply(l.Index, l.AppendedAt.UTC(), l.Data)
+	default:
+		log.Warn("Unexpected apply log", "index", l.Index, "type", l.Type)
 		return nil
 	}
-	return f.fsm.Apply(log.Index, log.AppendedAt.UTC(), log.Data)
 }
 
 func (f *fsmAdapter) Snapshot() (raft.FSMSnapshot, error) {

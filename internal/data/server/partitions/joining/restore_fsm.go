@@ -71,6 +71,7 @@ func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient d
 }
 
 func (f *restoreFsm) Apply(_ uint64, _ time.Time, _ []byte) any {
+	f.ready.Store(true)
 	f.log.Info(f.ctx, "Restore partition completed. Waiting for transition to serving state...")
 
 	// wait forever as noted above
@@ -87,6 +88,8 @@ func (f *restoreFsm) Restore(snapshot []byte) error {
 	if err != nil {
 		return err
 	}
+
+	f.log.Info(f.ctx, "Restoring...", "index", snap.Index)
 
 	f.index.Store(snap.Index)
 
@@ -140,21 +143,19 @@ func (f *restoreFsm) loadCheckpoint(minIndex uint64) (*data.KVAddress, bool) {
 
 func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) error {
 	for {
-		c := f.candidates.Load()
-		if c == nil || len(c.replicas) == 0 {
-			time.Sleep(time.Second)
-			continue
-		}
+		if c := f.candidates.Load(); c != nil && len(c.replicas) > 0 {
+			r := c.nextReplica()
+			f.log.Debug(f.ctx, "Replica selected for streaming.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
 
-		r := c.nextReplica()
-		f.log.Debug(f.ctx, "Replica selected for streaming.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
-
-		lastAddr = f.tryStreamPartition(minIndex, lastAddr, r.replica.ServerId)
-		if lastAddr != nil {
-			f.log.Debug(f.ctx, "Streaming halted.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
+			lastAddr = f.tryStreamPartition(minIndex, lastAddr, r.replica.ServerId)
+			if lastAddr != nil {
+				f.log.Debug(f.ctx, "Streaming halted.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
+			} else {
+				// stream completed
+				return nil
+			}
 		} else {
-			// stream completed
-			return nil
+			f.log.Debug(f.ctx, "No streaming candidates.")
 		}
 
 		select {

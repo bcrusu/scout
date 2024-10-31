@@ -55,9 +55,9 @@ func (s *AdminService) mainLoop(ctx context.Context) {
 	for {
 		select {
 		case x := <-apiServersSub.Items():
-			servers := make([]string, len(x.Servers))
-			for i, s := range x.Servers {
-				servers[i] = s.Address
+			servers := make([]string, 0, len(x.Servers))
+			for _, s := range x.Servers {
+				servers = append(servers, s.Address)
 			}
 
 			s.discover.Store(&api.DiscoverResponse{

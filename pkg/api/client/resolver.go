@@ -150,7 +150,13 @@ func (r *resolverImpl) createClient() (*rpc.Conn, api.AdminClient) {
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 	}
 
-	conn := rpc.NewConn(r.discoveryTarget, r.options.clusterName, dialOpts...)
+	config := rpc.ConnConfig{
+		Target:      r.discoveryTarget,
+		ClusterName: r.options.clusterName,
+		EnableHlc:   false,
+	}
+
+	conn := rpc.NewConn(config, dialOpts...)
 	client := api.NewAdminClient(conn)
 
 	return conn, client

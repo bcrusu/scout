@@ -29,6 +29,9 @@ func (r *PrepareRequest) Validate() error {
 	if err := r.Txn.Validate(); err != nil {
 		return errors.Wrap(err, "PrepareRequest.Txn is invalid")
 	}
+	if r.ParticipantPid == r.Txn.Id.PrincipalPid && len(r.Txn.ParticipantPids) == 0 {
+		return errors.Error("PrepareRequest.Txn.ParticipantPids is missing")
+	}
 	return nil
 }
 

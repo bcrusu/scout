@@ -19,7 +19,7 @@ func newTransport(config Config, clusterName, localAddress string) *transport.Ma
 
 	scj := config.Transport.GetServiceConfigJson(serviceconfig.LBNameRoundRobin, proto.RaftTransport_ServiceDesc)
 
-	dialOpts := append(rpc.DefaultDialOptions(clusterName),
+	dialOpts := append(rpc.DefaultDialOptions(clusterName, true),
 		grpc.WithDefaultServiceConfig(scj),
 	)
 

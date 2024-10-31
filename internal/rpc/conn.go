@@ -20,6 +20,13 @@ var (
 	logRC                 = logging.New("rpc_conn").NoContext()
 )
 
+// ConnConfig is the gRPC client configuration.
+type ConnConfig struct {
+	Target      string
+	ClusterName string
+	EnableHlc   bool
+}
+
 // Conn represents the client connection.
 type Conn struct {
 	*grpc.ClientConn
@@ -28,12 +35,12 @@ type Conn struct {
 }
 
 // NewConn creates a new connection for the provied target and dial options.
-func NewConn(target, clusterName string, opts ...grpc.DialOption) *Conn {
-	all := DefaultDialOptions(clusterName)
+func NewConn(config ConnConfig, opts ...grpc.DialOption) *Conn {
+	all := DefaultDialOptions(config.ClusterName, config.EnableHlc)
 	all = append(all, opts...)
 
 	return &Conn{
-		target: target,
+		target: config.Target,
 		opts:   all,
 	}
 }
@@ -50,12 +57,12 @@ func NewAdminConn(target string, opts ...grpc.DialOption) *Conn {
 }
 
 // DefaultDialOptions returns the default Conn dial options.
-func DefaultDialOptions(clusterName string) []grpc.DialOption {
+func DefaultDialOptions(clusterName string, enableHlc bool) []grpc.DialOption {
 	return []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // TODO
 		grpc.WithChainUnaryInterceptor(
 			interceptors.UnaryAuthClientInterceptor(clusterName),
-			interceptors.UnaryHlcClientInterceptor(),
+			interceptors.UnaryHlcClientInterceptor(enableHlc),
 			interceptors.UnaryMetadataClientInterceptor(),
 			interceptors.UnaryValidatorClientInterceptor(),
 			interceptors.UnaryErrorsClientInterceptor(),
@@ -63,7 +70,7 @@ func DefaultDialOptions(clusterName string) []grpc.DialOption {
 		),
 		grpc.WithChainStreamInterceptor(
 			interceptors.StreamAuthClientInterceptor(clusterName),
-			interceptors.StreamHlcClientInterceptor(),
+			interceptors.StreamHlcClientInterceptor(enableHlc),
 			interceptors.StreamMetadataClientInterceptor(),
 			interceptors.StreamValidatorClientInterceptor(),
 			interceptors.StreamErrorsClientInterceptor(),

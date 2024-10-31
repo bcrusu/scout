@@ -31,7 +31,7 @@ func NewFSM(partitionID uint32, db kv.DB, txn *txn.Manager) *FSM {
 		partitionID: partitionID,
 		db:          db,
 		txn:         txn,
-		log:         logging.New("fsm").With("parttition", partitionID).NoContext(),
+		log:         logging.New("fsm").With("partition", partitionID).NoContext(),
 	}
 }
 
@@ -102,6 +102,8 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	}
 
 	data, err := utils.MarshalProto(snap)
+
+	f.log.Debug("Snapshot taken.", "index", snap.Index)
 	return data, err
 }
 

@@ -21,9 +21,12 @@ var (
 // ServerConfig is the gRPC server configuration.
 type ServerConfig struct {
 	BindAddress          string        `yaml:"bindAddress" validate:"required,minLen:2,maxLen:128"`
+	ConnectionTimeout    time.Duration `yaml:"connectionTimeout" default:"5s" validate:"positive"`
 	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s" validate:"positive"`
 	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
 	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB" validate:"min:1KB"`
+	ClusterName          string
+	EnableHlc            bool
 }
 
 // Server represents the gRPC server.
@@ -39,29 +42,29 @@ type Service interface {
 }
 
 // NewServer returns a new Server instance.
-func NewServer(config ServerConfig, clusterName string, services ...Service) *Server {
+func NewServer(config ServerConfig, services ...Service) *Server {
 	options := []grpc.ServerOption{
 		grpc.Creds(insecure.NewCredentials()), // TODO
 		grpc.MaxConcurrentStreams(config.MaxConcurrentStreams),
 		grpc.MaxRecvMsgSize(int(config.MaxMessageSize.MustParse())),
 		grpc.MaxSendMsgSize(int(config.MaxMessageSize.MustParse())),
 		grpc.WaitForHandlers(true),
-		grpc.ConnectionTimeout(10 * time.Second),
+		grpc.ConnectionTimeout(config.ConnectionTimeout),
 		grpc.ChainUnaryInterceptor(
-			interceptors.UnaryAuthServerInterceptor(clusterName),
+			interceptors.UnaryAuthServerInterceptor(config.ClusterName),
 			interceptors.UnaryMetadataServerInterceptor(),
 			interceptors.UnaryLoggerServerInterceptor(),
 			interceptors.UnaryErrorsServerInterceptor(),
-			interceptors.UnaryHlcServerInterceptor(),
+			interceptors.UnaryHlcServerInterceptor(config.EnableHlc),
 			interceptors.UnaryValidatorServerInterceptor(),
 			interceptors.UnaryRecoveryServerInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
-			interceptors.StreamAuthServerInterceptor(clusterName),
+			interceptors.StreamAuthServerInterceptor(config.ClusterName),
 			interceptors.StreamMetadataServerInterceptor(),
 			interceptors.StreamLoggerServerInterceptor(),
 			interceptors.StreamErrorsServerInterceptor(),
-			interceptors.StreamHlcServerInterceptor(),
+			interceptors.StreamHlcServerInterceptor(config.EnableHlc),
 			interceptors.StreamValidatorServerInterceptor(),
 			interceptors.StreamRecoveryServerInterceptor(),
 		),

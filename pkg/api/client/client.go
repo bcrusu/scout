@@ -52,8 +52,14 @@ func (c *client) Start(ctx context.Context) error {
 		return err
 	}
 
+	config := rpc.ConnConfig{
+		Target:      c.opts.discovery.Target(),
+		ClusterName: c.opts.clusterName,
+		EnableHlc:   false,
+	}
+
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
-	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
+	c.conn = rpc.NewConn(config, dialOpts...)
 	c.KeyValueServiceClient = api.NewKeyValueServiceClient(c.conn)
 	c.GraphServiceClient = api.NewGraphServiceClient(c.conn)
 

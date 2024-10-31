@@ -7,6 +7,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
@@ -121,14 +122,18 @@ func (c *Config) prepare() error {
 		c.Register.Token = uuid.New().String()
 	}
 
-	if !c.InMem {
-		return c.prepareDirs()
-	}
+	c.Server.ClusterName = c.ClusterName
+	c.Server.EnableHlc = true
 
-	return nil
+	hlc.Set(hlc.New(c.TimeOffset.MaxTimeOffset))
+	return c.prepareDirs()
 }
 
 func (c *Config) prepareDirs() error {
+	if c.InMem {
+		return nil
+	}
+
 	dataDir, err := filepath.Abs(c.DataDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to determine data dir")

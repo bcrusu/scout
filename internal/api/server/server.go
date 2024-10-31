@@ -82,7 +82,7 @@ func (n *Server) Start(ctx context.Context) error {
 	adminService := NewAdminService(id)
 	keyValueService := NewKeyValueService(*keyvalue.NewStore(txnProcessor))
 	graphService := NewGraphService(graph.NewStore(txnProcessor))
-	server := rpc.NewServer(n.config.Server, n.config.ClusterName, adminService, keyValueService, graphService)
+	server := rpc.NewServer(n.config.Server, adminService, keyValueService, graphService)
 
 	n.components = []utils.Lifecycle{
 		controlClient,

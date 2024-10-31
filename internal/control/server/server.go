@@ -93,7 +93,7 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	controlService := NewControlService(store)
-	server := rpc.NewServer(n.config.Server, n.config.ClusterName, controlService, multiraft)
+	server := rpc.NewServer(n.config.Server, controlService, multiraft)
 
 	n.components = []utils.Lifecycle{
 		multiraft,

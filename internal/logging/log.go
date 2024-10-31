@@ -46,7 +46,6 @@ type LoggerNoContext interface {
 }
 
 type slogLogger struct {
-	noCtx *loggerNoCtx
 	level *slog.LevelVar
 	slog  *slog.Logger
 }
@@ -57,13 +56,10 @@ func newSlogLogger(name string, level Level) *slogLogger {
 
 	slog := slog.New(newHandler(lvl)).With("com", name)
 
-	result := &slogLogger{
+	return &slogLogger{
 		level: lvl,
 		slog:  slog,
 	}
-	result.noCtx = &loggerNoCtx{result}
-
-	return result
 }
 
 func (l *slogLogger) setLevel(level Level) {
@@ -125,7 +121,7 @@ func (l *slogLogger) Errorf(ctx context.Context, format string, args ...any) {
 }
 
 func (l *slogLogger) With(args ...any) Logger {
-	return &slogLogger{l.noCtx, l.level, l.slog.With(args...)}
+	return &slogLogger{l.level, l.slog.With(args...)}
 }
 
 func (l *slogLogger) WithError(err error) Logger {
@@ -144,7 +140,7 @@ func (l *slogLogger) GetLevel() Level {
 }
 
 func (l *slogLogger) NoContext() LoggerNoContext {
-	return l.noCtx
+	return &loggerNoCtx{l}
 }
 
 type loggerNoCtx struct {

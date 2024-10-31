@@ -51,8 +51,14 @@ func (c *controlClient) Start(ctx context.Context) error {
 		return err
 	}
 
+	config := rpc.ConnConfig{
+		Target:      c.opts.discovery.Target(),
+		ClusterName: c.opts.clusterName,
+		EnableHlc:   true,
+	}
+
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
-	c.conn = rpc.NewConn(c.opts.discovery.Target(), c.opts.clusterName, dialOpts...)
+	c.conn = rpc.NewConn(config, dialOpts...)
 	c.ServiceClient = control.NewServiceClient(c.conn)
 
 	return c.conn.Start(ctx)

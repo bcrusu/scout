@@ -21,6 +21,9 @@ func newGetServersCmd() *cobra.Command {
 				[]string{"ID", "Name", "Type", "Registered", "Last seen", "Address", "Tags"},
 				mapToTable(info.Cluster.Servers.Items,
 					func(a, b *control.Server) int {
+						if x := int(a.Type) - int(b.Type); x != 0 {
+							return x
+						}
 						return int(a.Id) - int(b.Id)
 					},
 					func(s *control.Server) []string {

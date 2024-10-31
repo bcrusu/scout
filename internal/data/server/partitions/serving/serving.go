@@ -73,16 +73,22 @@ func (p *Serving) mainLoop(ctx context.Context) {
 	isLeader := false
 
 	updateRaft := func() {
-		if servers := shared.TryMakeRaftServerList(partConfig, dataServers); len(servers) == 0 {
+		servers := shared.TryMakeRaftServerList(partConfig, dataServers)
+
+		if len(servers) == 0 {
 			eventbus.TryPublishRefreshDataServers()
 			return
 		} else if raft == nil {
-			if r, err := shared.CreateRaft(p.multiraft, partConfig.Id, p.replica, fsm, servers...); err != nil {
+			var err error
+			if raft, err = shared.CreateRaft(p.multiraft, partConfig.Id, p.replica, fsm, servers...); err != nil {
 				p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
+				return
 			} else {
-				raft = r
+				p.log.Info(ctx, "Created raft instance.")
 			}
-		} else if isLeader {
+		}
+
+		if isLeader {
 			p.updateRaftServers(raft, servers)
 		}
 	}
@@ -127,10 +133,8 @@ func (p *Serving) mainLoop(ctx context.Context) {
 
 			p.partition.Store(drainer)
 
-			if isLeader {
-				// TODO: wait store.Appliedindex == raft.CommitedIndex
-				updateRaft()
-			}
+			// TODO: wait store.Appliedindex == raft.CommitedIndex
+			updateRaft()
 		case x := <-dataServerConfigSub.Items():
 			if new := x.Partitions[p.pid]; partConfig == nil || partConfig.ETag != new.ETag {
 				partConfig = new
@@ -213,7 +217,7 @@ func (p *Serving) updateRaftServers(instance *multiraft.Raft, newServers []raft.
 				hasErrors = true
 			}
 		} else {
-			log.WithError(err).Debug("Raft.AddOrUpdateServer success.")
+			log.Debug("Raft.AddOrUpdateServer success.")
 		}
 	}
 
@@ -238,7 +242,7 @@ func (p *Serving) updateRaftServers(instance *multiraft.Raft, newServers []raft.
 				log.WithError(err).Error("Raft.RemoveServer failed.")
 			}
 		} else {
-			log.WithError(err).Debug("Raft.RemoveServer success.")
+			log.Debug("Raft.RemoveServer success.")
 		}
 	}
 }

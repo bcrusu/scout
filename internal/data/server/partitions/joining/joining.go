@@ -80,12 +80,12 @@ func (p *Joining) mainLoop(ctx context.Context) {
 			return
 		}
 
-		r, err := shared.CreateRaft(p.multiraft, config.Id, p.replica, fsm)
-		if err != nil {
+		var err error
+		if raft, err = shared.CreateRaft(p.multiraft, config.Id, p.replica, fsm); err != nil {
 			p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
-			return
+		} else {
+			p.log.Info(ctx, "Created raft instance.")
 		}
-		raft = r
 	}
 
 	updateCandidates := func() {
