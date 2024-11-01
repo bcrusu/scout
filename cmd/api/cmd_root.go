@@ -57,8 +57,12 @@ func getConfig(c *cobra.Command) (config.Config, error) {
 		return config.Config{}, errors.Error("failed to parse config file")
 	}
 
-	if flags.BindAddress != "" {
-		cfg.Server.BindAddress = flags.BindAddress
+	if flags.AddressRPC != "" {
+		cfg.RPC.Address = flags.AddressRPC
+	}
+
+	if flags.AddressHTTP != "" {
+		cfg.HTTP.Address = flags.AddressHTTP
 	}
 
 	if flags.DataDir != "" {

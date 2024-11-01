@@ -12,6 +12,7 @@ import (
 	cclient "github.com/bcrusu/scout/internal/control/client"
 	dclient "github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/register"
@@ -76,13 +77,14 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
-	session := session.New(id, n.config.Server.BindAddress, controlClient)
+	session := session.New(id, n.config.RPC.Address, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	txnProcessor := txn.NewProcessor(id, dataClient)
 	adminService := NewAdminService(id)
 	keyValueService := NewKeyValueService(*keyvalue.NewStore(txnProcessor))
 	graphService := NewGraphService(graph.NewStore(txnProcessor))
-	server := rpc.NewServer(n.config.Server, adminService, keyValueService, graphService)
+	rpcServer := rpc.NewServer(n.config.RPC, adminService, keyValueService, graphService)
+	httpServer := http.NewServer(n.config.HTTP)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
@@ -90,7 +92,8 @@ func (n *Server) Start(ctx context.Context) error {
 		dataClient,
 		txnProcessor,
 		adminService,
-		server,
+		httpServer,
+		rpcServer,
 	}
 
 	return utils.LifecycleStart(ctx, log, n.components[1:]...)
@@ -104,7 +107,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store, controlCl
 	params := register.Params{
 		ServerType:  control.ServerType_Api,
 		ClusterName: n.config.ClusterName,
-		BindAddress: n.config.Server.BindAddress,
+		Address:     n.config.RPC.Address,
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}

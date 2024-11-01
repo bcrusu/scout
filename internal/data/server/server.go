@@ -13,6 +13,7 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/storage/inmem"
 	"github.com/bcrusu/scout/internal/data/server/storage/rocksdb"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
@@ -78,13 +79,14 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
-	session := session.New(id, n.config.Server.BindAddress, controlClient)
+	session := session.New(id, n.config.RPC.Address, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	multiraft := n.buildMultiRaft()
 	db := n.buildDB()
 	partitionController := partitions.NewController(id, db, multiraft, dataClient)
 	dataService := NewDataService(partitionController)
-	server := rpc.NewServer(n.config.Server, dataService, multiraft)
+	rpcServer := rpc.NewServer(n.config.RPC, dataService, multiraft)
+	httpServer := http.NewServer(n.config.HTTP)
 
 	n.components = []utils.Lifecycle{
 		controlClient,
@@ -93,7 +95,8 @@ func (n *Server) Start(ctx context.Context) error {
 		multiraft,
 		db,
 		partitionController,
-		server,
+		httpServer,
+		rpcServer,
 	}
 
 	return utils.LifecycleStart(ctx, log, n.components[1:]...)
@@ -107,7 +110,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store, controlCl
 	params := register.Params{
 		ServerType:  control.ServerType_Data,
 		ClusterName: n.config.ClusterName,
-		BindAddress: n.config.Server.BindAddress,
+		Address:     n.config.RPC.Address,
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}
@@ -126,10 +129,10 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 
 func (n *Server) buildMultiRaft() *multiraft.Multi {
 	if n.config.InMem {
-		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.Server.BindAddress)
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.Address)
 	}
 
-	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.Server.BindAddress)
+	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.Address)
 }
 
 func (n *Server) buildDB() storage.DB {

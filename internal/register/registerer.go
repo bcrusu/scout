@@ -18,7 +18,7 @@ var (
 type Params struct {
 	ServerType  control.ServerType
 	ClusterName string
-	BindAddress string
+	Address     string
 	Token       string
 	Tags        []string
 }
@@ -46,7 +46,7 @@ func (r *Registerer) Register(ctx context.Context, params Params) (identity.Iden
 
 	req := &control.RegisterRequest{
 		Token:   params.Token,
-		Address: params.BindAddress,
+		Address: params.Address,
 		Type:    params.ServerType,
 		Tags:    params.Tags,
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -42,7 +43,8 @@ func Set(config Config) error {
 
 type Config struct {
 	ClusterName  string              `yaml:"clusterName" validate:"required,maxLen:100"`
-	Server       rpc.ServerConfig    `yaml:"server"`
+	RPC          rpc.ServerConfig    `yaml:"rpc"`
+	HTTP         http.ServerConfig   `yaml:"http"`
 	InMem        bool                `yaml:"inMem" default:"false"`
 	DataDir      string              `yaml:"dataDir"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
@@ -88,8 +90,8 @@ func (c *Config) prepare() error {
 		c.Register.Token = uuid.New().String()
 	}
 
-	c.Server.ClusterName = c.ClusterName
-	c.Server.EnableHlc = false
+	c.RPC.ClusterName = c.ClusterName
+	c.RPC.EnableHlc = false
 
 	hlc.Set(hlc.New(c.Session.MaxTimeOffset))
 	return c.prepareDirs()

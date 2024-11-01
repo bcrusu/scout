@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
@@ -43,18 +44,19 @@ func Set(config Config) error {
 }
 
 type Config struct {
-	ClusterName string           `yaml:"clusterName" validate:"required,maxLen:100"`
-	Server      rpc.ServerConfig `yaml:"server"`
-	Service     Service          `yaml:"service"`
-	InMem       bool             `yaml:"inMem" default:"false"`
-	DataDir     string           `yaml:"dataDir"`
-	Raft        multiraft.Config `yaml:"raft"`
-	Sessions    Sessions         `yaml:"sessions"`
-	TimeOffset  TimeOffset       `yaml:"timeOffset"`
-	Partitions  Partitions       `yaml:"partitions"`
-	Register    *Register        `yaml:"register"`
-	Bootstrap   *Bootstrap       `yaml:"bootstrap"`
-	LogLevels   string           `yaml:"logLevels" default:"*:info"`
+	ClusterName string            `yaml:"clusterName" validate:"required,maxLen:100"`
+	RPC         rpc.ServerConfig  `yaml:"rpc"`
+	HTTP        http.ServerConfig `yaml:"http"`
+	Service     Service           `yaml:"service"`
+	InMem       bool              `yaml:"inMem" default:"false"`
+	DataDir     string            `yaml:"dataDir"`
+	Raft        multiraft.Config  `yaml:"raft"`
+	Sessions    Sessions          `yaml:"sessions"`
+	TimeOffset  TimeOffset        `yaml:"timeOffset"`
+	Partitions  Partitions        `yaml:"partitions"`
+	Register    *Register         `yaml:"register"`
+	Bootstrap   *Bootstrap        `yaml:"bootstrap"`
+	LogLevels   string            `yaml:"logLevels" default:"*:info"`
 }
 
 type Register struct {
@@ -122,8 +124,8 @@ func (c *Config) prepare() error {
 		c.Register.Token = uuid.New().String()
 	}
 
-	c.Server.ClusterName = c.ClusterName
-	c.Server.EnableHlc = true
+	c.RPC.ClusterName = c.ClusterName
+	c.RPC.EnableHlc = true
 
 	hlc.Set(hlc.New(c.TimeOffset.MaxTimeOffset))
 	return c.prepareDirs()

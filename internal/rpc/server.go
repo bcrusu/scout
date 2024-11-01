@@ -20,7 +20,7 @@ var (
 
 // ServerConfig is the gRPC server configuration.
 type ServerConfig struct {
-	BindAddress          string        `yaml:"bindAddress" validate:"required,minLen:2,maxLen:128"`
+	Address              string        `yaml:"address" validate:"required,minLen:2,maxLen:128"`
 	ConnectionTimeout    time.Duration `yaml:"connectionTimeout" default:"5s" validate:"positive"`
 	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s" validate:"positive"`
 	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
@@ -85,7 +85,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 
 // Start the server.
 func (s *Server) Start(ctx context.Context) error {
-	listener, err := net.Listen("tcp", s.config.BindAddress)
+	listener, err := net.Listen("tcp", s.config.Address)
 	if err != nil {
 		return errors.Wrap(err, "failed to create TCP listener")
 	}
