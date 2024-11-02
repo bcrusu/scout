@@ -33,7 +33,7 @@ func newGetReplicasCmd() *cobra.Command {
 			}
 
 			renderTable(
-				[]string{"Part", "Replica", "Server", "State", "Ready", "Leader", "Applied/Commited", "Created", "Transition", "Updated"},
+				[]string{"#", "Part", "Replica", "Server", "State", "Ready", "Leader", "Applied/Commited", "Created", "Transition", "Updated"},
 				sliceToTable(pairs,
 					func(a, b pair) int {
 						if x := int(a.part.Id) - int(b.part.Id); x != 0 {
@@ -57,7 +57,11 @@ func newGetReplicasCmd() *cobra.Command {
 							formatTime(x.repl.StateTransitionTime),
 							formatTime(x.repl.LastUpdate),
 						}
-					}))
+					},
+					true,
+				))
+
+			fmt.Printf("Max imbalance: %d\n", info.Cluster.Partitions.MaxImbalance)
 
 			return nil
 		},

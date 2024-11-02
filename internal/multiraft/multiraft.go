@@ -16,7 +16,7 @@ import (
 var (
 	_   utils.Lifecycle = (*Multi)(nil)
 	_   rpc.Service     = (*Multi)(nil)
-	log                 = logging.New("multiraft").NoContext()
+	log                 = logging.New("raft").NoContext()
 )
 
 // Multi allows working with multiple Raft instances.
@@ -84,8 +84,7 @@ func (r *Multi) New(id uint32, fsm FSM, localID raft.ServerID) (*Raft, error) {
 		return raft, nil
 	}
 
-	config := r.config.getRaftConfig()
-	config.LocalID = localID
+	config := r.config.getRaftConfig(id, localID)
 
 	logs, stable, snap, err := r.stores.New(id)
 	if err != nil {

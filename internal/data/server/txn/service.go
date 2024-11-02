@@ -28,7 +28,7 @@ type Service struct {
 }
 
 type RaftStore interface {
-	ApplyBatch(batch *Batch) (<-chan multiraft.AsyncResult, error)
+	ApplyBatch(batch *Batch) <-chan multiraft.AsyncResult
 }
 
 func NewService(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB, client TxnServiceClient) *Service {

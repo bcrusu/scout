@@ -38,6 +38,17 @@ func NewFSM(partitionID uint32, db kv.DB, txn *txn.Manager) *FSM {
 func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	log := f.log.With("index", index, "appendedAt", appendedAt)
 
+	if f.index == 0 {
+		log.Debug("Init partition.")
+
+		if err := f.db.InitPartition(f.partitionID); err != nil {
+			log.WithError(err).Error("Partition init failed.")
+			utils.ShutdownNowf("Partition %d init failed.", f.partitionID)
+		} else {
+			log.Debug("Partition init success.")
+		}
+	}
+
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -66,6 +77,9 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 	log.Tracef("Applying command %T...", cmd.Payload)
 
 	switch x := cmd.Payload.(type) {
+	case *Command_Barrier:
+		// best effort store last index
+		result = f.db.Put(f.partitionID, index)
 	case *Command_Batch:
 		result = f.txn.ApplyBatch(index, x.Batch)
 	default:

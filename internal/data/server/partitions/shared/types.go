@@ -17,4 +17,5 @@ type Replica interface {
 	utils.Lifecycle
 	GetService() Service
 	GetStatus() *control.DataServerStatus_Replica
+	SetConfig(*control.DataServerConfig_Partition)
 }

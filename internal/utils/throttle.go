@@ -15,7 +15,6 @@ func ThrottleChan[T any](ctx context.Context, ch <-chan T, interval time.Duratio
 	result := make(chan T, cap(ch))
 
 	go func() {
-		defer close(result)
 		var last time.Time
 
 		for {

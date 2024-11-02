@@ -141,7 +141,7 @@ func (s State) GetReplica(sid uint64, pid uint32) *ReplicaState {
 	return &result
 }
 
-func (s State) Imbalance() int {
+func (s State) MaxImbalance() int {
 	minCount := math.MaxInt
 	maxCount := 0
 
@@ -171,6 +171,11 @@ func (s State) PartitionCount() int {
 	return len(s.Part)
 }
 
+func (s State) HasReplica(sid uint64, pid uint32) bool {
+	part := s.Part[pid]
+	return s.GetReplica(sid, pid) != nil || part.Joining[sid] || part.Serving[sid] || part.Leaving[sid]
+}
+
 func (s ServerState) TotalCount() int {
 	// it considers that leaving replicas are alredy removed with
 	// just a matter of time until the actual deletion happens.
@@ -183,10 +188,6 @@ func (s ServerState) JoiningCount() int {
 
 func (s ServerState) ServingCount() int {
 	return len(s.Serving)
-}
-
-func (s ServerState) HasReplica(pid uint32) bool {
-	return s.Joining[pid] || s.Serving[pid] || s.Leaving[pid]
 }
 
 func (s PartitionState) Clone() PartitionState {

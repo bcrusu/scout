@@ -166,6 +166,10 @@ func (r *Raft) RemoveServer(id raft.ServerID) error {
 // Apply is used to apply a command to the FSM and waits for the result.
 // Must be invoked on the leader.
 func (r *Raft) Apply(cmd []byte) (any, error) {
+	if len(cmd) == 0 {
+		return nil, errors.Error("command is empty")
+	}
+
 	if err := r.checkLeader(); err != nil {
 		return nil, err
 	}
@@ -187,6 +191,11 @@ func (r *Raft) Apply(cmd []byte) (any, error) {
 // Must be invoked on the leader.
 func (r *Raft) ApplyAsync(cmd []byte) <-chan AsyncResult {
 	resultCh := make(chan AsyncResult, 1)
+
+	if len(cmd) == 0 {
+		resultCh <- AsyncResult{Error: errors.Error("command is empty")}
+		return resultCh
+	}
 
 	if err := r.checkLeader(); err != nil {
 		resultCh <- AsyncResult{Error: err}
@@ -270,7 +279,7 @@ func (f *fsmAdapter) Apply(l *raft.Log) any {
 	log.Trace("FSM apply log", "index", l.Index, "term", l.Term, "type", l.Type, "appended", l.AppendedAt)
 
 	switch l.Type {
-	case raft.LogCommand, raft.LogBarrier:
+	case raft.LogCommand:
 		return f.fsm.Apply(l.Index, l.AppendedAt.UTC(), l.Data)
 	default:
 		log.Warn("Unexpected apply log", "index", l.Index, "type", l.Type)

@@ -20,8 +20,9 @@ type Config struct {
 	Transport          serviceconfig.Config `yaml:"transport"`
 }
 
-func (c Config) getRaftConfig() raft.Config {
+func (c Config) getRaftConfig(id uint32, localID raft.ServerID) raft.Config {
 	cfg := raft.DefaultConfig()
+	cfg.LocalID = localID
 
 	cfg.HeartbeatTimeout = c.HeartbeatTimeout
 	cfg.ElectionTimeout = c.ElectionTimeout
@@ -34,7 +35,7 @@ func (c Config) getRaftConfig() raft.Config {
 
 	cfg.ShutdownOnRemove = true
 	cfg.PreVoteDisabled = false
-	cfg.Logger = newLogAdapter("hashicorp_raft")
+	cfg.Logger = newLogAdapter("hraft").With("id", id, "local_id", localID)
 
 	return *cfg
 }

@@ -3,6 +3,7 @@ package multiraft
 import (
 	transport "github.com/Jille/raft-grpc-transport"
 	"github.com/Jille/raft-grpc-transport/proto"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/hashicorp/raft"
@@ -10,9 +11,11 @@ import (
 )
 
 func newTransport(config Config, clusterName, localAddress string) *transport.Manager {
+	log := logging.New("raft_transport").NoContext()
+
 	opts := []transport.Option{
 		transport.WithErrorLogger(func(err error, msg string, args ...any) {
-			log.WithError(err).Error("Transport: "+msg, args...)
+			log.WithError(err).Error(msg, args...)
 		}),
 		transport.WithHeartbeatTimeout(config.HeartbeatTimeout),
 	}

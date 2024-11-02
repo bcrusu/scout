@@ -19,8 +19,8 @@ func newGetPartitionsCmd() *cobra.Command {
 				return err
 			}
 
-			table := newTable(
-				[]string{"Part", "Replicas (T/S/J/L)", "Leader", "Leader term", "Commited Index", "Version"},
+			renderTable(
+				[]string{"Part", "Replicas (T/S/J/L)", "Leader", "Leader term", "Leader Applied/Commited", "Version"},
 				mapToTable(info.Cluster.Partitions.Items,
 					func(a, b *control.Partition) int {
 						return int(a.Id) - int(b.Id)
@@ -35,13 +35,15 @@ func newGetPartitionsCmd() *cobra.Command {
 								p.ReplicaCountForState(control.ReplicaState_Leaving)),
 							p.Leader,
 							formatUint(p.LeaderTerm),
-							formatUint(p.CommitedIndex),
+							fmt.Sprintf("%d/%d", p.LeaderAppliedIndex, p.CommitedIndex),
 							formatUint(p.AssignmentsVersion),
 						}
-					}))
+					},
+					false,
+				))
 
-			table.SetCaption(true, fmt.Sprintf("Partition count: %d", info.Cluster.PartitionCount))
-			table.Render()
+			fmt.Printf("Partition count: %d\n", info.Cluster.PartitionCount)
+			fmt.Printf("Max imbalance: %d\n", info.Cluster.Partitions.MaxImbalance)
 			return nil
 		},
 	}

@@ -28,6 +28,9 @@ func formatUint[T Unsigned](val T) string {
 }
 
 func formatTime(val *timestamppb.Timestamp) string {
+	if val == nil || val.Seconds == 0 {
+		return "-"
+	}
 	return val.AsTime().Format(time.RFC3339)
 }
 

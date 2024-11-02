@@ -73,12 +73,8 @@ func (s *batcher) mainLoop(ctx context.Context) {
 		batchSize := 0
 
 		nextBatch := func() {
-			asyncCh, err := s.raftStore.ApplyBatch(batch)
-			if err != nil {
-				s.sendBatchErr(waiting, err)
-			} else {
-				go s.waitBatchResult(waiting, asyncCh)
-			}
+			asyncCh := s.raftStore.ApplyBatch(batch)
+			go s.waitBatchResult(waiting, asyncCh)
 
 			batch = &Batch{}
 			waiting = &batchWaiting{}

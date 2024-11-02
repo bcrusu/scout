@@ -329,7 +329,10 @@ func (t *Tracker) updateDataServerList(sessions sessions, servers *control.Serve
 		slices.Sort(replicaServerIDs)
 
 		if leader := status.getPartitionLeader(id); leader != "" {
-			leaderServerId = part.Replicas[leader].ServerId
+			replica := part.Replicas[leader]
+			if replica != nil {
+				leaderServerId = replica.ServerId
+			}
 		}
 
 		new.Partitions[id] = &control.DataServers_Partition{

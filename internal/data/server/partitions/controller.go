@@ -96,25 +96,33 @@ func (c *Controller) syncPartitions(ctx context.Context, dsConfig *control.DataS
 
 	// stop unassigned
 	for pid, replica := range c.replicas {
-		var replicaConfig *control.DataServerConfig_Replica
-		if config, ok := dsConfig.Partitions[pid]; ok {
-			replicaConfig = c.getLocalReplicaConfig(config)
+		var config *control.DataServerConfig_Replica
+
+		if x, ok := dsConfig.Partitions[pid]; ok {
+			config = c.getLocalReplicaConfig(x)
 		}
 
-		if replicaConfig == nil || replica.name != replicaConfig.Name {
+		if config == nil || replica.name != config.Name {
 			go replica.Stop()
 			delete(c.replicas, pid)
 		}
 	}
 
-	// start assigned
-	for pid, config := range dsConfig.Partitions {
-		replicaConfig := c.getLocalReplicaConfig(config)
-		if replicaConfig == nil || c.replicas[pid] != nil {
+	// start/update assigned
+	for pid, x := range dsConfig.Partitions {
+		// update
+		if replica, ok := c.replicas[pid]; ok {
+			replica.setConfig(x)
 			continue
 		}
 
-		replica := newReplica(pid, replicaConfig.Name, c.multiraft, c.dataClient, c.db)
+		config := c.getLocalReplicaConfig(x)
+		if config == nil {
+			continue
+		}
+
+		replica := newReplica(pid, config.Name, c.multiraft, c.dataClient, c.db)
+		replica.setConfig(x)
 
 		go replica.Start(ctx)
 		c.replicas[pid] = replica
@@ -136,7 +144,7 @@ func (c *Controller) getLocalReplicaConfig(config *control.DataServerConfig_Part
 			return replica
 		}
 	}
-	logC.Warn("Partition replica not found.", "id", config.Id, "server_id", c.id.ServerID)
+	logC.Warn("Partition replica not found.", "partition", config.Id, "server_id", c.id.ServerID)
 	return nil
 }
 

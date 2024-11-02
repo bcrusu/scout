@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
 	"github.com/bcrusu/scout/internal/errors"
@@ -14,6 +15,7 @@ var (
 )
 
 type DB struct {
+	lock       sync.Mutex
 	partitions map[uint32]*partition
 }
 
@@ -29,6 +31,9 @@ func New() *DB {
 }
 
 func (d *DB) InitPartition(pid uint32) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	_, ok := d.partitions[pid]
 	if ok {
 		return nil
@@ -39,6 +44,9 @@ func (d *DB) InitPartition(pid uint32) error {
 }
 
 func (d *DB) DropPartition(pid uint32) error {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
 	delete(d.partitions, pid)
 	return nil
 }
@@ -48,18 +56,18 @@ func (d *DB) SyncPartition(pid uint32) error {
 }
 
 func (d *DB) GetIndex(pid uint32, _ bool) (uint64, error) {
-	part, ok := d.partitions[pid]
-	if !ok {
-		return 0, errors.NotFound
+	part, err := d.getPartition(pid)
+	if err != nil {
+		return 0, err
 	}
 
 	return part.index, nil
 }
 
 func (d *DB) Get(pid uint32, address kv.Address) (*kv.Record, error) {
-	part, ok := d.partitions[pid]
-	if !ok {
-		return nil, errors.NotFound
+	part, err := d.getPartition(pid)
+	if err != nil {
+		return nil, err
 	}
 
 	i, found := part.findFirst(address)
@@ -71,9 +79,9 @@ func (d *DB) Get(pid uint32, address kv.Address) (*kv.Record, error) {
 }
 
 func (d *DB) GetRange(pid uint32, start kv.Address, end *kv.Address) (kv.Iterator, error) {
-	part, ok := d.partitions[pid]
-	if !ok {
-		return nil, errors.NotFound
+	part, err := d.getPartition(pid)
+	if err != nil {
+		return nil, err
 	}
 
 	startIdx, _ := part.findFirst(start)
@@ -97,9 +105,9 @@ func (d *DB) GetStream(pid uint32, start kv.Address) (kv.Iterator, error) {
 }
 
 func (d *DB) Put(pid uint32, index uint64, records ...kv.Record) error {
-	part, ok := d.partitions[pid]
-	if !ok {
-		return errors.NotFound
+	part, err := d.getPartition(pid)
+	if err != nil {
+		return err
 	}
 
 	for _, p := range records {
@@ -115,6 +123,18 @@ func (d *DB) Put(pid uint32, index uint64, records ...kv.Record) error {
 	part.index = max(part.index, index)
 	sort.Sort(part)
 	return nil
+}
+
+func (d *DB) getPartition(pid uint32) (*partition, error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	part, ok := d.partitions[pid]
+	if !ok {
+		return nil, errors.NotFound
+	}
+
+	return part, nil
 }
 
 func (d *DB) putOne(part *partition, record kv.Record) error {

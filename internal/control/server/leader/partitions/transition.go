@@ -31,7 +31,9 @@ func (t transition) Next(curr *State) *State {
 		t.removeExtra(next, uint32(pid))
 	}
 
-	t.rebalance(next)
+	if next.MaxImbalance() > 1 {
+		t.rebalance(next)
+	}
 
 	return next
 }
@@ -71,9 +73,9 @@ func (t transition) addMissing(state *State, pid uint32) {
 	}
 
 	var candidates []uint64
-	for _, server := range state.Serv {
-		if !server.HasReplica(pid) {
-			candidates = append(candidates, server.Id)
+	for sid := range state.Serv {
+		if !state.HasReplica(sid, pid) {
+			candidates = append(candidates, sid)
 		}
 	}
 
@@ -119,7 +121,7 @@ func (t transition) removeExtra(state *State, pid uint32) {
 		s2 := state.Serv[j]
 
 		// servers with more replicas first
-		if x := s1.TotalCount() - s2.TotalCount(); x != 0 {
+		if x := s2.TotalCount() - s1.TotalCount(); x != 0 {
 			return x
 		} else {
 			r1 := state.GetReplica(s1.Id, pid)
@@ -176,5 +178,5 @@ func (t transition) canAddReplica(state *State, sid uint64, pid uint32) bool {
 	return state.Joining < t.config.MaxJoining &&
 		len(state.Serv[sid].Joining) < t.config.MaxJoiningForServer &&
 		len(state.Part[pid].Joining) < t.config.MaxJoiningForPartition &&
-		!state.Serv[sid].HasReplica(pid)
+		!state.HasReplica(sid, pid)
 }

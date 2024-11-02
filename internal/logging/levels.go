@@ -24,6 +24,7 @@ var levelNames = map[slog.Level]slog.Value{
 	LevelInfo:  slog.StringValue("INFO"),
 	LevelWarn:  slog.StringValue("WARN"),
 	LevelError: slog.StringValue("ERROR"),
+	LevelOff:   slog.StringValue("OFF"),
 }
 
 var levelNamesInv = map[string]slog.Level{
@@ -32,6 +33,7 @@ var levelNamesInv = map[string]slog.Level{
 	"INFO":  LevelInfo,
 	"WARN":  LevelWarn,
 	"ERROR": LevelError,
+	"OFF":   LevelOff,
 }
 
 func parseLevel(str string) (Level, error) {

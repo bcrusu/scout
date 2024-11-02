@@ -76,7 +76,8 @@ message UpdateStatus {
         map<string, Replica> replicas = 1;
         string leader = 2;
         uint64 leader_term = 3;
-        uint64 commited_index = 4;
+        uint64 leader_applied_index = 4;
+        uint64 commited_index = 5;
     }
 
     map<uint64, Server> servers = 1;
@@ -91,6 +92,7 @@ message InitAssignments {
     }
 
     repeated Add add = 1;
+    uint32 max_imbalance = 2;
 }
 
 message UpdateAssignments {
@@ -114,4 +116,5 @@ message UpdateAssignments {
     repeated Add add = 2;
     repeated Update update = 3;
     repeated Remove remove = 4;
+    uint32 max_imbalance = 5;
 }

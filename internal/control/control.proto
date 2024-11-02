@@ -155,13 +155,15 @@ message Partition {
     uint64 assignments_version = 4;
     string leader = 5;
     uint64 leader_term = 6;
-    uint64 commited_index = 7;
+    uint64 leader_applied_index = 7;
+    uint64 commited_index = 8;
 }
 
 message Partitions {
     uint64 version = 1;
     uint64 assignments_version = 2;
     map<uint32, Partition> items = 3;
+    uint32 max_imbalance = 4;
 }
 
 // ====================================================================

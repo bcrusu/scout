@@ -39,10 +39,11 @@ func (t *Tracker) writeLatestStatus(ctx context.Context, tracker *statusTracker)
 		}
 
 		update.Partitions[id] = &storage.UpdateStatus_Partition{
-			Replicas:      replicas,
-			Leader:        part.Leader,
-			LeaderTerm:    part.LeaderTerm,
-			CommitedIndex: part.CommitedIndex,
+			Replicas:           replicas,
+			Leader:             part.Leader,
+			LeaderTerm:         part.LeaderTerm,
+			LeaderAppliedIndex: part.LeaderAppliedIndex,
+			CommitedIndex:      part.CommitedIndex,
 		}
 	}
 
@@ -82,11 +83,12 @@ type replicaStatus struct {
 }
 
 type partitionStatus struct {
-	Replicas      map[string]*replicaStatus
-	Leader        string
-	LeaderTerm    uint64
-	CommitedIndex uint64
-	Dirty         bool
+	Replicas           map[string]*replicaStatus
+	Leader             string
+	LeaderTerm         uint64
+	LeaderAppliedIndex uint64
+	CommitedIndex      uint64
+	Dirty              bool
 }
 
 func newStatusTracker(servers *control.Servers, partitions *control.Partitions) *statusTracker {
@@ -158,8 +160,12 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 		}
 
 		rStatus.LastUpdate = time.Now().UTC()
-		rStatus.AppliedIndex = update.AppliedIndex
 		rStatus.Ready = update.Ready
+
+		// leaving replicas report AppliedIndex==0, avoid clearing the last value...
+		if update.AppliedIndex != 0 {
+			rStatus.AppliedIndex = update.AppliedIndex
+		}
 
 		leaderChanged := update.IsLeader && update.LeaderTerm > pStatus.LeaderTerm
 		if leaderChanged {
@@ -167,6 +173,7 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 
 			pStatus.Leader = update.Name
 			pStatus.LeaderTerm = update.LeaderTerm
+			pStatus.LeaderAppliedIndex = update.AppliedIndex
 		}
 
 		pStatus.CommitedIndex = max(pStatus.CommitedIndex, update.CommitedIndex)

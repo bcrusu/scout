@@ -30,6 +30,10 @@ func (s *inmem) New(id uint32) (raft.LogStore, raft.StableStore, raft.SnapshotSt
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	if x, ok := s.store[id]; ok {
+		return x, x, s.snapshot[id], nil
+	}
+
 	store := raft.NewInmemStore()
 	snapshot := raft.NewInmemSnapshotStore()
 

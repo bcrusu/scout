@@ -23,18 +23,23 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 
 		Expect(<-th).To(Equal(1000))
 		Eventually(th).Should(BeEmpty())
-		Eventually(th).Should(BeClosed())
 	})
 
 	It("Should send after interval", func() {
 		interval := 2 * time.Millisecond
 		ch := make(chan int, chanSize)
 		th := utils.ThrottleChan(context.Background(), ch, interval)
+		done := make(chan any)
 
 		counter := 0
 		go func() {
-			for range th {
-				counter++
+			for {
+				select {
+				case <-th:
+					counter++
+				case <-done:
+					return
+				}
 			}
 		}()
 
@@ -46,6 +51,7 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 
 		Expect(counter).To(Equal(expected))
 		close(ch)
+		close(done)
 	})
 
 	It("Should not leak goroutine when chan is closed", func() {
@@ -58,7 +64,6 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 		}()
 
 		Expect(<-th).To(Equal(1))
-		Eventually(th).Should(BeClosed())
 	})
 
 	It("Should not leak goroutine when ctx is canceled", func() {
@@ -70,9 +75,12 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 			ch <- 1
 		}()
 
+		go func() {
+			<-th
+		}()
+
 		time.Sleep(10 * time.Millisecond)
 		cancel()
-		Eventually(th).Should(BeClosed())
 	})
 
 	It("Should work with MakeThrottleChan", func() {
@@ -87,7 +95,6 @@ var _ = DescribeTableSubtree("Throttle tests", func(chanSize int) {
 
 		Expect(<-th).To(Equal(1000))
 		Eventually(th).Should(BeEmpty())
-		Eventually(th).Should(BeClosed())
 	})
 },
 	Entry("chan with no buffer", 0),

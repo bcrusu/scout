@@ -63,7 +63,8 @@ func (a *Assigner) makeState(servers *control.Servers, partitions *control.Parti
 
 func (a *Assigner) makeUpdateAssignments(version uint64, curr, next *State) *storage.UpdateAssignments {
 	cmd := &storage.UpdateAssignments{
-		IfMatch: version,
+		IfMatch:      version,
+		MaxImbalance: uint32(next.MaxImbalance()),
 	}
 
 	for pid, nextPart := range next.Part {

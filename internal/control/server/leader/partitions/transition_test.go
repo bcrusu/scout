@@ -30,7 +30,7 @@ func FuzzNextState(f *testing.F) {
 		curr := newRandomState(seed1, seed2)
 		next := partitions.NextState(config, curr)
 
-		t.Logf("Imbalance: %d vs. %d\n", curr.Imbalance(), next.Imbalance())
+		t.Logf("Imbalance: %d vs. %d\n", curr.MaxImbalance(), next.MaxImbalance())
 	})
 }
 

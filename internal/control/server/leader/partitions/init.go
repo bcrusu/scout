@@ -31,7 +31,7 @@ func (a *Assigner) initAssignments() {
 				idx = (idx + 1) % len(serverIDs)
 				sid := serverIDs[idx]
 
-				if !state.Serv[sid].HasReplica(pid) {
+				if !state.HasReplica(sid, pid) {
 					state.AddJoining(sid, pid)
 					continue NEXT_REPLICA
 				}
@@ -53,7 +53,10 @@ func (a *Assigner) initAssignments() {
 		}
 	}
 
-	cmd := &storage.InitAssignments{Add: add}
+	cmd := &storage.InitAssignments{
+		Add:          add,
+		MaxImbalance: uint32(state.MaxImbalance()),
+	}
 
 	if _, err := a.store.InitAssignments(cmd); err != nil {
 		log.WithError(err).Error("Init assignments failed.")

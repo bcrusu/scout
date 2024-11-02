@@ -36,7 +36,9 @@ func newGetServersCmd() *cobra.Command {
 							s.LastAddress,
 							formatTags(s.Tags...),
 						}
-					}))
+					},
+					false,
+				))
 
 			return nil
 		},

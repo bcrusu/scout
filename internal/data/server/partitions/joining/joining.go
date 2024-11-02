@@ -28,6 +28,7 @@ type Joining struct {
 	db          kv.DB
 	log         logging.Logger
 	getStatusCh chan chan<- *control.DataServerStatus_Replica
+	setConfigCh chan *control.DataServerConfig_Partition
 	cancelFunc  context.CancelFunc
 }
 
@@ -50,6 +51,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient data
 		db:          db,
 		log:         logging.New("replica_joining").With("partition", pid, "replica", replica),
 		getStatusCh: make(chan chan<- *control.DataServerStatus_Replica),
+		setConfigCh: make(chan *control.DataServerConfig_Partition, 1),
 	}
 }
 
@@ -63,9 +65,7 @@ func (p *Joining) Stop() {
 }
 
 func (p *Joining) mainLoop(ctx context.Context) {
-	dataServerConfigSub := eventbus.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval)
 	dataServersSub := eventbus.SubscribeDebounced[*control.DataServers](ctx, debounceInterval)
-	defer dataServerConfigSub.Unsubscribe()
 	defer dataServersSub.Unsubscribe()
 
 	var config *control.DataServerConfig_Partition
@@ -80,26 +80,27 @@ func (p *Joining) mainLoop(ctx context.Context) {
 			return
 		}
 
+		p.log.Debug(ctx, "Creating raft instance...")
+
 		var err error
-		if raft, err = shared.CreateRaft(p.multiraft, config.Id, p.replica, fsm); err != nil {
+		if raft, err = shared.CreateRaft(p.multiraft, p.pid, p.replica, fsm); err != nil {
 			p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
 		} else {
-			p.log.Info(ctx, "Created raft instance.")
+			p.log.Debug(ctx, "Created raft instance.")
 		}
 	}
 
 	updateCandidates := func() {
-		if config != nil && part != nil {
+		if !fsm.ready.Load() && config != nil && part != nil {
 			fsm.candidates.Store(p.makeCandidates(config, part))
 		}
 	}
 
 	for {
 		select {
-		case x := <-dataServerConfigSub.Items():
-			newConfig := x.Partitions[p.pid]
-			if config == nil || config.ETag != newConfig.ETag {
-				config = newConfig
+		case x := <-p.setConfigCh:
+			if config == nil || config.ETag != x.ETag {
+				config = x
 				ensureRaft()
 				updateCandidates()
 			}
@@ -117,6 +118,11 @@ func (p *Joining) mainLoop(ctx context.Context) {
 			}
 
 			x := raft.GetStats()
+			if x.CommitedIndex == 0 {
+				statusCh <- nil
+				continue
+			}
+
 			statusCh <- &control.DataServerStatus_Replica{
 				Name:          p.replica,
 				IsLeader:      x.IsLeader,
@@ -126,11 +132,13 @@ func (p *Joining) mainLoop(ctx context.Context) {
 				Ready:         fsm.ready.Load(),
 			}
 		case <-ctx.Done():
+			cancelCtx()
+
 			if raft != nil {
 				p.multiraft.Shutdown(p.pid)
+				p.log.Debug(ctx, "Stopped raft instance.")
 			}
 
-			cancelCtx()
 			return
 		}
 	}
@@ -144,6 +152,10 @@ func (p *Joining) GetStatus() *control.DataServerStatus_Replica {
 	statusCh := make(chan *control.DataServerStatus_Replica, 1)
 	p.getStatusCh <- statusCh
 	return <-statusCh
+}
+
+func (p *Joining) SetConfig(config *control.DataServerConfig_Partition) {
+	p.setConfigCh <- config
 }
 
 func (p *Joining) makeCandidates(config *control.DataServerConfig_Partition, part *control.DataServers_Partition) *candidates {

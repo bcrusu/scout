@@ -23,7 +23,6 @@ func DebounceChan[T any](ctx context.Context, source <-chan T, pause time.Durati
 	}
 
 	go func() {
-		defer close(result)
 		var timer *time.Timer
 		var last *T
 

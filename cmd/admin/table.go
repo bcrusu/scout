@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"slices"
+	"strconv"
 
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/olekukonko/tablewriter"
@@ -11,18 +12,22 @@ import (
 type getRow[T any] func(T) []string
 type sortFn[T any] func(T, T) int
 
-func mapToTable[K comparable, V any](in map[K]V, sortFn sortFn[V], getRow getRow[V]) [][]string {
+func mapToTable[K comparable, V any](in map[K]V, sortFn sortFn[V], getRow getRow[V], rowNo bool) [][]string {
 	items := utils.MakeValueSlice(in)
-	return sliceToTable(items, sortFn, getRow)
+	return sliceToTable(items, sortFn, getRow, rowNo)
 }
 
-func sliceToTable[V any](items []V, sortFn sortFn[V], getRow getRow[V]) [][]string {
+func sliceToTable[V any](items []V, sortFn sortFn[V], getRow getRow[V], rowNo bool) [][]string {
 	slices.SortFunc(items, sortFn)
 
 	rows := make([][]string, len(items))
 
 	for i, item := range items {
-		rows[i] = getRow(item)
+		row := getRow(item)
+		if rowNo {
+			row = append([]string{strconv.Itoa(i + 1)}, row...)
+		}
+		rows[i] = row
 	}
 
 	return rows

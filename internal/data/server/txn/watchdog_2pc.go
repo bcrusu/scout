@@ -140,6 +140,8 @@ func (w *watchdog2PC) mainLoop(ctx context.Context) {
 			for ; inFlight > 0; inFlight-- {
 				<-doneCh
 			}
+
+			return
 		}
 	}
 }

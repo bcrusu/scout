@@ -84,6 +84,8 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.DataLoss, "Corrupted Data")
 	case errors.TimeOffsetOutOfRange:
 		return status.Error(codes.OutOfRange, "Time offset out of range")
+	case errors.FailedPrecondition:
+		return status.Error(codes.FailedPrecondition, "Failed Precondition")
 	case errInternal:
 		return errInternal
 	}
@@ -91,6 +93,10 @@ func getRPCError(ctx context.Context, err error, method string) error {
 	switch x := err.(type) {
 	case errors.ValidationError:
 		return status.Error(codes.InvalidArgument, x.Message)
+	}
+
+	if _, ok := status.FromError(err); ok {
+		return err
 	}
 
 	logErrors.WithError(err).Error(ctx, "Unhandled error", "method", method)
@@ -141,6 +147,8 @@ func getGoError(err error) error {
 		if s.Message() == "Time offset out of range" {
 			return errors.TimeOffsetOutOfRange
 		}
+	case codes.FailedPrecondition:
+		return errors.FailedPrecondition
 	}
 
 	return err

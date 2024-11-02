@@ -16,6 +16,7 @@ func (f *FSM) applyUpdateStatus(cmd *UpdateStatus) {
 
 		part.Leader = pUpdate.Leader
 		part.LeaderTerm = pUpdate.LeaderTerm
+		part.LeaderAppliedIndex = pUpdate.LeaderAppliedIndex
 		part.CommitedIndex = pUpdate.CommitedIndex
 
 		for name, rUpdate := range pUpdate.Replicas {

@@ -43,6 +43,8 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 		start = req.StartAddress.Address()
 	}
 
+	s.log.Debug(stream.Context(), "Starting partition stream...", "partition", req.PartitionId, "min_index", req.MinIndex)
+
 	iter, err := s.db.GetStream(req.PartitionId, start)
 	if err != nil {
 		return err

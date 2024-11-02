@@ -8,7 +8,8 @@ import "internal/data/server/txn/txn.proto";
 
 message Command {
     oneof payload {
-        txn.Batch batch = 1;
+        Barrier barrier = 1;
+        txn.Batch batch = 2;
     }
 }
 
@@ -16,3 +17,5 @@ message Snapshot {
     uint64 index = 1;
     txn.Snapshot txn_snapshot = 2;
 }
+
+message Barrier {}

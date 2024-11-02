@@ -33,6 +33,7 @@ type Serving struct {
 	db          storage.DB
 	log         logging.Logger
 	getStatusCh chan chan<- *control.DataServerStatus_Replica
+	setConfigCh chan *control.DataServerConfig_Partition
 	partition   atomic.Pointer[partitionDrainer]
 	cancelFunc  context.CancelFunc
 }
@@ -46,6 +47,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient clie
 		db:          db,
 		log:         logging.New("replica_serving").With("partition", pid, "replica", replica),
 		getStatusCh: make(chan chan<- *control.DataServerStatus_Replica),
+		setConfigCh: make(chan *control.DataServerConfig_Partition, 1),
 	}
 }
 
@@ -59,9 +61,7 @@ func (p *Serving) Stop() {
 }
 
 func (p *Serving) mainLoop(ctx context.Context) {
-	dataServerConfigSub := eventbus.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval)
 	dataServersSub := eventbus.SubscribeDebounced[*control.DataServers](ctx, debounceInterval)
-	defer dataServerConfigSub.Unsubscribe()
 	defer dataServersSub.Unsubscribe()
 
 	var partConfig *control.DataServerConfig_Partition
@@ -70,6 +70,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 	txnManager := txn.NewManager(p.pid, p.db.MVCC())
 	fsm := storage.NewFSM(p.pid, p.db.KV(), txnManager)
 	var raft *multiraft.Raft
+	var store *raftStore
 	isLeader := false
 
 	updateRaft := func() {
@@ -79,12 +80,15 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			eventbus.TryPublishRefreshDataServers()
 			return
 		} else if raft == nil {
+			p.log.Debug(ctx, "Creating raft instance...")
+
 			var err error
-			if raft, err = shared.CreateRaft(p.multiraft, partConfig.Id, p.replica, fsm, servers...); err != nil {
+			if raft, err = shared.CreateRaft(p.multiraft, p.pid, p.replica, fsm, servers...); err != nil {
 				p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
 				return
 			} else {
-				p.log.Info(ctx, "Created raft instance.")
+				store = newRaftStore(p.pid, p.replica, raft)
+				p.log.Debug(ctx, "Created raft instance.")
 			}
 		}
 
@@ -92,6 +96,36 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			p.updateRaftServers(raft, servers)
 		}
 	}
+
+	updateRole := func() {
+		// Setting to nil will reject new incoming requests with Unavailable error
+		// until the new partition leader/follower transition is ready.
+		if old := p.partition.Swap(nil); old != nil {
+			go old.Stop()
+		}
+
+		var new service
+
+		if isLeader {
+			txnService := txn.NewService(p.pid, store, txnManager, p.db.MVCC(), p.dataClient)
+			new = leader.New(p.pid, p.db.KV(), txnService)
+		} else {
+			txnService := txn.NewServiceNoWatchdog(p.pid, store, txnManager, p.db.MVCC())
+			new = follower.New(p.pid, p.db.KV(), txnService)
+		}
+
+		drainer := newPartitionDrainer(new, p.log)
+
+		if err := drainer.Start(ctx); err != nil {
+			p.log.WithError(err).Errorf(ctx, "Failed to start. Shutting down...", "is_leader", isLeader)
+			utils.GracefulShutdown("Failed to start partition.")
+			return
+		}
+
+		p.partition.Store(drainer)
+	}
+
+	updateRole()
 
 	for {
 		var leaderChan <-chan bool
@@ -104,40 +138,21 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			if next == isLeader {
 				continue
 			}
+
+			p.log.Debug(ctx, "Raft leadership changed.", "old", isLeader, "new", next)
 			isLeader = next
 
-			// Setting to nil will reject new incoming requests with Unavailable error
-			// until the new partition leader/follower transition is ready.
-			if old := p.partition.Swap(nil); old != nil {
-				go old.Stop()
-			}
-
-			var new service
-			store := &raftStore{raft: raft}
-
-			if isLeader {
-				txnService := txn.NewService(p.pid, store, txnManager, p.db.MVCC(), p.dataClient)
-				new = leader.New(p.pid, p.db.KV(), txnService)
-			} else {
-				txnService := txn.NewServiceNoWatchdog(p.pid, store, txnManager, p.db.MVCC())
-				new = follower.New(p.pid, p.db.KV(), txnService)
-			}
-
-			drainer := newPartitionDrainer(new, p.log)
-
-			if err := drainer.Start(ctx); err != nil {
-				p.log.WithError(err).Errorf(ctx, "Failed to start. Shutting down...", "is_leader", isLeader)
-				utils.GracefulShutdown("Failed to start partition.")
-				return
-			}
-
-			p.partition.Store(drainer)
+			updateRole()
 
 			// TODO: wait store.Appliedindex == raft.CommitedIndex
-			updateRaft()
-		case x := <-dataServerConfigSub.Items():
-			if new := x.Partitions[p.pid]; partConfig == nil || partConfig.ETag != new.ETag {
-				partConfig = new
+
+			if isLeader {
+				store.NewLeader()
+				updateRaft()
+			}
+		case x := <-p.setConfigCh:
+			if partConfig == nil || partConfig.ETag != x.ETag {
+				partConfig = x
 				updateRaft()
 			}
 		case x := <-dataServersSub.Items():
@@ -152,6 +167,11 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			}
 
 			x := raft.GetStats()
+			if x.CommitedIndex == 0 {
+				statusCh <- nil
+				continue
+			}
+
 			statusCh <- &control.DataServerStatus_Replica{
 				Name:          p.replica,
 				IsLeader:      isLeader,
@@ -259,4 +279,8 @@ func (p *Serving) GetStatus() *control.DataServerStatus_Replica {
 	statusCh := make(chan *control.DataServerStatus_Replica, 1)
 	p.getStatusCh <- statusCh
 	return <-statusCh
+}
+
+func (p *Serving) SetConfig(config *control.DataServerConfig_Partition) {
+	p.setConfigCh <- config
 }

@@ -52,6 +52,7 @@ func (f *FSM) applyUpdateAssignments(appendedAt time.Time, cmd *UpdateAssignment
 		part.AssignmentsVersion++
 	}
 
+	f.partitions.MaxImbalance = cmd.MaxImbalance
 	f.partitions.AssignmentsVersion++
 	f.partitions.Version++
 

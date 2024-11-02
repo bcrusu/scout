@@ -12,21 +12,21 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/partitions/serving"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage"
-	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
 type replica struct {
-	pid        uint32
-	name       string
-	multiraft  *multiraft.Multi
-	dataClient client.DataClient
-	db         storage.DB
-	log        logging.LoggerNoContext
-	holder     atomic.Pointer[holder]
-	cancelFunc context.CancelFunc
+	pid         uint32
+	name        string
+	multiraft   *multiraft.Multi
+	dataClient  client.DataClient
+	db          storage.DB
+	log         logging.LoggerNoContext
+	setConfigCh chan *control.DataServerConfig_Partition
+	holder      atomic.Pointer[holder]
+	cancelFunc  context.CancelFunc
 }
 
 type holder struct {
@@ -36,12 +36,13 @@ type holder struct {
 
 func newReplica(pid uint32, name string, multiraft *multiraft.Multi, dataClient client.DataClient, db storage.DB) *replica {
 	return &replica{
-		pid:        pid,
-		name:       name,
-		multiraft:  multiraft,
-		dataClient: dataClient,
-		db:         db,
-		log:        logging.New("partition").With("id", pid, "replica", name).NoContext(),
+		pid:         pid,
+		name:        name,
+		multiraft:   multiraft,
+		dataClient:  dataClient,
+		db:          db,
+		log:         logging.New("replica").With("partition", pid, "replica", name).NoContext(),
+		setConfigCh: make(chan *control.DataServerConfig_Partition, 1),
 	}
 }
 
@@ -54,27 +55,22 @@ func (p *replica) Stop() {
 }
 
 func (p *replica) mainLoop(ctx context.Context) {
-	dataServerConfigSub := eventbus.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval)
-	defer dataServerConfigSub.Unsubscribe()
-
 	var config *control.DataServerConfig_Partition
 
 	for {
 		select {
-		case x := <-dataServerConfigSub.Items():
-			newConfig := x.Partitions[p.pid]
-
+		case newConfig := <-p.setConfigCh:
 			if config != nil && config.ETag == newConfig.ETag {
 				continue
-			} else if replica := x.GetReplica(p.pid, p.name); replica != nil {
-				p.updateReplicaState(ctx, replica.State)
-			} else {
-				p.updateReplicaState(ctx, control.ReplicaState_Stopped)
 			}
-
 			config = newConfig
+
+			replica := p.transitionToState(ctx, config.Replicas[p.name].State)
+			if replica != nil {
+				replica.SetConfig(config)
+			}
 		case <-ctx.Done():
-			p.updateReplicaState(ctx, control.ReplicaState_Stopped)
+			p.transitionToState(ctx, control.ReplicaState_Stopped)
 			return
 		}
 	}
@@ -85,7 +81,7 @@ func (p *replica) mainLoop(ctx context.Context) {
 //   - joining -> serving || leaving
 //   - serving -> leaving
 //   - leaving -> STOP.
-func (p *replica) updateReplicaState(ctx context.Context, newState control.ReplicaState) {
+func (p *replica) transitionToState(ctx context.Context, newState control.ReplicaState) shared.Replica {
 	oldState := control.ReplicaState_Stopped
 	var old shared.Replica
 	var new shared.Replica
@@ -94,6 +90,13 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.Repli
 		oldState = x.state
 		old = x.instance
 	}
+
+	if newState == oldState {
+		return old
+	}
+
+	log := p.log.With("old_state", oldState, "new_state", newState)
+	log.Debugf("Replica is transitioning...")
 
 	switch newState {
 	case control.ReplicaState_Stopped:
@@ -124,28 +127,38 @@ func (p *replica) updateReplicaState(ctx context.Context, newState control.Repli
 	}
 
 	if old != nil && old != new {
+		log.Debug("Stopping old state...")
+
 		p.holder.Store(nil)
 		old.Stop()
+		log.Debug("Stopped old state.")
 	}
 
 	if new == nil {
+		// sanity check:
 		if newState != control.ReplicaState_Stopped {
 			p.log.Errorf("Replica failed to transition state from %s to %s.", oldState, newState)
 		}
-		return
+		return nil
 	}
 
 	if new != old {
+		log.Debug("Starting new state...")
+
 		if err := new.Start(ctx); err != nil {
-			p.log.WithError(err).Error("Failed to start replica.", "state", newState)
-			return
+			log.WithError(err).Error("Failed to start new state.")
+			return nil
 		}
+
+		log.Debug("Started new state.")
 	}
 
 	p.holder.Store(&holder{
 		state:    newState,
 		instance: new,
 	})
+
+	return new
 }
 
 func (p *replica) getService() (shared.Service, bool) {
@@ -164,4 +177,8 @@ func (p *replica) getStatus() *control.DataServerStatus_Replica {
 		return nil
 	}
 	return m.instance.GetStatus()
+}
+
+func (p *replica) setConfig(config *control.DataServerConfig_Partition) {
+	p.setConfigCh <- config
 }

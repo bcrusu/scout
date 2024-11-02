@@ -32,8 +32,6 @@ var _ = DescribeTableSubtree("Debounce tests", func(chanSize int) {
 		for i := range 10 {
 			Expect(<-db).To(Equal(i))
 		}
-
-		Eventually(db).Should(BeClosed())
 	})
 
 	It("Should also send last message after chan is closed", func() {
@@ -56,13 +54,12 @@ var _ = DescribeTableSubtree("Debounce tests", func(chanSize int) {
 		Expect(<-db).To(Equal(2))
 		Expect(<-db).To(Equal(5))
 		Expect(<-db).To(Equal(7))
-		Eventually(db).Should(BeClosed())
 	})
 
 	It("Should not leak goroutine when ctx is canceled", func() {
 		cctx, cancel := context.WithCancel(context.Background())
 		ch := make(chan int, chanSize)
-		db := utils.DebounceChan(cctx, ch, pause)
+		utils.DebounceChan(cctx, ch, pause)
 
 		go func() {
 			ch <- 1
@@ -70,7 +67,6 @@ var _ = DescribeTableSubtree("Debounce tests", func(chanSize int) {
 
 		time.Sleep(10 * time.Millisecond)
 		cancel()
-		Eventually(db).Should(BeClosed())
 	})
 
 	It("Should work with nil", func() {
@@ -88,7 +84,6 @@ var _ = DescribeTableSubtree("Debounce tests", func(chanSize int) {
 
 		Expect(<-db).To(BeNil())
 		Expect(<-db).To(Equal(2))
-		Eventually(db).Should(BeClosed())
 	})
 
 	It("Should work with MakeDebounceChan", func() {
@@ -105,7 +100,6 @@ var _ = DescribeTableSubtree("Debounce tests", func(chanSize int) {
 
 		Expect(<-db).To(Equal(2))
 		Expect(<-db).To(Equal(4))
-		Eventually(db).Should(BeClosed())
 	})
 },
 	Entry("chan with no buffer", 0),

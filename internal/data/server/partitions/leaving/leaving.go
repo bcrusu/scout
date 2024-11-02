@@ -78,6 +78,10 @@ func (p *Leaving) GetStatus() *control.DataServerStatus_Replica {
 	}
 }
 
+func (p *Leaving) SetConfig(config *control.DataServerConfig_Partition) {
+	// nop
+}
+
 func (p *Leaving) cleanup() error {
 	if err := p.multiraft.Drop(p.pid); err != nil {
 		return errors.Wrap(err, "failed to remove Raft group.")

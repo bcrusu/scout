@@ -24,7 +24,7 @@ var (
 	// Used to save progress and resume from last ingested address during restore.
 	// The value is stored next to the data to ensure atomicity: iif data was persisted
 	// successfully then the checkpoint is also persisted.
-	addressCheckpoint = kv.NewAddress(keyspace.ReservedReplica, []byte("checkpoint"), 0)
+	addressCheckpoint = kv.NewAddress(keyspace.ReservedReplica, []byte("checkpoint"), 42)
 )
 
 // restoreFsm helps the joining replica seed its initial state by streaming
@@ -33,6 +33,13 @@ var (
 // method so no Raft log entries are applied. Once the operation is complete,
 // it notifies the replica to update its status to joining==done. This eventually
 // leads the control plane to transition the replica from joining to serving state.
+//
+// To note that, if the Raft log is empty (i.e. no logs were written) the FSM cannot
+// make progress as the Apply and Restore methods will never be called by Raft, thus
+// the FSM will be forever stuck waiting for the first write. This scenario is bound
+// to happen early during cluster setup phase when new servers are added which trigger
+// replica rebalance/s resulting in the newly joining replicas getting stuck.
+// To overcome, partition leaders will issue a Barrier write to kickstart the log.
 type restoreFsm struct {
 	ctx        context.Context
 	pid        uint32
@@ -40,7 +47,7 @@ type restoreFsm struct {
 	config     config.DB
 	dataClient data.ServiceClient
 	db         *kv.DBBreaker
-	log        logging.Logger
+	log        logging.LoggerNoContext
 	candidates atomic.Pointer[candidates] // updated by the joining replica
 	index      atomic.Uint64              // updated during restore
 	ready      atomic.Bool                // updated during restore
@@ -66,13 +73,20 @@ func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient d
 		config:     config.Get().DB,
 		dataClient: dataClient,
 		db:         kv.NewDBBreaker(db),
-		log:        logging.New("replica_joining").With("partition", pid, "replica", replica),
+		log:        logging.New("replica_joining").With("partition", pid, "replica", replica).NoContext(),
 	}
 }
 
-func (f *restoreFsm) Apply(_ uint64, _ time.Time, _ []byte) any {
-	f.ready.Store(true)
-	f.log.Info(f.ctx, "Restore partition completed. Waiting for transition to serving state...")
+func (f *restoreFsm) Apply(index uint64, _ time.Time, _ []byte) any {
+	// ready can be already true if a snapshot was applied first
+	if !f.ready.Load() {
+		if err := f.restoreAt(index - 1); err != nil {
+			// err != nil only if the operation was halted
+			return err
+		}
+	}
+
+	f.log.Info("Restore partition completed. Waiting for transition to serving state...")
 
 	// wait forever as noted above
 	<-f.ctx.Done()
@@ -89,22 +103,25 @@ func (f *restoreFsm) Restore(snapshot []byte) error {
 		return err
 	}
 
-	f.log.Info(f.ctx, "Restoring...", "index", snap.Index)
+	return f.restoreAt(snap.Index)
+}
 
-	f.index.Store(snap.Index)
+func (f *restoreFsm) restoreAt(minIndex uint64) error {
+	f.log.Info("Restoring...", "min_index", minIndex)
 
 	f.db.InitPartition(f.pid)
 
-	lastAddr, completed := f.loadCheckpoint(snap.Index)
+	lastAddr, completed := f.loadCheckpoint(minIndex)
 
 	if !completed {
-		if err := f.streamPartition(snap.Index, lastAddr); err != nil {
+		if err := f.streamPartition(minIndex, lastAddr); err != nil {
 			return err
 		}
 	}
 
+	f.index.Store(minIndex)
 	f.ready.Store(true)
-	f.log.Info(f.ctx, "Restore partition completed.")
+	f.log.Info("Restore partition completed.")
 	return nil
 }
 
@@ -124,7 +141,7 @@ func (f *restoreFsm) loadCheckpoint(minIndex uint64) (*data.KVAddress, bool) {
 		// the shapshot interval config, but later might need to have existing replicas
 		// pause snapshotting while the new replica is joining.
 
-		f.log.Warn(f.ctx, "Received newer snapshot. Dropping past progress...")
+		f.log.Warn("Received newer snapshot. Dropping past progress...")
 		f.db.DropPartition(f.pid)
 		return nil, false
 	}
@@ -145,17 +162,18 @@ func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) 
 	for {
 		if c := f.candidates.Load(); c != nil && len(c.replicas) > 0 {
 			r := c.nextReplica()
-			f.log.Debug(f.ctx, "Replica selected for streaming.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
+			log := f.log.With("source_replica", r.replica.Name, "source_server_id", r.replica.ServerId)
+			log.Debug("Streaming...")
 
-			lastAddr = f.tryStreamPartition(minIndex, lastAddr, r.replica.ServerId)
-			if lastAddr != nil {
-				f.log.Debug(f.ctx, "Streaming halted.", "replica", r.replica.Name, "server_id", r.replica.ServerId)
-			} else {
-				// stream completed
+			var completed bool
+			lastAddr, completed = f.tryStreamPartition(minIndex, lastAddr, r.replica.ServerId, log)
+			if completed {
 				return nil
+			} else if lastAddr != nil {
+				log.Debug("Streaming halted.")
 			}
 		} else {
-			f.log.Debug(f.ctx, "No streaming candidates.")
+			f.log.Debug("No streaming candidates.")
 		}
 
 		select {
@@ -166,7 +184,7 @@ func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) 
 	}
 }
 
-func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddress, serverId uint64) *data.KVAddress {
+func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddress, serverId uint64, log logging.LoggerNoContext) (*data.KVAddress, bool) {
 	req := &data.StreamRequest{
 		PartitionId:  f.pid,
 		MinIndex:     minIndex,
@@ -176,8 +194,8 @@ func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddres
 	ctx := client.WithPreferredServer(f.ctx, serverId, true)
 	stream, err := f.dataClient.StreamPartition(ctx, req)
 	if err != nil {
-		f.log.WithError(err).Error(f.ctx, "StreamPartition call failed.")
-		return lastAddr
+		log.WithError(err).Error("StreamPartition call failed.")
+		return lastAddr, false
 	}
 
 	records := make([]kv.Record, 0, f.config.MaxStreamingSize+1)
@@ -185,8 +203,8 @@ func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddres
 	for {
 		res, err := stream.Recv()
 		if err != nil {
-			f.log.WithError(err).Error(f.ctx, "Stream.Recv failed.")
-			return lastAddr
+			log.WithError(err).Error("Stream.Recv failed.")
+			return lastAddr, false
 		}
 
 		for _, e := range res.Records {
@@ -208,7 +226,7 @@ func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddres
 
 		if res.Completed {
 			f.db.Put(f.pid, minIndex, records...)
-			return nil
+			return nil, true
 		} else {
 			f.db.Put(f.pid, 0, records...)
 		}
