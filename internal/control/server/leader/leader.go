@@ -47,13 +47,13 @@ func New(store storage.Store) *Leader {
 
 func (n *Leader) Start(ctx context.Context) error {
 	utils.LifecycleStart(ctx, logL, n.components...)
-	logL.Debug(ctx, "Started leader")
+	logL.WithContext(ctx).Debug("Started leader")
 	return nil
 }
 
 func (n *Leader) Stop() {
-	utils.LifecycleStop(logL.NoContext(), n.components...)
-	logL.NoContext().Debug("Stopped leader")
+	utils.LifecycleStop(logL, n.components...)
+	logL.Debug("Stopped leader")
 }
 
 func (n *Leader) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {

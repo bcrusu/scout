@@ -102,36 +102,36 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 		return errors.Errorf("cannot bootstrap, already part of cluster %s", id.ClusterName)
 	}
 
-	log := log.With("cluster", p.ClusterName, "ids", p.serverIDs, "names", p.serverNames, "addresses", p.serverAddrs)
-	log.Debug(ctx, "Bootstrapping the raft cluster...")
+	log := log.WithContext(ctx).With("cluster", p.ClusterName, "ids", p.serverIDs, "names", p.serverNames, "addresses", p.serverAddrs)
+	log.Debug("Bootstrapping the raft cluster...")
 
 	if err := b.bootstrapRaft(p); err != nil {
-		log.WithError(err).Debug(ctx, "Bootstrap raft cluster failed.")
+		log.WithError(err).Debug("Bootstrap raft cluster failed.")
 		return err
 	} else {
-		log.WithError(err).Debug(ctx, "Bootstrap raft cluster success.")
+		log.WithError(err).Debug("Bootstrap raft cluster success.")
 	}
 
 	doneCh := make(chan any)
 
 	cancelFunc := utils.RunAsync(ctx, func(ctx context.Context) {
-		log.Debug(ctx, "Performing initial write...")
+		log.Debug("Performing initial write...")
 
 		if err := b.initalWriteWithRetry(ctx, p); err != nil {
-			log.WithError(err).Debug(ctx, "Initial write failed.")
+			log.WithError(err).Debug("Initial write failed.")
 		} else {
-			log.WithError(err).Debug(ctx, "Initial write success.")
+			log.WithError(err).Debug("Initial write success.")
 		}
 
-		log.Debug(ctx, "Storing identity...")
+		log.Debug("Storing identity...")
 
 		if err := b.storeIdentityWithRetry(ctx, p); err != nil {
-			log.WithError(err).Debug(ctx, "Storing identity failed.")
+			log.WithError(err).Debug("Storing identity failed.")
 		} else {
-			log.WithError(err).Debug(ctx, "Storing identity success.")
+			log.WithError(err).Debug("Storing identity success.")
 		}
 
-		log.Debug(ctx, "Bootstrap success.")
+		log.Debug("Bootstrap success.")
 		close(doneCh)
 	})
 
@@ -178,25 +178,27 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 		PartitionCount: p.PartitionCount,
 	}
 
+	log := log.WithContext(ctx)
+
 	return utils.RetryForeverE(ctx, &b.backoff, func() error {
 		if clusterName := b.store.ClusterName(); clusterName == p.ClusterName {
-			log.Info(ctx, "Initial write was completed successfully by another server.")
+			log.Info("Initial write was completed successfully by another server.")
 			return nil
 		} else if clusterName != "" {
 			return errors.Errorf("cannot perform initial write. Different cluster detected %s.", clusterName)
 		}
 
 		if !b.store.Raft().IsLeader() {
-			log.Debug(ctx, "Not leader. Backing off...")
+			log.Debug("Not leader. Backing off...")
 			return errors.NotLeader
 		}
 
 		res, err := b.store.Bootstrap(cmd)
 		if err != nil {
-			log.WithError(err).Error(ctx, "Initial write failed. Retrying...")
+			log.WithError(err).Error("Initial write failed. Retrying...")
 			return err
 		} else if res.Success {
-			log.Info(ctx, "Initial write completed successfully.")
+			log.Info("Initial write completed successfully.")
 		} else {
 			// this scenario is unlikeley, but if it does happen, it means that:
 			//  - the current server lost the leadership,
@@ -206,19 +208,21 @@ func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error
 			//  - then the current node was elected leader back again,
 			//  - and then performed the write above,
 			//  - with all of this happening between the ClusterName and the Bootstrap calls.
-			log.Warn(ctx, "Initial write was declined by the FSM.")
+			log.Warn("Initial write was declined by the FSM.")
 		}
 		return nil
 	})
 }
 
 func (b *Bootstrapper) storeIdentityWithRetry(ctx context.Context, p Params) error {
+	log := log.WithContext(ctx)
+
 	return utils.RetryForeverE(ctx, &b.backoff, func() error {
 		if err := b.idStore.Set(p.identity); err != nil {
-			log.WithError(err).Error(ctx, "Storing identity failed. Retrying...")
+			log.WithError(err).Error("Storing identity failed. Retrying...")
 			return err
 		} else {
-			log.Info(ctx, "Stored identity successfully.")
+			log.Info("Stored identity successfully.")
 			return nil
 		}
 	})

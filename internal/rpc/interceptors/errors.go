@@ -99,7 +99,7 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return err
 	}
 
-	logErrors.WithError(err).Error(ctx, "Unhandled error", "method", method)
+	logErrors.WithContext(ctx).WithError(err).Error("Unhandled error", "method", method)
 	return errInternal
 }
 

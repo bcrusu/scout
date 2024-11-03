@@ -16,13 +16,13 @@ func main() {
 	log := logging.New("main")
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		log.WithError(err).Error(ctx, "Unexpected error")
+		log.WithError(err).Error("Unexpected error")
 		os.Exit(1)
 	}
 
 	if num := runtime.NumGoroutine(); num > 1 {
-		log.Warnf(ctx, "NumGoroutine count %d", num)
+		log.Warnf("NumGoroutine count %d", num)
 	}
 
-	log.Info(ctx, "Done")
+	log.Info("Done")
 }

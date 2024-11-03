@@ -21,7 +21,7 @@ const (
 
 var (
 	global *Hlc
-	log    = logging.New("hlc").NoContext()
+	log    = logging.New("hlc")
 )
 
 // Hlc implements the Hybrid Logical Clock as described in paper: "Logical Physical Clocks

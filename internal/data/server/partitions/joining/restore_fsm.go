@@ -47,7 +47,7 @@ type restoreFsm struct {
 	config     config.DB
 	dataClient data.ServiceClient
 	db         *kv.DBBreaker
-	log        logging.LoggerNoContext
+	log        logging.Logger
 	candidates atomic.Pointer[candidates] // updated by the joining replica
 	index      atomic.Uint64              // updated during restore
 	ready      atomic.Bool                // updated during restore
@@ -73,7 +73,7 @@ func newRestoreFsm(pid uint32, ctx context.Context, replica string, dataClient d
 		config:     config.Get().DB,
 		dataClient: dataClient,
 		db:         kv.NewDBBreaker(db),
-		log:        logging.New("replica_joining").With("partition", pid, "replica", replica).NoContext(),
+		log:        logging.New("replica_joining").With("partition", pid, "replica", replica).WithContext(ctx),
 	}
 }
 
@@ -184,7 +184,7 @@ func (f *restoreFsm) streamPartition(minIndex uint64, lastAddr *data.KVAddress) 
 	}
 }
 
-func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddress, serverId uint64, log logging.LoggerNoContext) (*data.KVAddress, bool) {
+func (f *restoreFsm) tryStreamPartition(minIndex uint64, lastAddr *data.KVAddress, serverId uint64, log logging.Logger) (*data.KVAddress, bool) {
 	req := &data.StreamRequest{
 		PartitionId:  f.pid,
 		MinIndex:     minIndex,

@@ -100,7 +100,7 @@ func (n *Server) Start(ctx context.Context) error {
 }
 
 func (n *Server) Stop() {
-	utils.LifecycleStop(log.NoContext(), n.components...)
+	utils.LifecycleStop(log, n.components...)
 }
 
 func (n *Server) register(ctx context.Context, idStore identity.Store, controlClient cclient.ControlClient) (identity.Identity, error) {

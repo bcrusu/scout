@@ -16,7 +16,7 @@ import (
 type ClientConn struct {
 	balancer.ClientConn
 	subConns          map[string]*subConn // map[address]subConn
-	log               logging.LoggerNoContext
+	log               logging.Logger
 	stateChangedCb    func()
 	reconnectInterval time.Duration
 }
@@ -35,7 +35,7 @@ func NewClientConn(clientConn balancer.ClientConn) *ClientConn {
 	return &ClientConn{
 		ClientConn:        clientConn,
 		subConns:          map[string]*subConn{},
-		log:               logging.New("client_conns").NoContext(),
+		log:               logging.New("client_conns"),
 		stateChangedCb:    func() {},
 		reconnectInterval: time.Second,
 	}
@@ -122,7 +122,7 @@ func (c *ClientConn) IsReady(addr string) bool {
 	return c.State(addr) == connectivity.Ready
 }
 
-func (c *ClientConn) SetLog(log logging.LoggerNoContext) {
+func (c *ClientConn) SetLog(log logging.Logger) {
 	c.log = log
 }
 
@@ -162,7 +162,7 @@ func (c *ClientConn) AggState() connectivity.State {
 	}
 }
 
-func (c *ClientConn) makeStateListener(address string, log logging.LoggerNoContext) func(balancer.SubConnState) {
+func (c *ClientConn) makeStateListener(address string, log logging.Logger) func(balancer.SubConnState) {
 	return func(state balancer.SubConnState) {
 		switch state.ConnectivityState {
 		case connectivity.Idle:

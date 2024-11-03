@@ -41,13 +41,13 @@ func (n *Follower) Start(ctx context.Context) error {
 		return err
 	}
 
-	n.log.Debug(ctx, "Started")
+	n.log.WithContext(ctx).Debug("Started")
 	return nil
 }
 
 func (n *Follower) Stop() {
 	n.txn.Stop()
-	n.log.NoContext().Debug("Stopped")
+	n.log.Debug("Stopped")
 }
 
 func (n *Follower) IsLeader() bool {

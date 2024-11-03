@@ -20,7 +20,7 @@ type Drainer struct {
 func NewDrainer(ctx context.Context, log logging.Logger) *Drainer {
 	return &Drainer{
 		ctx:     ctx,
-		log:     log,
+		log:     log.WithContext(ctx),
 		drainCh: make(chan any),
 	}
 }
@@ -42,9 +42,9 @@ func (d *Drainer) Stop() {
 	})
 
 	if err != nil {
-		d.log.WithError(err).Warn(d.ctx, "Drain failed.")
+		d.log.WithError(err).Warn("Drain failed.")
 	} else {
-		d.log.Debug(d.ctx, "Drain success.")
+		d.log.Debug("Drain success.")
 	}
 }
 

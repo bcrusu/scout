@@ -16,7 +16,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 		in, err := stream.Recv()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				sess.log.Debug(sess.ctx, "Session receive loop done.")
+				sess.log.Debug("Session receive loop done.")
 				endSession(nil)
 			} else {
 				endSession(err)
@@ -27,12 +27,12 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 		if !sess.recvLimiter.Allow() {
 			sess.recvOffenses++
 			if sess.recvOffenses == t.config.Sessions.ReceiveMaxOffenses {
-				sess.log.Error(sess.ctx, "Session triggered too many offenses. Closing session.")
+				sess.log.Error("Session triggered too many offenses. Closing session.")
 				endSession(errors.ResourceExhausted)
 				return
 			}
 
-			sess.log.Errorf(sess.ctx, "Session triggered receive rate limiter. Dropping message %T.", in.Payload)
+			sess.log.Errorf("Session triggered receive rate limiter. Dropping message %T.", in.Payload)
 			continue
 		}
 
@@ -41,7 +41,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 
 		switch x := in.Payload.(type) {
 		case *control.SessionIn_Hello:
-			sess.log.Warn(sess.ctx, "Received duplicate hello.")
+			sess.log.Warn("Received duplicate hello.")
 		case *control.SessionIn_Heartbeat:
 			if err := t.handleHeartbeat(sess, x.Heartbeat); err != nil {
 				endSession(err)
@@ -73,7 +73,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 				return
 			}
 		default:
-			sess.log.Warnf(sess.ctx, "Unknown session payload type %T", in.Payload)
+			sess.log.Warnf("Unknown session payload type %T", in.Payload)
 		}
 	}
 }

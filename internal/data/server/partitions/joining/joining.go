@@ -65,6 +65,8 @@ func (p *Joining) Stop() {
 }
 
 func (p *Joining) mainLoop(ctx context.Context) {
+	log := p.log.WithContext(ctx)
+
 	dataServersSub := eventbus.SubscribeDebounced[*control.DataServers](ctx, debounceInterval)
 	defer dataServersSub.Unsubscribe()
 
@@ -80,13 +82,13 @@ func (p *Joining) mainLoop(ctx context.Context) {
 			return
 		}
 
-		p.log.Debug(ctx, "Creating raft instance...")
+		log.Debug("Creating raft instance...")
 
 		var err error
 		if raft, err = shared.CreateRaft(p.multiraft, p.pid, p.replica, fsm); err != nil {
-			p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
+			log.WithError(err).Error("Failed to create raft instance.")
 		} else {
-			p.log.Debug(ctx, "Created raft instance.")
+			log.Debug("Created raft instance.")
 		}
 	}
 
@@ -136,7 +138,7 @@ func (p *Joining) mainLoop(ctx context.Context) {
 
 			if raft != nil {
 				p.multiraft.Shutdown(p.pid)
-				p.log.Debug(ctx, "Stopped raft instance.")
+				log.Debug("Stopped raft instance.")
 			}
 
 			return

@@ -19,7 +19,7 @@ import (
 
 var (
 	errPreferredUnavailable = status.Error(codes.Unavailable, "Preferred server is unavailable")
-	logLB                   = logging.New("data_balancer").NoContext()
+	logLB                   = logging.New("data_balancer")
 )
 
 type balancerBuilder struct{}

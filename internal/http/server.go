@@ -62,7 +62,7 @@ func NewServer(config ServerConfig) *Server {
 func (s *Server) Start(ctx context.Context) error {
 	go func() {
 		if err := s.server.ListenAndServe(); err != nil {
-			log.WithError(err).Error(ctx, "Failed to serve.")
+			log.WithContext(ctx).WithError(err).Error("Failed to serve.")
 		}
 	}()
 
@@ -72,6 +72,6 @@ func (s *Server) Start(ctx context.Context) error {
 // Stop the server, with no survivors.
 func (s *Server) Stop() {
 	if err := s.server.Close(); err != nil {
-		log.NoContext().WithError(err).Error("Failed to close.")
+		log.WithError(err).Error("Failed to close.")
 	}
 }

@@ -117,9 +117,11 @@ func (r *resolverImpl) mainLoop() {
 }
 
 func (r *resolverImpl) resolveNow(ctx context.Context) bool {
+	log := logR.WithContext(ctx)
+
 	conn, client := r.createClient()
 	if err := conn.Start(ctx); err != nil {
-		logR.WithError(err).Warnf(ctx, "Failed to start client for resolver")
+		log.WithError(err).Warnf("Failed to start client for resolver")
 		r.clientConn.ReportError(err)
 		return false
 	}
@@ -127,13 +129,13 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 
 	resp, err := client.Discover(ctx, &api.DiscoverRequest{})
 	if err != nil {
-		logR.WithError(err).Warnf(ctx, "Discover call failed")
+		log.WithError(err).Warnf("Discover call failed")
 		r.clientConn.ReportError(err)
 		return false
 	}
 
 	if err := r.updateState(resp); err != nil {
-		logR.WithError(err).Warn(ctx, "Failed to update resolver state")
+		log.WithError(err).Warn("Failed to update resolver state")
 		r.clientConn.ReportError(err)
 		return false
 	}

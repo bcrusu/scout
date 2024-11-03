@@ -48,7 +48,6 @@ type session struct {
 	serverAddress string
 	createdAt     time.Time
 	sendBufferCh  chan *control.SessionOut
-	ctx           context.Context
 	log           logging.Logger
 	waitCh        chan error
 	timeOffset    *sessionTimeOffset
@@ -147,7 +146,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 		if sess, ok := sessionsById[id]; ok {
 			delete(sessionsById, sess.id)
 			delete(sessionsByServer, sess.serverID)
-			sess.log.Debug(sess.ctx, "Session closed.")
+			sess.log.Debug("Session closed.")
 			sess.waitCh <- err // signals the waiting NewSession call above
 		}
 	}
@@ -157,12 +156,12 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 		case x := <-t.startSessionCh:
 			server := servers.Items[x.serverID]
 			if server == nil {
-				logS.Warnf(ctx, "Session hello for unknown server %d at %s.", x.serverID, x.serverAddress)
+				logS.WithContext(ctx).Warnf("Session hello for unknown server %d at %s.", x.serverID, x.serverAddress)
 				x.waitCh <- errors.NotRegistered
 				continue
 			}
 			if server.Type == control.ServerType_Control {
-				logS.Warnf(ctx, "Control server %d at %s trying to start session.", x.serverID, x.serverAddress)
+				logS.WithContext(ctx).Warnf("Control server %d at %s trying to start session.", x.serverID, x.serverAddress)
 				x.waitCh <- errors.PermissionDenied
 				continue
 			}
@@ -178,7 +177,6 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				serverAddress: x.serverAddress,
 				createdAt:     now,
 				sendBufferCh:  make(chan *control.SessionOut, t.config.Sessions.SendBufferSize),
-				ctx:           x.stream.Context(),
 				waitCh:        x.waitCh,
 				timeOffset:    newSessionTimeOffset(t.config.TimeOffset, t.globalTimeOffset),
 				dsConfig:      dsConfigs[x.serverID],
@@ -186,10 +184,10 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				recvLimiter:   utils.NewRateLimiter(t.config.Sessions.ReceiveBurst, time.Second),
 			}
 
-			new.log = logging.New("session").With("server", server.Id, "session_id", new.id, "address", new.serverAddress)
+			new.log = logging.New("session").With("server", server.Id, "session_id", new.id, "address", new.serverAddress).WithContext(x.stream.Context())
 
 			if old := sessionsByServer[x.serverID]; old != nil {
-				new.log.Debugf(ctx, "Closing old session %d created at %v.", old.id, old.createdAt)
+				new.log.Debugf("Closing old session %d created at %v.", old.id, old.createdAt)
 				needsUpdate = old.serverAddress != new.serverAddress
 				closeSession(old.id, nil)
 			}
@@ -202,7 +200,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			go t.sessionRecvLoop(new, x.stream)
 			runningLoops += 2
 
-			new.log.Info(ctx, "Started new session.")
+			new.log.Info("Started new session.")
 
 			if needsUpdate {
 				switch new.serverType {
@@ -232,7 +230,7 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 					dsUpdateCh <- true
 				}
 			default:
-				logS.Errorf(ctx, "Unknown session message type %T", msg)
+				logS.WithContext(ctx).Errorf("Unknown session message type %T", msg)
 			}
 		case newServers := <-serversSub.Items():
 			if newServers.RegisterVersion == servers.RegisterVersion {

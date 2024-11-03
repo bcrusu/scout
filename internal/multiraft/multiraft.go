@@ -16,7 +16,7 @@ import (
 var (
 	_   utils.Lifecycle = (*Multi)(nil)
 	_   rpc.Service     = (*Multi)(nil)
-	log                 = logging.New("raft").NoContext()
+	log                 = logging.New("raft")
 )
 
 // Multi allows working with multiple Raft instances.

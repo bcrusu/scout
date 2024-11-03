@@ -43,7 +43,8 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 		start = req.StartAddress.Address()
 	}
 
-	s.log.Debug(stream.Context(), "Starting partition stream...", "partition", req.PartitionId, "min_index", req.MinIndex)
+	log := s.log.WithContext(stream.Context())
+	log.Debug("Starting partition stream...", "partition", req.PartitionId, "min_index", req.MinIndex)
 
 	iter, err := s.db.GetStream(req.PartitionId, start)
 	if err != nil {
@@ -76,7 +77,7 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 		}
 
 		if err := stream.Send(resp); err != nil {
-			s.log.WithError(err).Error(stream.Context(), "Failed to send records.")
+			log.WithError(err).Error("Failed to send records.")
 			return nil // client will reconnect and request from last received address
 		}
 
@@ -89,7 +90,7 @@ func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc
 	}
 
 	if err := stream.Send(resp); err != nil {
-		s.log.WithError(err).Error(stream.Context(), "Failed to send records.")
+		log.WithError(err).Error("Failed to send records.")
 	}
 
 	return nil

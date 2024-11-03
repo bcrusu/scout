@@ -121,7 +121,7 @@ func (s *ControlService) setRole(ctx context.Context, isLeader bool) bool {
 	drainer := newRoleDrainer(new)
 
 	if err := drainer.Start(ctx); err != nil {
-		log.WithError(err).Errorf(ctx, "Failed to start role %T. Shutting down...", new)
+		log.WithContext(ctx).WithError(err).Errorf("Failed to start role %T. Shutting down...", new)
 		utils.GracefulShutdown("Failed to start role.")
 		return false
 	}

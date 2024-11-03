@@ -15,7 +15,7 @@ func main() {
 	log := logging.New("main")
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		log.WithError(err).Error(ctx, "Unexpected error")
+		log.WithError(err).Error("Unexpected error")
 		os.Exit(1)
 	}
 }

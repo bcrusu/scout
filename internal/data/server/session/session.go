@@ -23,7 +23,7 @@ import (
 var (
 	_                          utils.Lifecycle = (*Session)(nil)
 	refreshDataServersThrottle                 = utils.AddJitter(2 * time.Second)
-	log                                        = logging.New("session").NoContext()
+	log                                        = logging.New("session")
 )
 
 type Session struct {

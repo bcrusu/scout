@@ -101,7 +101,7 @@ func (s *csWrapperForValidator) RecvMsg(m any) error {
 
 func validateMessage(ctx context.Context, value any) error {
 	if reflect.ValueOf(value).IsNil() {
-		logValidator.Errorf(ctx, "Nil message %T.", value)
+		logValidator.WithContext(ctx).Errorf("Nil message %T.", value)
 		return errors.InvalidRequest
 	}
 
@@ -111,13 +111,13 @@ func validateMessage(ctx context.Context, value any) error {
 
 	v, ok := value.(validation.CanValidate)
 	if !ok {
-		logValidator.Debugf(ctx, "Message %T does not implement validation.", value)
+		logValidator.WithContext(ctx).Debugf("Message %T does not implement validation.", value)
 		return nil
 	}
 
 	err := v.Validate()
 	if err != nil {
-		logValidator.WithError(err).Errorf(ctx, "Invalid message %T.", value)
+		logValidator.WithContext(ctx).WithError(err).Errorf("Invalid message %T.", value)
 		return errors.InvalidRequest
 	}
 

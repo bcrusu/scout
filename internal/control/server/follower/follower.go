@@ -31,12 +31,12 @@ func New(store storage.Store) *Follower {
 }
 
 func (n *Follower) Start(ctx context.Context) error {
-	log.Debug(ctx, "Started follower")
+	log.WithContext(ctx).Debug("Started follower")
 	return nil
 }
 
 func (n *Follower) Stop() {
-	log.NoContext().Debug("Stopped follower")
+	log.Debug("Stopped follower")
 }
 
 func (n *Follower) Register(ctx context.Context, req *control.RegisterRequest) (*control.RegisterResponse, error) {

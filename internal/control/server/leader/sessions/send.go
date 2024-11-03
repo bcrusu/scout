@@ -30,9 +30,9 @@ func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
 			}
 
 			if !errors.Is(err, io.EOF) {
-				sess.log.WithError(err).Error(sess.ctx, "Session send failed.")
+				sess.log.WithError(err).Error("Session send failed.")
 			} else {
-				sess.log.Debug(sess.ctx, "Session send loop done.")
+				sess.log.Debug("Session send loop done.")
 			}
 
 			t.sessionCh <- sessionLoopDone{id: sess.id, err: nil}
@@ -74,7 +74,7 @@ func (s *session) trySend(out *control.SessionOut) {
 	select {
 	case s.sendBufferCh <- out:
 	default:
-		s.log.Warnf(s.ctx, "Session send buffer is full. Message %T was dropped.", out)
+		s.log.Warnf("Session send buffer is full. Message %T was dropped.", out)
 	}
 }
 

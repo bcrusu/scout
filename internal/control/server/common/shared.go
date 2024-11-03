@@ -39,7 +39,7 @@ func (n *Shared) Discover(ctx context.Context, _ *emptypb.Empty) (*control.Disco
 	// TODO: beter encapsulation for reuse in GetClusterInfo
 	leaderID, _, ok := raft.GetLeader()
 	if !ok {
-		log.Debug(ctx, "Discover failed. Leader not available.")
+		log.WithContext(ctx).Debug("Discover failed. Leader not available.")
 		return nil, errors.Unavailable
 	}
 
@@ -56,7 +56,7 @@ func (n *Shared) Discover(ctx context.Context, _ *emptypb.Empty) (*control.Disco
 		}
 	}
 
-	log.Debug(ctx, "Discover success", "servers", servers)
+	log.WithContext(ctx).Debug("Discover success", "servers", servers)
 
 	return &control.DiscoverResponse{
 		Servers:           servers,

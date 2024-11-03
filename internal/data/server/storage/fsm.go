@@ -21,7 +21,7 @@ type FSM struct {
 	partitionID uint32
 	db          kv.DB
 	txn         *txn.Manager
-	log         logging.LoggerNoContext
+	log         logging.Logger
 	lock        sync.RWMutex // guards all below
 	index       uint64       // last applied raft index
 }
@@ -31,7 +31,7 @@ func NewFSM(partitionID uint32, db kv.DB, txn *txn.Manager) *FSM {
 		partitionID: partitionID,
 		db:          db,
 		txn:         txn,
-		log:         logging.New("fsm").With("partition", partitionID).NoContext(),
+		log:         logging.New("fsm").With("partition", partitionID),
 	}
 }
 
@@ -71,7 +71,7 @@ func (f *FSM) AppliedIndex() uint64 {
 	return f.index
 }
 
-func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.LoggerNoContext) any {
+func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.Logger) any {
 	var result any
 
 	log.Tracef("Applying command %T...", cmd.Payload)

@@ -157,7 +157,7 @@ func (p *reader) CommitReadWrite(ctx context.Context, status *Status) error {
 	if txn == nil {
 		// Txn should be returned by the manager unless CleanAfterReadWrite
 		// config is set to a very low value.
-		p.log.Error(ctx, "CommitReadWrite: expected prepared txn was not found.", "id", id)
+		p.log.WithContext(ctx).Error("CommitReadWrite: expected prepared txn was not found.", "id", id)
 		return errors.NotFound
 	}
 
@@ -177,7 +177,7 @@ func (p *reader) fetchResults(ctx context.Context, txn *Txn, status *Status) err
 		if record := records[i]; record == nil {
 			status.ActionStatus[id] = newActionStatus(id, ActionStatus_KeyNotFound)
 		} else if value, err := decodeValue(record.Value); err != nil {
-			p.log.WithError(err).Error(ctx, "Failed to decode value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
+			p.log.WithContext(ctx).WithError(err).Error("Failed to decode value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
 			status.ActionStatus[id] = newActionStatus(id, ActionStatus_CorruptedData)
 		} else {
 			status.ActionStatus[id] = newActionStatus(id, ActionStatus_Success, value)
@@ -236,7 +236,7 @@ func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *ReadRange)
 
 		value, err := decodeValue(record.Value)
 		if err != nil {
-			p.log.WithError(err).Error(ctx, "Failed to decode iterator value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
+			p.log.WithContext(ctx).WithError(err).Error("Failed to decode iterator value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
 
 			if !p.config.SkipCorruptedData {
 				return ActionStatus_CorruptedData, nil, nil

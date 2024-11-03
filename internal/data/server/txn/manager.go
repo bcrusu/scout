@@ -18,7 +18,7 @@ type Manager struct {
 	pid          uint32
 	db           *mvcc.DBBreaker
 	cleanAfter   time.Duration
-	log          logging.LoggerNoContext
+	log          logging.Logger
 	lock         sync.RWMutex // guards all below
 	status       map[id]*Status
 	prepared     map[id]*Prepared
@@ -37,7 +37,7 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		pid:        pid,
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
-		log:        logging.New("txn_manager").With("partition", pid).NoContext(),
+		log:        logging.New("txn_manager").With("partition", pid),
 		status:     map[id]*Status{},
 		prepared:   map[id]*Prepared{},
 	}

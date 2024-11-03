@@ -92,7 +92,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	go func() {
 		if err := s.server.Serve(listener); err != nil {
-			logRS.WithError(err).Error(ctx, "Failed to serve")
+			logRS.WithContext(ctx).WithError(err).Error("Failed to serve")
 		}
 	}()
 
@@ -110,7 +110,7 @@ func (s *Server) Stop() {
 	select {
 	case <-time.After(s.config.ShutdownTimeout):
 		// this is expected to happen since there will be active long-lived streams...
-		logRS.NoContext().Debug("Failed to stop in the configured shutdown timeout.")
+		logRS.Debug("Failed to stop in the configured shutdown timeout.")
 		s.server.Stop()
 	case <-stopped:
 	}

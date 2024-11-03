@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	logR = logging.New("data_resolver").NoContext()
+	logR = logging.New("data_resolver")
 )
 
 type resolverBuilder struct {

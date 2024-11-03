@@ -13,11 +13,11 @@ var (
 )
 
 type logAdapter struct {
-	log logging.LoggerNoContext
+	log logging.Logger
 }
 
 func newLogAdapter(name string) *logAdapter {
-	return &logAdapter{log: logging.New(name).NoContext()}
+	return &logAdapter{log: logging.New(name)}
 }
 
 func (l *logAdapter) Log(level hclog.Level, msg string, args ...any) {

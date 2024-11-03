@@ -30,7 +30,7 @@ func (c clientRetrier) Autocommit(ctx context.Context, req *txn.AutocommitReques
 			return nil
 		}
 
-		log.Warn(ctx, "Autocommit failed. Retrying...")
+		log.WithContext(ctx).Warn("Autocommit failed. Retrying...")
 		return errors.Error("Autocommit failed")
 	})
 
@@ -49,7 +49,7 @@ func (c clientRetrier) Prepare(ctx context.Context, req *txn.PrepareRequest, opt
 			return nil
 		}
 
-		log.Warn(ctx, "Prepare failed. Retrying...")
+		log.WithContext(ctx).Warn("Prepare failed. Retrying...")
 		return errors.Error("Prepare failed")
 	})
 

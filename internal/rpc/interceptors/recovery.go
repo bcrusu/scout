@@ -42,6 +42,6 @@ func handlePanic(ctx context.Context, p any) error {
 	stack := make([]byte, 64<<10)
 	stack = stack[:runtime.Stack(stack, false)]
 
-	logRecovery.Errorf(ctx, "Recovered from panic %s. Stack:%s", p, stack)
+	logRecovery.WithContext(ctx).Errorf("Recovered from panic %s. Stack:%s", p, stack)
 	return errInternal
 }

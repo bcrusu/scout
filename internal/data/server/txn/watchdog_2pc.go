@@ -246,13 +246,13 @@ func (w *watchdog2PC) abort(ctx context.Context, txn running) {
 	// reaching here with errors means that either the ctx was canceled
 	// or the circuit breaker triggered.
 	if err := errors.Join(errs...); err != nil {
-		w.log.WithError(err).Errorf(ctx, "2pc txn=%s failed to abort.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s failed to abort.", txn.Id)
 		return
 	}
 
 	// lastly, release the locks for us which marks the end of the process.
 	if success, err := w.markTimedout(ctx, txn, true); err != nil || !success {
-		w.log.WithError(err).Errorf(ctx, "2pc txn=%s principal failed to release locks.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s principal failed to release locks.", txn.Id)
 	}
 }
 
@@ -326,13 +326,13 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 	// reaching here with errors means that either the ctx was canceled
 	// or the circuit breaker triggered.
 	if err := errors.Join(errs...); err != nil {
-		w.log.WithError(err).Errorf(ctx, "2pc txn=%s failed to commit.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s failed to commit.", txn.Id)
 		return
 	}
 
 	invokeCommit(txn.Id.PrincipalPid)
 	if err := <-resultCh; err != nil {
-		w.log.WithError(err).Errorf(ctx, "2pc txn=%s principal failed to commit.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s principal failed to commit.", txn.Id)
 	}
 }
 

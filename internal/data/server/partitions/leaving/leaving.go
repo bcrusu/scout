@@ -51,7 +51,7 @@ func (p *Leaving) Stop() {
 func (p *Leaving) mainLoop(ctx context.Context) {
 	for {
 		if err := p.cleanup(); err != nil {
-			p.log.WithError(err).Error(ctx, "Cleanup failed. Retrying...")
+			p.log.WithContext(ctx).WithError(err).Error("Cleanup failed. Retrying...")
 		} else {
 			p.ready.Store(true)
 			break

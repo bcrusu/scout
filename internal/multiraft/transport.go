@@ -11,7 +11,7 @@ import (
 )
 
 func newTransport(config Config, clusterName, localAddress string) *transport.Manager {
-	log := logging.New("raft_transport").NoContext()
+	log := logging.New("raft_transport")
 
 	opts := []transport.Option{
 		transport.WithErrorLogger(func(err error, msg string, args ...any) {

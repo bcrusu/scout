@@ -117,9 +117,11 @@ func (r *resolverImpl) mainLoop() {
 }
 
 func (r *resolverImpl) resolveNow(ctx context.Context) bool {
+	log := logR.WithContext(ctx)
+
 	conn, client := r.createClient()
 	if err := conn.Start(ctx); err != nil {
-		logR.WithError(err).Warnf(ctx, "Failed to start control client for resolver")
+		log.WithError(err).Warnf("Failed to start control client for resolver")
 		r.clientConn.ReportError(err)
 		return false
 	}
@@ -127,13 +129,13 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 
 	resp, err := client.Discover(ctx, &emptypb.Empty{})
 	if err != nil {
-		logR.WithError(err).Warnf(ctx, "Discover call failed")
+		log.WithError(err).Warnf("Discover call failed")
 		r.clientConn.ReportError(err)
 		return false
 	}
 
 	if err := r.updateState(ctx, resp); err != nil {
-		logR.WithError(err).Warn(ctx, "Failed to update resolver state")
+		log.WithError(err).Warn("Failed to update resolver state")
 		r.clientConn.ReportError(err)
 		return false
 	}
@@ -210,7 +212,7 @@ func (r *resolverImpl) extractResp(ctx context.Context, resp *control.DiscoverRe
 	if leaderCount == 0 {
 		return "", nil, errors.Error("leader is missing from Discover response")
 	} else if leaderCount > 1 {
-		logR.Warnf(ctx, "Multiple leaders detected %d", leaderCount)
+		logR.WithContext(ctx).Warnf("Multiple leaders detected %d", leaderCount)
 	}
 
 	return leader, addrs, nil

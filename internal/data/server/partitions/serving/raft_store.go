@@ -15,13 +15,13 @@ var (
 
 type raftStore struct {
 	raft *multiraft.Raft
-	log  logging.LoggerNoContext
+	log  logging.Logger
 }
 
 func newRaftStore(pid uint32, replica string, raft *multiraft.Raft) *raftStore {
 	return &raftStore{
 		raft: raft,
-		log:  logging.New("raft_store").With("partition", pid, "replica", replica).NoContext(),
+		log:  logging.New("raft_store").With("partition", pid, "replica", replica),
 	}
 }
 

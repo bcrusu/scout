@@ -287,7 +287,7 @@ func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
 	}
 
 	if err := errors.Join(errs...); err != nil {
-		log.WithError(err).Errorf(ctx, "2pc txn=%s abort failed.", t.id)
+		log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s abort failed.", t.id)
 	}
 }
 

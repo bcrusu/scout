@@ -3,7 +3,7 @@ package identity
 import "github.com/bcrusu/scout/internal/logging"
 
 var (
-	log = logging.New("identity").NoContext()
+	log = logging.New("identity")
 )
 
 // Identity is the name of the machine.

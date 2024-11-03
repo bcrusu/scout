@@ -54,9 +54,9 @@ func (r *Registerer) Register(ctx context.Context, params Params) (identity.Iden
 	res, err := utils.RetryForeverR(ctx, &r.backoff, func() (*control.RegisterResponse, error) {
 		resp, err := r.client.Register(ctx, req)
 		if err != nil {
-			log.WithError(err).Error(ctx, "Register failed. Retrying...")
+			log.WithContext(ctx).WithError(err).Error("Register failed. Retrying...")
 		} else {
-			log.Info(ctx, "Registered with success.", "server_id", resp.ServerId, "server_name", resp.ServerName)
+			log.WithContext(ctx).Info("Registered with success.", "server_id", resp.ServerId, "server_name", resp.ServerName)
 		}
 		return resp, err
 	})

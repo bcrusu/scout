@@ -23,7 +23,7 @@ type replica struct {
 	multiraft   *multiraft.Multi
 	dataClient  client.DataClient
 	db          storage.DB
-	log         logging.LoggerNoContext
+	log         logging.Logger
 	setConfigCh chan *control.DataServerConfig_Partition
 	holder      atomic.Pointer[holder]
 	cancelFunc  context.CancelFunc
@@ -41,7 +41,7 @@ func newReplica(pid uint32, name string, multiraft *multiraft.Multi, dataClient 
 		multiraft:   multiraft,
 		dataClient:  dataClient,
 		db:          db,
-		log:         logging.New("replica").With("partition", pid, "replica", name).NoContext(),
+		log:         logging.New("replica").With("partition", pid, "replica", name),
 		setConfigCh: make(chan *control.DataServerConfig_Partition, 1),
 	}
 }

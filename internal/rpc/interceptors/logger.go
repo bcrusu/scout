@@ -36,7 +36,7 @@ func UnaryLoggerServerInterceptor() grpc.UnaryServerInterceptor {
 				"elapsed", time.Since(startTime),
 			}
 
-			logLogger.WithError(err).Log(ctx, level, "Handled", args...)
+			logLogger.WithContext(ctx).WithError(err).Log(level, "Handled", args...)
 		}
 
 		return resp, err
@@ -63,7 +63,7 @@ func StreamLoggerServerInterceptor() grpc.StreamServerInterceptor {
 				"elapsed", time.Since(startTime),
 			}
 
-			logLogger.WithError(err).Log(ss.Context(), level, "Handled", args...)
+			logLogger.WithContext(ss.Context()).WithError(err).Log(level, "Handled", args...)
 		}
 
 		return err
@@ -83,7 +83,7 @@ func UnaryLoggerClientInterceptor() grpc.UnaryClientInterceptor {
 				"elapsed", time.Since(startTime),
 			}
 
-			logLogger.WithError(err).Log(ctx, level, "Invoked", args...)
+			logLogger.WithContext(ctx).WithError(err).Log(level, "Invoked", args...)
 		}
 
 		return err
@@ -105,7 +105,7 @@ func StreamLoggerClientInterceptor() grpc.StreamClientInterceptor {
 				"elapsed", time.Since(startTime),
 			}
 
-			logLogger.WithError(err).Log(ctx, level, "Invoked", args...)
+			logLogger.WithContext(ctx).WithError(err).Log(level, "Invoked", args...)
 		}
 
 		if err != nil {
@@ -142,7 +142,7 @@ func (s *ssWrapperForLogger) SendMsg(m any) error {
 			"code", status.Code(err),
 		}
 
-		logLogger.WithError(err).Log(s.Context(), level, "Sent", args...)
+		logLogger.WithContext(s.Context()).WithError(err).Log(level, "Sent", args...)
 	}
 
 	return err
@@ -158,7 +158,7 @@ func (s *ssWrapperForLogger) RecvMsg(m any) error {
 			"code", status.Code(err),
 		}
 
-		logLogger.WithError(err).Log(s.Context(), level, "Received", args...)
+		logLogger.WithContext(s.Context()).WithError(err).Log(level, "Received", args...)
 	}
 
 	return err
@@ -174,7 +174,7 @@ func (s *csWrapperForLogger) SendMsg(m any) error {
 			"code", status.Code(err),
 		}
 
-		logLogger.WithError(err).Log(s.Context(), level, "Sent", args...)
+		logLogger.WithContext(s.Context()).WithError(err).Log(level, "Sent", args...)
 	}
 
 	return err
@@ -190,7 +190,7 @@ func (s *csWrapperForLogger) RecvMsg(m any) error {
 			"code", status.Code(err),
 		}
 
-		logLogger.WithError(err).Log(s.Context(), level, "Received", args...)
+		logLogger.WithContext(s.Context()).WithError(err).Log(level, "Received", args...)
 	}
 
 	return err

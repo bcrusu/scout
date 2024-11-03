@@ -61,6 +61,8 @@ func (p *Serving) Stop() {
 }
 
 func (p *Serving) mainLoop(ctx context.Context) {
+	log := p.log.WithContext(ctx)
+
 	dataServersSub := eventbus.SubscribeDebounced[*control.DataServers](ctx, debounceInterval)
 	defer dataServersSub.Unsubscribe()
 
@@ -80,15 +82,15 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			eventbus.TryPublishRefreshDataServers()
 			return
 		} else if raft == nil {
-			p.log.Debug(ctx, "Creating raft instance...")
+			log.Debug("Creating raft instance...")
 
 			var err error
 			if raft, err = shared.CreateRaft(p.multiraft, p.pid, p.replica, fsm, servers...); err != nil {
-				p.log.WithError(err).Error(ctx, "Failed to create raft instance.")
+				log.WithError(err).Error("Failed to create raft instance.")
 				return
 			} else {
 				store = newRaftStore(p.pid, p.replica, raft)
-				p.log.Debug(ctx, "Created raft instance.")
+				log.Debug("Created raft instance.")
 			}
 		}
 
@@ -117,7 +119,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 		drainer := newPartitionDrainer(new, p.log)
 
 		if err := drainer.Start(ctx); err != nil {
-			p.log.WithError(err).Errorf(ctx, "Failed to start. Shutting down...", "is_leader", isLeader)
+			log.WithError(err).Errorf("Failed to start. Shutting down...", "is_leader", isLeader)
 			utils.GracefulShutdown("Failed to start partition.")
 			return
 		}
@@ -139,7 +141,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 				continue
 			}
 
-			p.log.Debug(ctx, "Raft leadership changed.", "old", isLeader, "new", next)
+			log.Debug("Raft leadership changed.", "old", isLeader, "new", next)
 			isLeader = next
 
 			updateRole()
@@ -195,7 +197,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 func (p *Serving) updateRaftServers(instance *multiraft.Raft, newServers []raft.Server) {
 	oldServers, err := instance.GetServers()
 	if err != nil {
-		p.log.NoContext().WithError(err).Error("Failed to get Raft servers.")
+		p.log.WithError(err).Error("Failed to get Raft servers.")
 		return
 	}
 
@@ -223,7 +225,7 @@ func (p *Serving) updateRaftServers(instance *multiraft.Raft, newServers []raft.
 			continue
 		}
 
-		log := p.log.With("new_id", new.ID, "new_address", new.Address, "new_suffrage", new.Suffrage).NoContext()
+		log := p.log.With("new_id", new.ID, "new_address", new.Address, "new_suffrage", new.Suffrage)
 		if found {
 			log = log.With("old_id", old.ID, "old_address", old.Address, "old_suffrage", old.Suffrage)
 		}
@@ -252,7 +254,7 @@ func (p *Serving) updateRaftServers(instance *multiraft.Raft, newServers []raft.
 			continue
 		}
 
-		log := p.log.With("id", old.ID, "address", old.Address, "suffrage", old.Suffrage).NoContext()
+		log := p.log.With("id", old.ID, "address", old.Address, "suffrage", old.Suffrage)
 
 		if err := instance.RemoveServer(old.ID); err != nil {
 			if errors.Is(err, errors.NotLeader) {

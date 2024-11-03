@@ -63,7 +63,7 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 func (s *Service) Stop() {
-	utils.LifecycleStop(s.log.NoContext(), s.components...)
+	utils.LifecycleStop(s.log, s.components...)
 }
 
 func (n *Service) Autocommit(ctx context.Context, req *AutocommitRequest) (*Status, error) {

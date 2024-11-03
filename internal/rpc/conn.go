@@ -17,7 +17,7 @@ import (
 
 var (
 	_     utils.Lifecycle = (*Conn)(nil)
-	logRC                 = logging.New("rpc_conn").NoContext()
+	logRC                 = logging.New("rpc_conn")
 )
 
 // ConnConfig is the gRPC client configuration.

@@ -14,7 +14,7 @@ import (
 
 var (
 	_    multiraft.FSM = (*FSM)(nil)
-	logF               = logging.New("fsm").NoContext()
+	logF               = logging.New("fsm")
 )
 
 type FSM struct {
@@ -56,7 +56,7 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	return result
 }
 
-func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.LoggerNoContext) any {
+func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logger) any {
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
 		log.Debug("Command version check failed", "fsm_version", f.version, "cmd_version", cmd.IfMatch)
 		return errors.FailedPrecondition

@@ -52,7 +52,7 @@ func (t *Tracker) writeLatestStatus(ctx context.Context, tracker *statusTracker)
 	}
 
 	if err := t.store.UpdateStatus(update); err != nil {
-		logS.WithError(err).Error(ctx, "UpdateServerStatus failed")
+		logS.WithContext(ctx).WithError(err).Error("UpdateServerStatus failed")
 		return
 	}
 
@@ -169,7 +169,7 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 
 		leaderChanged := update.IsLeader && update.LeaderTerm > pStatus.LeaderTerm
 		if leaderChanged {
-			logS.NoContext().Debug("Partition leader changed.", "partition", id, "old", pStatus.Leader, "new", update.Name, "term", update.LeaderTerm)
+			logS.Debug("Partition leader changed.", "partition", id, "old", pStatus.Leader, "new", update.Name, "term", update.LeaderTerm)
 
 			pStatus.Leader = update.Name
 			pStatus.LeaderTerm = update.LeaderTerm
