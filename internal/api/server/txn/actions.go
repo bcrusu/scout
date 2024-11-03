@@ -1,19 +1,21 @@
 package txn
 
-import "github.com/bcrusu/scout/internal/data/server/txn"
+import (
+	"github.com/bcrusu/scout/internal/data"
+)
 
-func Read(keyspace uint32, key []byte) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_Read{
-		Read: &txn.Read{
+func Read(keyspace uint32, key []byte) *data.Action {
+	return &data.Action{Payload: &data.Action_Read{
+		Read: &data.Read{
 			Keyspace: keyspace,
 			Key:      key,
 		},
 	}}
 }
 
-func ReadRange(keyspace uint32, startKey, endKey []byte, maxResults int) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_ReadRange{
-		ReadRange: &txn.ReadRange{
+func ReadRange(keyspace uint32, startKey, endKey []byte, maxResults int) *data.Action {
+	return &data.Action{Payload: &data.Action_ReadRange{
+		ReadRange: &data.ReadRange{
 			Keyspace:   keyspace,
 			StartKey:   startKey,
 			EndKey:     endKey,
@@ -22,9 +24,9 @@ func ReadRange(keyspace uint32, startKey, endKey []byte, maxResults int) *txn.Ac
 	}}
 }
 
-func Insert(keyspace uint32, key, value []byte) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_Insert{
-		Insert: &txn.Insert{
+func Insert(keyspace uint32, key, value []byte) *data.Action {
+	return &data.Action{Payload: &data.Action_Insert{
+		Insert: &data.Insert{
 			Keyspace: keyspace,
 			Key:      key,
 			Value:    value,
@@ -32,9 +34,9 @@ func Insert(keyspace uint32, key, value []byte) *txn.Action {
 	}}
 }
 
-func Update(keyspace uint32, key, value []byte) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_Update{
-		Update: &txn.Update{
+func Update(keyspace uint32, key, value []byte) *data.Action {
+	return &data.Action{Payload: &data.Action_Update{
+		Update: &data.Update{
 			Keyspace: keyspace,
 			Key:      key,
 			Value:    value,
@@ -42,9 +44,9 @@ func Update(keyspace uint32, key, value []byte) *txn.Action {
 	}}
 }
 
-func Upsert(keyspace uint32, key, value []byte) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_Upsert{
-		Upsert: &txn.Upsert{
+func Upsert(keyspace uint32, key, value []byte) *data.Action {
+	return &data.Action{Payload: &data.Action_Upsert{
+		Upsert: &data.Upsert{
 			Keyspace: keyspace,
 			Key:      key,
 			Value:    value,
@@ -52,20 +54,20 @@ func Upsert(keyspace uint32, key, value []byte) *txn.Action {
 	}}
 }
 
-func Delete(keyspace uint32, key []byte) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_Delete{
-		Delete: &txn.Delete{
+func Delete(keyspace uint32, key []byte) *data.Action {
+	return &data.Action{Payload: &data.Action_Delete{
+		Delete: &data.Delete{
 			Keyspace: keyspace,
 			Key:      key,
 		},
 	}}
 }
 
-func LockKey(keyspace uint32, key []byte, exclusive bool, check txn.LockKey_Check) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_LockKey{
-		LockKey: &txn.LockKey{
+func LockKey(keyspace uint32, key []byte, exclusive bool, check data.LockKey_Check) *data.Action {
+	return &data.Action{Payload: &data.Action_LockKey{
+		LockKey: &data.LockKey{
 			Check: check,
-			Lock: &txn.KeyLock{
+			Lock: &data.KeyLock{
 				Keyspace:  keyspace,
 				Key:       key,
 				Exclusive: exclusive,
@@ -74,11 +76,11 @@ func LockKey(keyspace uint32, key []byte, exclusive bool, check txn.LockKey_Chec
 	}}
 }
 
-func LockRange(keyspace uint32, startKey, endKey []byte, exclusive bool, check txn.LockRange_Check) *txn.Action {
-	return &txn.Action{Payload: &txn.Action_LockRange{
-		LockRange: &txn.LockRange{
+func LockRange(keyspace uint32, startKey, endKey []byte, exclusive bool, check data.LockRange_Check) *data.Action {
+	return &data.Action{Payload: &data.Action_LockRange{
+		LockRange: &data.LockRange{
 			Check: check,
-			Lock: &txn.RangeLock{
+			Lock: &data.RangeLock{
 				Keyspace:  keyspace,
 				StartKey:  startKey,
 				EndKey:    endKey,

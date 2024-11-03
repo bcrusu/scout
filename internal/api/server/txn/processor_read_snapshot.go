@@ -3,8 +3,8 @@ package txn
 import (
 	"context"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
-	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 )
@@ -27,16 +27,16 @@ func (p *processorReadSnapshot) Process(ctx context.Context, t *Txn) (*TxnResult
 func (p *processorReadSnapshot) autocommit(ctx context.Context, t *Txn) (statusMap, error) {
 	type prepareResult struct {
 		pid    uint32
-		status *txn.Status
+		status *data.TxnStatus
 		err    error
 	}
 
 	resultCh := make(chan prepareResult, 1)
 	invokeAutocommit := func(pid uint32) {
-		req := &txn.AutocommitRequest{
+		req := &data.AutocommitRequest{
 			PartitionId:   pid,
 			ReadTimestamp: t.readTimestamp,
-			Txn: &txn.Txn{
+			Txn: &data.Txn{
 				Id:      t.id,
 				Actions: t.participantActions[pid],
 			}}
@@ -72,7 +72,7 @@ func (p *processorReadSnapshot) autocommit(ctx context.Context, t *Txn) (statusM
 }
 
 func (p *processorReadSnapshot) aggregateResults(t *Txn, status statusMap) *TxnResult {
-	actionStatus := map[uint32]*txn.ActionStatus{}
+	actionStatus := map[uint32]*data.ActionStatus{}
 	for _, s := range status {
 		utils.AppendMap(actionStatus, s.ActionStatus)
 	}

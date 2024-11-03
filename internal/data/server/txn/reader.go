@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
@@ -37,7 +38,7 @@ type reader struct {
 	log          logging.Logger
 	cancelFunc   context.CancelFunc
 	lock         sync.RWMutex
-	prepared     map[id]*Txn
+	prepared     map[id]*data.Txn
 	preparedTime map[id]time.Time
 }
 
@@ -48,7 +49,7 @@ func newReader(pid uint32, manager *Manager, db mvcc.DB) *reader {
 		manager:      manager,
 		db:           db,
 		log:          logging.New("txn").With("partition", pid),
-		prepared:     map[id]*Txn{},
+		prepared:     map[id]*data.Txn{},
 		preparedTime: map[id]time.Time{},
 	}
 }
@@ -95,7 +96,7 @@ func (s *reader) mainLoop(ctx context.Context) {
 	}
 }
 
-func (p *reader) AutocommitReadOnly(ctx context.Context, txn *Txn, timestamp uint64) (*Status, error) {
+func (p *reader) AutocommitReadOnly(ctx context.Context, txn *data.Txn, timestamp uint64) (*data.TxnStatus, error) {
 	latestTimestamp := p.manager.getLatestReadTimestamp(txn)
 
 	if timestamp == 0 {
@@ -105,7 +106,7 @@ func (p *reader) AutocommitReadOnly(ctx context.Context, txn *Txn, timestamp uin
 		return nil, errors.FailedPrecondition
 	}
 
-	status := newEmptyStatus(txn, timestamp, Status_Committed)
+	status := newEmptyStatus(txn, timestamp, data.TxnStatus_Committed)
 
 	if err := p.fetchResults(ctx, txn, status); err != nil {
 		return nil, err
@@ -114,12 +115,12 @@ func (p *reader) AutocommitReadOnly(ctx context.Context, txn *Txn, timestamp uin
 	return status, nil
 }
 
-func (p *reader) AutocommitReadWrite(ctx context.Context, txn *Txn, status *Status) error {
+func (p *reader) AutocommitReadWrite(ctx context.Context, txn *data.Txn, status *data.TxnStatus) error {
 	return p.fetchResults(ctx, txn, status)
 }
 
-func (p *reader) PrepareReadOnly(ctx context.Context, txn *Txn) (*Status, error) {
-	id := txn.Id.id()
+func (p *reader) PrepareReadOnly(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
+	id := newId(txn.Id)
 	timestamp := p.manager.getLatestReadTimestamp(txn)
 
 	p.lock.Lock()
@@ -127,12 +128,12 @@ func (p *reader) PrepareReadOnly(ctx context.Context, txn *Txn) (*Status, error)
 	p.preparedTime[id] = time.Now()
 	p.lock.Unlock()
 
-	return newStatus(id, timestamp, Status_Prepared), nil
+	return newStatus(id, timestamp, data.TxnStatus_Prepared), nil
 }
 
-func (p *reader) CommitReadOnly(ctx context.Context, id *Id, timestamp uint64) (*Status, error) {
+func (p *reader) CommitReadOnly(ctx context.Context, id *data.TxnId, timestamp uint64) (*data.TxnStatus, error) {
 	p.lock.RLock()
-	txn, ok := p.prepared[id.id()]
+	txn, ok := p.prepared[newId(id)]
 	p.lock.RUnlock()
 
 	if !ok {
@@ -141,7 +142,7 @@ func (p *reader) CommitReadOnly(ctx context.Context, id *Id, timestamp uint64) (
 		return nil, errors.FailedPrecondition
 	}
 
-	status := newEmptyStatus(txn, timestamp, Status_Committed)
+	status := newEmptyStatus(txn, timestamp, data.TxnStatus_Committed)
 
 	if err := p.fetchResults(ctx, txn, status); err != nil {
 		return nil, err
@@ -150,8 +151,8 @@ func (p *reader) CommitReadOnly(ctx context.Context, id *Id, timestamp uint64) (
 	return status, nil
 }
 
-func (p *reader) CommitReadWrite(ctx context.Context, status *Status) error {
-	id := status.Id.id()
+func (p *reader) CommitReadWrite(ctx context.Context, status *data.TxnStatus) error {
+	id := newId(status.Id)
 	txn := p.manager.getPreparedTxn(id, false)
 
 	if txn == nil {
@@ -164,7 +165,7 @@ func (p *reader) CommitReadWrite(ctx context.Context, status *Status) error {
 	return p.fetchResults(ctx, txn, status)
 }
 
-func (p *reader) fetchResults(ctx context.Context, txn *Txn, status *Status) error {
+func (p *reader) fetchResults(ctx context.Context, txn *data.Txn, status *data.TxnStatus) error {
 	// Point reads first, executed using a single Get/MultiGet call:
 	ids, addrs := p.getPointReadAddrs(txn)
 
@@ -175,18 +176,18 @@ func (p *reader) fetchResults(ctx context.Context, txn *Txn, status *Status) err
 
 	for i, id := range ids {
 		if record := records[i]; record == nil {
-			status.ActionStatus[id] = newActionStatus(id, ActionStatus_KeyNotFound)
+			status.ActionStatus[id] = newActionStatus(id, data.ActionStatus_KeyNotFound)
 		} else if value, err := decodeValue(record.Value); err != nil {
 			p.log.WithContext(ctx).WithError(err).Error("Failed to decode value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
-			status.ActionStatus[id] = newActionStatus(id, ActionStatus_CorruptedData)
+			status.ActionStatus[id] = newActionStatus(id, data.ActionStatus_CorruptedData)
 		} else {
-			status.ActionStatus[id] = newActionStatus(id, ActionStatus_Success, value)
+			status.ActionStatus[id] = newActionStatus(id, data.ActionStatus_Success, value)
 		}
 	}
 
 	// Range reads:
 	for _, action := range txn.Actions {
-		readRange, ok := action.Payload.(*Action_ReadRange)
+		readRange, ok := action.Payload.(*data.Action_ReadRange)
 		if !ok {
 			continue
 		}
@@ -202,13 +203,13 @@ func (p *reader) fetchResults(ctx context.Context, txn *Txn, status *Status) err
 	return nil
 }
 
-func (p *reader) getPointReadAddrs(txn *Txn) ([]uint32, []mvcc.Address) {
+func (p *reader) getPointReadAddrs(txn *data.Txn) ([]uint32, []mvcc.Address) {
 	var ids []uint32
 	var addrs []mvcc.Address
 
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *Action_Read:
+		case *data.Action_Read:
 			ids = append(ids, action.Id)
 			addrs = append(addrs, mvcc.NewAddress(x.Read.Keyspace, x.Read.Key))
 		}
@@ -217,7 +218,7 @@ func (p *reader) getPointReadAddrs(txn *Txn) ([]uint32, []mvcc.Address) {
 	return ids, addrs
 }
 
-func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *ReadRange) (ActionStatus_Code, []*Value, error) {
+func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *data.ReadRange) (data.ActionStatus_Code, []*data.Value, error) {
 	start := mvcc.NewAddress(rr.Keyspace, rr.StartKey)
 	end := mvcc.NewAddress(rr.Keyspace, rr.EndKey)
 
@@ -227,7 +228,7 @@ func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *ReadRange)
 	}
 
 	maxResults := min(int(rr.MaxResults), p.config.MaxIteratorResults)
-	results := make([]*Value, 0, maxResults/10)
+	results := make([]*data.Value, 0, maxResults/10)
 
 	for record, err := range iter {
 		if err != nil {
@@ -239,7 +240,7 @@ func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *ReadRange)
 			p.log.WithContext(ctx).WithError(err).Error("Failed to decode iterator value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
 
 			if !p.config.SkipCorruptedData {
-				return ActionStatus_CorruptedData, nil, nil
+				return data.ActionStatus_CorruptedData, nil, nil
 			}
 			continue
 		}
@@ -251,5 +252,5 @@ func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *ReadRange)
 		}
 	}
 
-	return ActionStatus_Success, results, nil
+	return data.ActionStatus_Success, results, nil
 }

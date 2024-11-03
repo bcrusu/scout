@@ -4,18 +4,18 @@ package data.storage;
 
 option go_package = "github.com/bcrusu/scout/internal/data/server/storage";
 
-import "internal/data/server/txn/txn.proto";
+import "internal/data/data.proto";
 
 message Command {
     oneof payload {
         Barrier barrier = 1;
-        txn.Batch batch = 2;
+        data.TxnBatch txn_batch = 2;
     }
 }
 
 message Snapshot {
     uint64 index = 1;
-    txn.Snapshot txn_snapshot = 2;
+    data.TxnSnapshot txn_snapshot = 2;
 }
 
 message Barrier {}

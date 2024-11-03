@@ -2,6 +2,8 @@ package txn
 
 import (
 	"fmt"
+
+	"github.com/bcrusu/scout/internal/data"
 )
 
 // id is the map key friendly version of Id proto.
@@ -11,8 +13,16 @@ type id struct {
 	Timestamp    uint64
 }
 
+func newId(i *data.TxnId) id {
+	return id{
+		PrincipalPid: i.PrincipalPid,
+		ServerID:     i.ServerId,
+		Timestamp:    i.Timestamp,
+	}
+}
+
 type BatchResult struct {
-	Status *Status
+	Status *data.TxnStatus
 	Error  error
 }
 
@@ -28,13 +38,13 @@ type BatchResults struct {
 type running struct {
 	Id              id
 	Timestamp       uint64
-	State           Status_State
+	State           data.TxnStatus_State
 	ParticipantPids []uint32
-	Decision        *Decision
+	Decision        *data.Decision
 }
 
-func (t *id) ToProto() *Id {
-	return &Id{
+func (t *id) ToProto() *data.TxnId {
+	return &data.TxnId{
 		PrincipalPid: t.PrincipalPid,
 		ServerId:     t.ServerID,
 		Timestamp:    t.Timestamp,

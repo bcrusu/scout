@@ -3,6 +3,7 @@ package txn
 import (
 	"context"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
@@ -28,10 +29,10 @@ type Service struct {
 }
 
 type RaftStore interface {
-	ApplyBatch(batch *Batch) <-chan multiraft.AsyncResult
+	ApplyBatch(batch *data.TxnBatch) <-chan multiraft.AsyncResult
 }
 
-func NewService(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB, client TxnServiceClient) *Service {
+func NewService(pid uint32, raftStore RaftStore, manager *Manager, db mvcc.DB, client data.ServiceClient) *Service {
 	s := &Service{
 		config:  config.Get().Transactions,
 		pid:     pid,
@@ -66,14 +67,14 @@ func (s *Service) Stop() {
 	utils.LifecycleStop(s.log, s.components...)
 }
 
-func (n *Service) Autocommit(ctx context.Context, req *AutocommitRequest) (*Status, error) {
+func (n *Service) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
 	if req.PartitionId != n.pid {
 		return nil, errors.InvalidRequest
 	} else if req.Txn.IsReadOnly() {
 		return n.reader.AutocommitReadOnly(ctx, req.Txn, req.ReadTimestamp)
 	}
 
-	status, err := n.batcher.Apply(&Autocommit{Txn: req.Txn, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.Autocommit{Txn: req.Txn, Timestamp: hlc.Now()})
 	if err != nil {
 		return nil, err
 	} else if err := n.reader.AutocommitReadWrite(ctx, req.Txn, status); err != nil {
@@ -83,14 +84,14 @@ func (n *Service) Autocommit(ctx context.Context, req *AutocommitRequest) (*Stat
 	return status, nil
 }
 
-func (n *Service) Prepare(ctx context.Context, req *PrepareRequest) (*Status, error) {
+func (n *Service) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
 	if req.ParticipantPid != n.pid {
 		return nil, errors.InvalidRequest
 	} else if req.ReadOnly {
 		return n.reader.PrepareReadOnly(ctx, req.Txn)
 	}
 
-	status, err := n.batcher.Apply(&Prepare{Txn: req.Txn, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.Prepare{Txn: req.Txn, Timestamp: hlc.Now()})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -100,7 +101,7 @@ func (n *Service) Prepare(ctx context.Context, req *PrepareRequest) (*Status, er
 	return status, nil
 }
 
-func (n *Service) Commit(ctx context.Context, req *CommitRequest) (*Status, error) {
+func (n *Service) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
 	if req.ParticipantPid != n.pid {
 		return nil, errors.InvalidRequest
 	} else if err := hlc.Update(req.CommitTimestamp); err != nil {
@@ -110,7 +111,7 @@ func (n *Service) Commit(ctx context.Context, req *CommitRequest) (*Status, erro
 	}
 
 	// the commit timestamp is decided by txn participants
-	status, err := n.batcher.Apply(&Commit{Id: req.Id, Timestamp: req.CommitTimestamp})
+	status, err := n.batcher.Apply(&data.Commit{Id: req.Id, Timestamp: req.CommitTimestamp})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -126,12 +127,12 @@ func (n *Service) Commit(ctx context.Context, req *CommitRequest) (*Status, erro
 	return status, nil
 }
 
-func (n *Service) Abort(ctx context.Context, req *AbortRequest) (*Status, error) {
+func (n *Service) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
 	if req.ParticipantPid != n.pid {
 		return nil, errors.InvalidRequest
 	}
 
-	status, err := n.batcher.Apply(&Abort{Id: req.Id, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.Abort{Id: req.Id, Timestamp: hlc.Now()})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -141,7 +142,7 @@ func (n *Service) Abort(ctx context.Context, req *AbortRequest) (*Status, error)
 	return status, nil
 }
 
-func (n *Service) StoreDecision(ctx context.Context, dec *Decision) (*Status, error) {
+func (n *Service) StoreDecision(ctx context.Context, dec *data.Decision) (*data.TxnStatus, error) {
 	if dec.Id.PrincipalPid != n.pid {
 		return nil, errors.PermissionDenied
 	} else if !dec.Commit {
@@ -149,7 +150,7 @@ func (n *Service) StoreDecision(ctx context.Context, dec *Decision) (*Status, er
 		return nil, errors.InvalidRequest
 	}
 
-	status, err := n.batcher.Apply(&StoreDecision{Decision: dec, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.StoreDecision{Decision: dec, Timestamp: hlc.Now()})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -159,6 +160,6 @@ func (n *Service) StoreDecision(ctx context.Context, dec *Decision) (*Status, er
 	return status, nil
 }
 
-func (n *Service) markTimedout(id *Id, releaseLocks bool) (*Status, error) {
-	return n.batcher.Apply(&MarkTimedout{Id: id, Timestamp: hlc.Now(), ReleaseLocks: releaseLocks})
+func (n *Service) markTimedout(id *data.TxnId, releaseLocks bool) (*data.TxnStatus, error) {
+	return n.batcher.Apply(&data.MarkTimedout{Id: id, Timestamp: hlc.Now(), ReleaseLocks: releaseLocks})
 }

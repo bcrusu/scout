@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bcrusu/scout/internal/data"
-	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -23,15 +22,13 @@ func init() {
 // DataClient is the Data service client.
 type DataClient interface {
 	data.ServiceClient
-	txn.TxnServiceClient
 	utils.Lifecycle
 }
 
 type dataClient struct {
-	opts      *options
-	conn      *rpc.Conn
-	client    data.ServiceClient
-	txnClient txn.TxnServiceClient
+	opts   *options
+	conn   *rpc.Conn
+	client data.ServiceClient
 }
 
 func New(opts ...Option) DataClient {
@@ -61,7 +58,6 @@ func (c *dataClient) Start(ctx context.Context) error {
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
 	c.conn = rpc.NewConn(config, dialOpts...)
 	c.client = data.NewServiceClient(c.conn)
-	c.txnClient = txn.NewTxnServiceClient(c.conn)
 
 	return c.conn.Start(ctx)
 }
@@ -70,49 +66,49 @@ func (c *dataClient) Stop() {
 	c.conn.Stop()
 }
 
-func (c *dataClient) Autocommit(ctx context.Context, req *txn.AutocommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {
+func (c *dataClient) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.PartitionId,
 		snapshotRead: req.IsSnapshotRead(),
 	})
 
-	return c.txnClient.Autocommit(ctx, req, opts...)
+	return c.client.Autocommit(ctx, req, opts...)
 }
 
-func (c *dataClient) Prepare(ctx context.Context, req *txn.PrepareRequest, opts ...grpc.CallOption) (*txn.Status, error) {
+func (c *dataClient) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.ParticipantPid,
 		snapshotRead: false,
 	})
 
-	return c.txnClient.Prepare(ctx, req, opts...)
+	return c.client.Prepare(ctx, req, opts...)
 }
 
-func (c *dataClient) Commit(ctx context.Context, req *txn.CommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {
+func (c *dataClient) Commit(ctx context.Context, req *data.CommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.ParticipantPid,
 		snapshotRead: false,
 	})
 
-	return c.txnClient.Commit(ctx, req, opts...)
+	return c.client.Commit(ctx, req, opts...)
 }
 
-func (c *dataClient) Abort(ctx context.Context, req *txn.AbortRequest, opts ...grpc.CallOption) (*txn.Status, error) {
+func (c *dataClient) Abort(ctx context.Context, req *data.AbortRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routingInfo{
 		partitionID:  req.ParticipantPid,
 		snapshotRead: false,
 	})
 
-	return c.txnClient.Abort(ctx, req, opts...)
+	return c.client.Abort(ctx, req, opts...)
 }
 
-func (c *dataClient) StoreDecision(ctx context.Context, dec *txn.Decision, opts ...grpc.CallOption) (*txn.Status, error) {
+func (c *dataClient) StoreDecision(ctx context.Context, dec *data.Decision, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	ctx = withRouting(ctx, routingInfo{
 		partitionID:  dec.Id.PrincipalPid,
 		snapshotRead: false,
 	})
 
-	return c.txnClient.StoreDecision(ctx, dec, opts...)
+	return c.client.StoreDecision(ctx, dec, opts...)
 }
 
 func (c *dataClient) StreamPartition(ctx context.Context, req *data.StreamRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[data.StreamResponse], error) {

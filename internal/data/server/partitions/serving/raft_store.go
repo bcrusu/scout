@@ -1,6 +1,7 @@
 package serving
 
 import (
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
@@ -38,8 +39,8 @@ func (s *raftStore) NewLeader() {
 	}
 }
 
-func (s *raftStore) ApplyBatch(batch *txn.Batch) <-chan multiraft.AsyncResult {
-	cmd := &storage.Command{Payload: &storage.Command_Batch{Batch: batch}}
+func (s *raftStore) ApplyBatch(batch *data.TxnBatch) <-chan multiraft.AsyncResult {
+	cmd := &storage.Command{Payload: &storage.Command_TxnBatch{TxnBatch: batch}}
 	data := errors.Assert2(utils.MarshalProto(cmd))
 
 	return s.raft.ApplyAsync(data)

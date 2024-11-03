@@ -1,4 +1,4 @@
-package txn
+package data
 
 import (
 	"bytes"
@@ -8,15 +8,7 @@ import (
 	"github.com/bcrusu/scout/internal/keyspace"
 )
 
-func (i *Id) id() id {
-	return id{
-		PrincipalPid: i.PrincipalPid,
-		ServerID:     i.ServerId,
-		Timestamp:    i.Timestamp,
-	}
-}
-
-func (b *Batch) MaxTimestamp() uint64 {
+func (b *TxnBatch) MaxTimestamp() uint64 {
 	ts := uint64(0)
 
 	for _, a := range b.Autocommit {
@@ -41,7 +33,7 @@ func (b *Batch) MaxTimestamp() uint64 {
 	return ts
 }
 
-func (b *Batch) ActionCount() int {
+func (b *TxnBatch) ActionCount() int {
 	result := 0
 	for _, a := range b.Autocommit {
 		result += len(a.Txn.Actions)
@@ -76,11 +68,11 @@ func (p *Prepared) ReleaseLocks() {
 	p.LocksReleased = true
 }
 
-func (s Status_State) IsFinal() bool {
+func (s TxnStatus_State) IsFinal() bool {
 	switch s {
-	case Status_Pending, Status_Prepared, Status_Decided:
+	case TxnStatus_Pending, TxnStatus_Prepared, TxnStatus_Decided:
 		return false
-	case Status_Committed, Status_Aborted, Status_Failed, Status_Timedout:
+	case TxnStatus_Committed, TxnStatus_Aborted, TxnStatus_Failed, TxnStatus_Timedout:
 		return true
 	default:
 		panic(fmt.Sprintf("unhandled txn state %s", s))
@@ -252,7 +244,7 @@ func rangeLockCompatibleWithKeyLock(a *RangeLock, b *KeyLock) bool {
 	}
 }
 
-func (t *Id) Validate() error {
+func (t *TxnId) Validate() error {
 	if t == nil {
 		return errors.Error("Id is nil")
 	}
@@ -376,14 +368,14 @@ func (l *RangeLock) Validate() error {
 	return nil
 }
 
-func (t *Status) Validate() error {
+func (t *TxnStatus) Validate() error {
 	if t == nil {
 		return errors.Error("Status is nil")
 	}
 	if err := t.Id.Validate(); err != nil {
 		return errors.Wrap(err, "Txn.Id is invalid")
 	}
-	if _, ok := Status_State_name[int32(t.State)]; !ok {
+	if _, ok := TxnStatus_State_name[int32(t.State)]; !ok {
 		return errors.Error("Status.State is invalid")
 	}
 	if t.Timestamp == 0 || len(t.ParticipantPids) == 0 {
@@ -420,6 +412,62 @@ func (d *Decision) Validate() error {
 	}
 	if d.CommitTimestamp == 0 {
 		return errors.Error("Decision has missing fields")
+	}
+	return nil
+}
+
+func (r *AutocommitRequest) IsSnapshotRead() bool {
+	return r.ReadTimestamp != 0 && r.Txn.IsReadOnly()
+}
+
+func (r *AutocommitRequest) Validate() error {
+	if r == nil {
+		return errors.Error("AutocommitRequest is nil")
+	}
+	if err := r.Txn.Validate(); err != nil {
+		return errors.Wrap(err, "AutocommitRequest.Txn is invalid")
+	}
+	if r.PartitionId != r.Txn.Id.PrincipalPid {
+		return errors.Error("AutocommitRequest.PartitionId is invalid")
+	}
+	if r.ReadTimestamp != 0 && !r.Txn.IsReadOnly() {
+		return errors.Error("AutocommitRequest.ReadTimestamp invalid for read-write txn")
+	}
+	return nil
+}
+
+func (r *PrepareRequest) Validate() error {
+	if r == nil {
+		return errors.Error("PrepareRequest is nil")
+	}
+	if err := r.Txn.Validate(); err != nil {
+		return errors.Wrap(err, "PrepareRequest.Txn is invalid")
+	}
+	if r.ParticipantPid == r.Txn.Id.PrincipalPid && len(r.Txn.ParticipantPids) == 0 {
+		return errors.Error("PrepareRequest.Txn.ParticipantPids is missing")
+	}
+	return nil
+}
+
+func (r *CommitRequest) Validate() error {
+	if r == nil {
+		return errors.Error("CommitRequest is nil")
+	}
+	if err := r.Id.Validate(); err != nil {
+		return errors.Wrap(err, "PrepareRequest.Id is invalid")
+	}
+	if r.CommitTimestamp == 0 {
+		return errors.Error("CommitRequest has missing fields")
+	}
+	return nil
+}
+
+func (r *AbortRequest) Validate() error {
+	if r == nil {
+		return errors.Error("AbortRequest is nil")
+	}
+	if err := r.Id.Validate(); err != nil {
+		return errors.Wrap(err, "AbortRequest.Id is invalid")
 	}
 	return nil
 }

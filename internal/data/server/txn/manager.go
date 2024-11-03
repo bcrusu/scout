@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/logging"
@@ -20,8 +21,8 @@ type Manager struct {
 	cleanAfter   time.Duration
 	log          logging.Logger
 	lock         sync.RWMutex // guards all below
-	status       map[id]*Status
-	prepared     map[id]*Prepared
+	status       map[id]*data.TxnStatus
+	prepared     map[id]*data.Prepared
 	maxTimestamp uint64 // max HLC timestamp
 }
 
@@ -38,12 +39,12 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
 		log:        logging.New("txn_manager").With("partition", pid),
-		status:     map[id]*Status{},
-		prepared:   map[id]*Prepared{},
+		status:     map[id]*data.TxnStatus{},
+		prepared:   map[id]*data.Prepared{},
 	}
 }
 
-func (p *Manager) Snapshot() *Snapshot {
+func (p *Manager) Snapshot() *data.TxnSnapshot {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
@@ -52,31 +53,31 @@ func (p *Manager) Snapshot() *Snapshot {
 		p.Locks = nil // will be recreated from Prepared.Txn on restore
 	}
 
-	return &Snapshot{
+	return &data.TxnSnapshot{
 		Status:       utils.MakeValueSlice(p.status),
 		Prepared:     prepared,
 		MaxTimestamp: p.maxTimestamp,
 	}
 }
 
-func (p *Manager) Restore(snap *Snapshot) {
+func (p *Manager) Restore(snap *data.TxnSnapshot) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
 	p.maxTimestamp = snap.MaxTimestamp
 
-	p.status = make(map[id]*Status, len(snap.Status))
+	p.status = make(map[id]*data.TxnStatus, len(snap.Status))
 	for _, s := range snap.Status {
-		p.status[s.Id.id()] = s
+		p.status[newId(s.Id)] = s
 	}
 
-	p.prepared = make(map[id]*Prepared, len(snap.Prepared))
+	p.prepared = make(map[id]*data.Prepared, len(snap.Prepared))
 	for _, x := range snap.Prepared {
 		if !x.LocksReleased {
 			x.Locks = x.Txn.BuildLocks()
 		}
 
-		p.prepared[x.Txn.Id.id()] = x
+		p.prepared[newId(x.Txn.Id)] = x
 	}
 }
 
@@ -105,13 +106,13 @@ func (p *Manager) getRunning() []running {
 	return result
 }
 
-func (p *Manager) getLatestReadTimestamp(txn *Txn) uint64 {
+func (p *Manager) getLatestReadTimestamp(txn *data.Txn) uint64 {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 	return p.latestReadTimestampForLocks(txn.BuildLocks())
 }
 
-func (p *Manager) getPreparedTxn(id id, clone bool) *Txn {
+func (p *Manager) getPreparedTxn(id id, clone bool) *data.Txn {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 

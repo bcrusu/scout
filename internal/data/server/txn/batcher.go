@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/multiraft"
@@ -53,7 +54,7 @@ func (s *batcher) Stop() {
 	s.cancelFunc()
 }
 
-func (s *batcher) Apply(payload any) (*Status, error) {
+func (s *batcher) Apply(payload any) (*data.TxnStatus, error) {
 	cmd := applyCmd{
 		payload:  payload,
 		resultCh: make(chan BatchResult, 1),
@@ -68,7 +69,7 @@ func (s *batcher) mainLoop(ctx context.Context) {
 	for {
 		var timer *time.Timer
 
-		batch := &Batch{}
+		batch := &data.TxnBatch{}
 		waiting := &batchWaiting{}
 		batchSize := 0
 
@@ -76,7 +77,7 @@ func (s *batcher) mainLoop(ctx context.Context) {
 			asyncCh := s.raftStore.ApplyBatch(batch)
 			go s.waitBatchResult(waiting, asyncCh)
 
-			batch = &Batch{}
+			batch = &data.TxnBatch{}
 			waiting = &batchWaiting{}
 			batchSize = 0
 			timer.Stop()
@@ -87,22 +88,22 @@ func (s *batcher) mainLoop(ctx context.Context) {
 			nextBatch()
 		case cmd := <-s.applyCh:
 			switch x := cmd.payload.(type) {
-			case *Autocommit:
+			case *data.Autocommit:
 				batch.Autocommit = append(batch.Autocommit, x)
 				waiting.Autocommit = append(waiting.Autocommit, cmd.resultCh)
-			case *Prepare:
+			case *data.Prepare:
 				batch.Prepare = append(batch.Prepare, x)
 				waiting.Prepare = append(waiting.Prepare, cmd.resultCh)
-			case *Commit:
+			case *data.Commit:
 				batch.Commit = append(batch.Commit, x)
 				waiting.Commit = append(waiting.Commit, cmd.resultCh)
-			case *Abort:
+			case *data.Abort:
 				batch.Abort = append(batch.Abort, x)
 				waiting.Abort = append(waiting.Abort, cmd.resultCh)
-			case *StoreDecision:
+			case *data.StoreDecision:
 				batch.StoreDecision = append(batch.StoreDecision, x)
 				waiting.StoreDecision = append(waiting.StoreDecision, cmd.resultCh)
-			case *MarkTimedout:
+			case *data.MarkTimedout:
 				batch.MarkTimedout = append(batch.MarkTimedout, x)
 				waiting.MarkTimedout = append(waiting.MarkTimedout, cmd.resultCh)
 			default:

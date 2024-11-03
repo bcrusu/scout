@@ -3,7 +3,7 @@ package txn
 import (
 	"time"
 
-	"github.com/bcrusu/scout/internal/data/server/txn"
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -11,25 +11,25 @@ import (
 
 type Txn struct {
 	processor          *Processor
-	participantActions map[uint32][]*txn.Action
-	id                 *txn.Id
+	participantActions map[uint32][]*data.Action
+	id                 *data.TxnId
 	nextActionId       uint32
 	readTimestamp      uint64
 }
 
 type TxnResult struct {
-	Id           *txn.Id
+	Id           *data.TxnId
 	Timestamp    uint64
 	Success      bool
-	ActionStatus map[uint32]*txn.ActionStatus
+	ActionStatus map[uint32]*data.ActionStatus
 }
 
-func (t *Txn) Append(routingKey []byte, actions ...*txn.Action) *Txn {
+func (t *Txn) Append(routingKey []byte, actions ...*data.Action) *Txn {
 	pid := t.processor.partitioner.getPartition(routingKey)
 
 	if t.id == nil {
 		// first partition is selected as the principal partition
-		t.id = &txn.Id{
+		t.id = &data.TxnId{
 			PrincipalPid: pid,
 			ServerId:     t.processor.identity.ServerID,
 			Timestamp:    hlc.Now(),

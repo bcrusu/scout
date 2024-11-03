@@ -6,6 +6,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
@@ -46,7 +47,7 @@ type watchdog2PC struct {
 	pid        uint32
 	service    *Service
 	manager    *Manager
-	client     TxnServiceClient
+	client     data.ServiceClient
 	log        logging.Logger
 	requestCh  chan running
 	breaker    *rate.Limiter
@@ -56,7 +57,7 @@ type watchdog2PC struct {
 type dogQueue = *utils.Queue[running]
 type dogResolve func(context.Context, running)
 
-func newWatchdog2PC(pid uint32, service *Service, manager *Manager, client TxnServiceClient) *watchdog2PC {
+func newWatchdog2PC(pid uint32, service *Service, manager *Manager, client data.ServiceClient) *watchdog2PC {
 	config := config.Get().Transactions
 
 	return &watchdog2PC{
@@ -119,13 +120,13 @@ func (w *watchdog2PC) mainLoop(ctx context.Context) {
 			}
 
 			switch status.State {
-			case Status_Prepared:
+			case data.TxnStatus_Prepared:
 				all[status.Id] = true
 				prepared.PushBack(status)
-			case Status_Decided:
+			case data.TxnStatus_Decided:
 				all[status.Id] = true
 				decided.PushBack(status)
-			case Status_Committed, Status_Aborted:
+			case data.TxnStatus_Committed, data.TxnStatus_Aborted:
 				delete(all, status.Id) // checkTimedout above will later clear from queue
 			}
 		case <-tickerPhase1.C:
@@ -149,13 +150,13 @@ func (w *watchdog2PC) mainLoop(ctx context.Context) {
 // UpdateStatus takes the latest applied status returned by the FSM, and:
 //   - the prepared != nil only for Prepare call.
 //   - the decision != nil only for StoreDecision call.
-func (w *watchdog2PC) UpdateStatus(status *Status, prepared *Txn, decision *Decision) {
+func (w *watchdog2PC) UpdateStatus(status *data.TxnStatus, prepared *data.Txn, decision *data.Decision) {
 	if status == nil || status.Id.PrincipalPid != w.pid {
 		return
 	}
 
 	s := running{
-		Id:        status.Id.id(),
+		Id:        newId(status.Id),
 		Timestamp: status.Timestamp,
 		State:     status.State,
 		Decision:  decision,
@@ -179,11 +180,11 @@ func (w *watchdog2PC) loadRunning() (map[id]bool, dogQueue, dogQueue) {
 		all[p.Id] = true
 
 		switch p.State {
-		case Status_Prepared:
+		case data.TxnStatus_Prepared:
 			prepared = append(prepared, p)
-		case Status_Decided:
+		case data.TxnStatus_Decided:
 			decided = append(decided, p)
-		case Status_Timedout:
+		case data.TxnStatus_Timedout:
 			// A running txn in Timedout state happens when the previous Raft partition
 			// leader has started the abort procedure (i.e. marked the txn as timedout),
 			// but lost leadership before the abort operation completed which did not
@@ -207,7 +208,7 @@ func (w *watchdog2PC) abort(ctx context.Context, txn running) {
 
 	resultCh := make(chan error, 1)
 	invokeAbort := func(pid uint32) {
-		req := &AbortRequest{
+		req := &data.AbortRequest{
 			ParticipantPid: pid,
 			Id:             txn.Id.ToProto(),
 		}
@@ -287,7 +288,7 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 
 	resultCh := make(chan error, 1)
 	invokeCommit := func(pid uint32) {
-		req := &CommitRequest{
+		req := &data.CommitRequest{
 			ParticipantPid:  pid,
 			Id:              txn.Id.ToProto(),
 			CommitTimestamp: txn.Decision.CommitTimestamp,
@@ -301,7 +302,7 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 			switch {
 			case err != nil:
 				return errors.Wrapf(err, "2pc txn=%s commit failed at participant %d.", txn.Id, pid)
-			case status.State != Status_Committed:
+			case status.State != data.TxnStatus_Committed:
 				return errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", txn.Id, status.State, pid)
 			default:
 				return nil

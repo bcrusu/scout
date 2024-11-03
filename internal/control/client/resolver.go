@@ -148,7 +148,7 @@ func (r *resolverImpl) createClient() (*rpc.Conn, control.ServiceClient) {
 		grpc.WithTransportCredentials(r.buildOptions.DialCreds),
 		grpc.WithCredentialsBundle(r.buildOptions.CredsBundle),
 		grpc.WithContextDialer(r.buildOptions.Dialer),
-		grpc.WithDisableServiceConfig(), // TODO
+		grpc.WithDisableServiceConfig(),
 		grpc.WithDefaultServiceConfig(serviceconfig.DefaultServiceConfig().ToJson()),
 	}
 

@@ -3,8 +3,8 @@ package txn
 import (
 	"context"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
-	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
@@ -18,8 +18,8 @@ type clientRetrier struct {
 	policy utils.RetryPolicy
 }
 
-func (c clientRetrier) Autocommit(ctx context.Context, req *txn.AutocommitRequest, opts ...grpc.CallOption) (*txn.Status, error) {
-	var last *txn.Status
+func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
+	var last *data.TxnStatus
 	var err error
 
 	utils.RetryContextB(ctx, c.policy, func() error {
@@ -37,8 +37,8 @@ func (c clientRetrier) Autocommit(ctx context.Context, req *txn.AutocommitReques
 	return last, err
 }
 
-func (c clientRetrier) Prepare(ctx context.Context, req *txn.PrepareRequest, opts ...grpc.CallOption) (*txn.Status, error) {
-	var last *txn.Status
+func (c clientRetrier) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
+	var last *data.TxnStatus
 	var err error
 
 	utils.RetryContextB(ctx, c.policy, func() error {
@@ -56,8 +56,8 @@ func (c clientRetrier) Prepare(ctx context.Context, req *txn.PrepareRequest, opt
 	return last, err
 }
 
-func (c clientRetrier) needsRetry(status *txn.Status) bool {
-	if status.State != txn.Status_Failed {
+func (c clientRetrier) needsRetry(status *data.TxnStatus) bool {
+	if status.State != data.TxnStatus_Failed {
 		return false
 	}
 
@@ -70,6 +70,6 @@ func (c clientRetrier) needsRetry(status *txn.Status) bool {
 	return true
 }
 
-func (c clientRetrier) shouldRetryCode(code txn.ActionStatus_Code) bool {
-	return code == txn.ActionStatus_LockFailed
+func (c clientRetrier) shouldRetryCode(code data.ActionStatus_Code) bool {
+	return code == data.ActionStatus_LockFailed
 }

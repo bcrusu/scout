@@ -3,8 +3,8 @@ package txn
 import (
 	"context"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
-	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 )
@@ -55,7 +55,7 @@ func (p *processor2PC) Process(ctx context.Context, t *Txn) (*TxnResult, error) 
 	if s, err := p.client.StoreDecision(ctx, decision); err != nil {
 		p.abort(ctx, t, status)
 		return nil, errors.Wrapf(err, "2pc txn=%s failed to store decision.", t.id)
-	} else if s.State != txn.Status_Decided {
+	} else if s.State != data.TxnStatus_Decided {
 		// The principal partition watchdog was faster than us and timedout the txn.
 		// Nothing to do here as the second phase abort is already underway...
 		return nil, errors.Wrapf(err, "2pc txn=%s failed with state %s.", t.id, s.State)
@@ -72,16 +72,16 @@ func (p *processor2PC) Process(ctx context.Context, t *Txn) (*TxnResult, error) 
 func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	type prepareResult struct {
 		pid    uint32
-		status *txn.Status
+		status *data.TxnStatus
 		err    error
 	}
 
 	resultCh := make(chan prepareResult, 1)
 	invokePrepare := func(pid uint32) {
-		req := &txn.PrepareRequest{
+		req := &data.PrepareRequest{
 			ParticipantPid: pid,
 			ReadOnly:       false,
-			Txn: &txn.Txn{
+			Txn: &data.Txn{
 				Id:      t.id,
 				Actions: t.participantActions[pid],
 			}}
@@ -115,7 +115,7 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	// Stop early if principal failed
 	if len(errs) > 0 {
 		return nil, errs[0]
-	} else if s := status[t.id.PrincipalPid]; s.State != txn.Status_Prepared {
+	} else if s := status[t.id.PrincipalPid]; s.State != data.TxnStatus_Prepared {
 		return status, nil
 	}
 
@@ -139,36 +139,36 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	return status, nil
 }
 
-func (p *processor2PC) decide(id *txn.Id, status statusMap) *txn.Decision {
+func (p *processor2PC) decide(id *data.TxnId, status statusMap) *data.Decision {
 	commitTimestamp := uint64(0)
 
 	for _, s := range status {
-		if s.State == txn.Status_Prepared {
+		if s.State == data.TxnStatus_Prepared {
 			// commit hlc timestamp is max of participant timestamps
 			commitTimestamp = max(commitTimestamp, s.Timestamp)
 			continue
 		}
 
-		return &txn.Decision{Id: id, Commit: false}
+		return &data.Decision{Id: id, Commit: false}
 	}
 
-	return &txn.Decision{
+	return &data.Decision{
 		Id:              id,
 		Commit:          true,
 		CommitTimestamp: commitTimestamp,
 	}
 }
 
-func (p *processor2PC) commit(ctx context.Context, decision *txn.Decision, t *Txn) (statusMap, error) {
+func (p *processor2PC) commit(ctx context.Context, decision *data.Decision, t *Txn) (statusMap, error) {
 	type commitResult struct {
 		pid    uint32
-		status *txn.Status
+		status *data.TxnStatus
 		err    error
 	}
 
 	resultCh := make(chan commitResult, 1)
 	invokeCommit := func(pid uint32) {
-		req := &txn.CommitRequest{
+		req := &data.CommitRequest{
 			ParticipantPid:  pid,
 			Id:              t.id,
 			CommitTimestamp: decision.CommitTimestamp,
@@ -197,7 +197,7 @@ func (p *processor2PC) commit(ctx context.Context, decision *txn.Decision, t *Tx
 	handleResult := func(r commitResult) {
 		if r.err != nil {
 			errs = append(errs, errors.Wrapf(r.err, "2pc txn=%s commit failed at participant %d.", t.id, r.pid))
-		} else if r.status.State != txn.Status_Committed {
+		} else if r.status.State != data.TxnStatus_Committed {
 			errs = append(errs, errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", t.id, r.status.State, r.pid))
 		} else {
 			status[r.pid] = r.status
@@ -235,7 +235,7 @@ func (p *processor2PC) commit(ctx context.Context, decision *txn.Decision, t *Tx
 func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
 	resultCh := make(chan error, 1)
 	invokeAbort := func(pid uint32) {
-		req := &txn.AbortRequest{
+		req := &data.AbortRequest{
 			ParticipantPid: pid,
 			Id:             t.id,
 		}
@@ -291,8 +291,8 @@ func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
 	}
 }
 
-func (p *processor2PC) aggregateResults(decision *txn.Decision, status statusMap) *TxnResult {
-	actionStatus := map[uint32]*txn.ActionStatus{}
+func (p *processor2PC) aggregateResults(decision *data.Decision, status statusMap) *TxnResult {
+	actionStatus := map[uint32]*data.ActionStatus{}
 	for _, s := range status {
 		utils.AppendMap(actionStatus, s.ActionStatus)
 	}

@@ -13,15 +13,13 @@ import (
 )
 
 var (
-	_ data.ServiceServer   = (*Leader)(nil)
-	_ txn.TxnServiceServer = (*Leader)(nil)
-	_ utils.Lifecycle      = (*Leader)(nil)
+	_ data.ServiceServer = (*Leader)(nil)
+	_ utils.Lifecycle    = (*Leader)(nil)
 )
 
 // Leader implements the Leader role.
 type Leader struct {
 	data.UnsafeServiceServer
-	txn.UnsafeTxnServiceServer
 	pid      uint32
 	log      logging.Logger
 	txn      *txn.Service
@@ -55,23 +53,23 @@ func (n *Leader) IsLeader() bool {
 	return true
 }
 
-func (n *Leader) Autocommit(ctx context.Context, req *txn.AutocommitRequest) (*txn.Status, error) {
+func (n *Leader) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
 	return n.txn.Autocommit(ctx, req)
 }
 
-func (n *Leader) Prepare(ctx context.Context, req *txn.PrepareRequest) (*txn.Status, error) {
+func (n *Leader) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
 	return n.txn.Prepare(ctx, req)
 }
 
-func (n *Leader) Commit(ctx context.Context, req *txn.CommitRequest) (*txn.Status, error) {
+func (n *Leader) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
 	return n.txn.Commit(ctx, req)
 }
 
-func (n *Leader) Abort(ctx context.Context, req *txn.AbortRequest) (*txn.Status, error) {
+func (n *Leader) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
 	return n.txn.Abort(ctx, req)
 }
 
-func (n *Leader) StoreDecision(ctx context.Context, dec *txn.Decision) (*txn.Status, error) {
+func (n *Leader) StoreDecision(ctx context.Context, dec *data.Decision) (*data.TxnStatus, error) {
 	return n.txn.StoreDecision(ctx, dec)
 }
 

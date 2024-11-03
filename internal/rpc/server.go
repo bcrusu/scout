@@ -26,7 +26,7 @@ type ServerConfig struct {
 	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
 	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB" validate:"min:1KB"`
 	ClusterName          string
-	EnableHlc            bool
+	EnableHlc            bool // API servers do not require HLC checks
 }
 
 // Server represents the gRPC server.

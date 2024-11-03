@@ -3,12 +3,13 @@ package txn
 import (
 	"time"
 
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
 )
 
-func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
+func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -71,12 +72,12 @@ func (p *Manager) ApplyBatch(index uint64, batch *Batch) *BatchResults {
 	return result
 }
 
-func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Record, error) {
-	id := cmd.Txn.Id.id()
+func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc.Record, error) {
+	id := newId(cmd.Txn.Id)
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
-		case Status_Committed, Status_Failed:
+		case data.TxnStatus_Committed, data.TxnStatus_Failed:
 			// idempotent calls
 			return status, nil, nil
 		default:
@@ -96,18 +97,18 @@ func (p *Manager) applyAutocommit(cmd *Autocommit) (*Status, []mvcc.Record, erro
 	}
 
 	writes := p.buildWriteEntries(cmd.Timestamp, cmd.Txn)
-	status = newStatus(id, cmd.Timestamp, Status_Committed)
+	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
 
 	p.status[id] = status
 	return status, writes, nil
 }
 
-func (p *Manager) applyPrepare(cmd *Prepare) (*Status, error) {
-	id := cmd.Txn.Id.id()
+func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
+	id := newId(cmd.Txn.Id)
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
-		case Status_Prepared, Status_Failed:
+		case data.TxnStatus_Prepared, data.TxnStatus_Failed:
 			// idempotent calls
 			return status, nil
 		default:
@@ -126,19 +127,19 @@ func (p *Manager) applyPrepare(cmd *Prepare) (*Status, error) {
 		return status, nil
 	}
 
-	p.prepared[id] = &Prepared{
+	p.prepared[id] = &data.Prepared{
 		Txn:   cmd.Txn,
 		Locks: locks,
 	}
 
-	status = newStatus(id, cmd.Timestamp, Status_Prepared)
+	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Prepared)
 
 	p.status[id] = status
 	return status, nil
 }
 
-func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Record, error) {
-	id := cmd.Id.id()
+func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record, error) {
+	id := newId(cmd.Id)
 	status, ok := p.status[id]
 	if !ok {
 		return nil, nil, errors.NotFound
@@ -151,14 +152,14 @@ func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Record, error) {
 	}
 
 	switch status.State {
-	case Status_Committed:
+	case data.TxnStatus_Committed:
 		// idempotent calls
 		return status, nil, nil
-	case Status_Prepared, Status_Decided:
+	case data.TxnStatus_Prepared, data.TxnStatus_Decided:
 		prepared.ReleaseLocks()
 		writes := p.buildWriteEntries(cmd.Timestamp, prepared.Txn)
 
-		status := newStatus(id, cmd.Timestamp, Status_Committed)
+		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
 		// stores the list of participants to be able to recompose the txn results
 		// after the initial client call returns.
 		status.ParticipantPids = prepared.Txn.ParticipantPids
@@ -170,8 +171,8 @@ func (p *Manager) applyCommit(cmd *Commit) (*Status, []mvcc.Record, error) {
 	}
 }
 
-func (p *Manager) applyAbort(cmd *Abort) (*Status, error) {
-	id := cmd.Id.id()
+func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
+	id := newId(cmd.Id)
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
@@ -184,15 +185,15 @@ func (p *Manager) applyAbort(cmd *Abort) (*Status, error) {
 	}
 
 	switch status.State {
-	case Status_Aborted:
+	case data.TxnStatus_Aborted:
 		// idempotent calls
 		return status, nil
-	case Status_Timedout:
+	case data.TxnStatus_Timedout:
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
-	case Status_Prepared:
+	case data.TxnStatus_Prepared:
 		prepared.ReleaseLocks()
-		status := newStatus(id, cmd.Timestamp, Status_Aborted)
+		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Aborted)
 
 		p.status[id] = status
 		return status, nil
@@ -201,8 +202,8 @@ func (p *Manager) applyAbort(cmd *Abort) (*Status, error) {
 	}
 }
 
-func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
-	id := cmd.Decision.Id.id()
+func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, error) {
+	id := newId(cmd.Decision.Id)
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
@@ -217,7 +218,7 @@ func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
 	}
 
 	switch status.State {
-	case Status_Decided:
+	case data.TxnStatus_Decided:
 		// is it trying to change prev decision?
 		if prepared.Decision.Commit != cmd.Decision.Commit {
 			return nil, errors.FailedPrecondition
@@ -225,13 +226,13 @@ func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
 
 		// idempotent calls
 		return status, nil
-	case Status_Timedout:
+	case data.TxnStatus_Timedout:
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
-	case Status_Prepared:
+	case data.TxnStatus_Prepared:
 		prepared.Decision = cmd.Decision
 
-		status := newStatus(id, cmd.Timestamp, Status_Decided)
+		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Decided)
 		p.status[id] = status
 		return status, nil
 	default:
@@ -239,8 +240,8 @@ func (p *Manager) applyStoreDecision(cmd *StoreDecision) (*Status, error) {
 	}
 }
 
-func (p *Manager) applyMarkTimedout(cmd *MarkTimedout) (*Status, error) {
-	id := cmd.Id.id()
+func (p *Manager) applyMarkTimedout(cmd *data.MarkTimedout) (*data.TxnStatus, error) {
+	id := newId(cmd.Id)
 	status, ok := p.status[id]
 	if !ok {
 		return nil, errors.NotFound
@@ -255,14 +256,14 @@ func (p *Manager) applyMarkTimedout(cmd *MarkTimedout) (*Status, error) {
 	}
 
 	switch status.State {
-	case Status_Timedout:
+	case data.TxnStatus_Timedout:
 		if cmd.ReleaseLocks {
 			prepared.ReleaseLocks()
 		}
 
 		return status, nil
-	case Status_Prepared:
-		status := newStatus(id, cmd.Timestamp, Status_Timedout)
+	case data.TxnStatus_Prepared:
+		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Timedout)
 		p.status[id] = status
 		return status, nil
 	default:
@@ -282,44 +283,44 @@ func (p *Manager) applyMarkTimedout(cmd *MarkTimedout) (*Status, error) {
 // running replica, install it locally, then start applying the pending raft log entries.
 // Unless a perfect in-sync, at the same applied raft index, kv store checkpoint and raft
 // snapshot can be created it is almost certain that duplicate txn execution will happen.
-func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
+func (p *Manager) validate(id id, timestamp uint64, txn *data.Txn) *data.TxnStatus {
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *Action_Insert:
+		case *data.Action_Insert:
 			addr := mvcc.NewAddress(x.Insert.Keyspace, x.Insert.Key)
 
 			if p.db.Exists(p.pid, timestamp-1, addr) {
-				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyAlreadyExists)
+				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyAlreadyExists)
 			}
-		case *Action_Update:
+		case *data.Action_Update:
 			addr := mvcc.NewAddress(x.Update.Keyspace, x.Update.Key)
 
 			if !p.db.Exists(p.pid, timestamp-1, addr) {
-				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyNotFound)
+				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
 			}
-		case *Action_Upsert:
+		case *data.Action_Upsert:
 			// pass
-		case *Action_Delete:
+		case *data.Action_Delete:
 			addr := mvcc.NewAddress(x.Delete.Keyspace, x.Delete.Key)
 
 			if !p.db.Exists(p.pid, timestamp-1, addr) {
-				return newFailedStatus(id, timestamp, action.Id, ActionStatus_KeyNotFound)
+				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
 			}
-		case *Action_LockKey:
-			if x.LockKey.Check == LockKey_None {
+		case *data.Action_LockKey:
+			if x.LockKey.Check == data.LockKey_None {
 				continue
 			}
 
 			addr := mvcc.NewAddress(x.LockKey.Lock.Keyspace, x.LockKey.Lock.Key)
 
 			actual := p.db.Exists(p.pid, timestamp-1, addr)
-			expected := x.LockKey.Check == LockKey_MustExist
+			expected := x.LockKey.Check == data.LockKey_MustExist
 
 			if actual != expected {
-				return newFailedStatus(id, timestamp, action.Id, ActionStatus_LockCheckFailed)
+				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_LockCheckFailed)
 			}
-		case *Action_LockRange:
-			if x.LockRange.Check == LockRange_None {
+		case *data.Action_LockRange:
+			if x.LockRange.Check == data.LockRange_None {
 				continue
 			}
 
@@ -327,10 +328,10 @@ func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 			end := mvcc.NewAddress(x.LockRange.Lock.Keyspace, x.LockRange.Lock.EndKey)
 
 			actual := p.db.ExistsInRange(p.pid, timestamp-1, start, end)
-			expected := x.LockRange.Check == LockRange_MustNotBeEmpty
+			expected := x.LockRange.Check == data.LockRange_MustNotBeEmpty
 
 			if actual != expected {
-				return newFailedStatus(id, timestamp, action.Id, ActionStatus_LockCheckFailed)
+				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_LockCheckFailed)
 			}
 		}
 	}
@@ -338,33 +339,33 @@ func (p *Manager) validate(id id, timestamp uint64, txn *Txn) *Status {
 	return nil
 }
 
-func (p *Manager) buildWriteEntries(timestamp uint64, txn *Txn) []mvcc.Record {
+func (p *Manager) buildWriteEntries(timestamp uint64, txn *data.Txn) []mvcc.Record {
 	writes := make([]mvcc.Record, 0, len(txn.Actions))
 
 	for _, action := range txn.Actions {
 		switch x := action.Payload.(type) {
-		case *Action_Insert:
+		case *data.Action_Insert:
 			writes = append(writes, mvcc.Record{
 				Address:   mvcc.NewAddress(x.Insert.Keyspace, x.Insert.Key),
 				Timestamp: timestamp,
 				Value:     mustEncodeValue(x.Insert.Value),
 				Flags:     mvcc.FlagEmpty,
 			})
-		case *Action_Update:
+		case *data.Action_Update:
 			writes = append(writes, mvcc.Record{
 				Address:   mvcc.NewAddress(x.Update.Keyspace, x.Update.Key),
 				Timestamp: timestamp,
 				Value:     mustEncodeValue(x.Update.Value),
 				Flags:     mvcc.FlagEmpty,
 			})
-		case *Action_Upsert:
+		case *data.Action_Upsert:
 			writes = append(writes, mvcc.Record{
 				Address:   mvcc.NewAddress(x.Upsert.Keyspace, x.Upsert.Key),
 				Timestamp: timestamp,
 				Value:     mustEncodeValue(x.Upsert.Value),
 				Flags:     mvcc.FlagEmpty,
 			})
-		case *Action_Delete:
+		case *data.Action_Delete:
 			writes = append(writes, mvcc.Record{
 				Address:   mvcc.NewAddress(x.Delete.Keyspace, x.Delete.Key),
 				Timestamp: timestamp,

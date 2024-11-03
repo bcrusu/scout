@@ -80,8 +80,8 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 	case *Command_Barrier:
 		// best effort store last index
 		result = f.db.Put(f.partitionID, index)
-	case *Command_Batch:
-		result = f.txn.ApplyBatch(index, x.Batch)
+	case *Command_TxnBatch:
+		result = f.txn.ApplyBatch(index, x.TxnBatch)
 	default:
 		return errors.Errorf("apply: unhandled payload type %T", cmd.Payload)
 	}

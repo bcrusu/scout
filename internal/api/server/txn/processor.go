@@ -5,8 +5,8 @@ import (
 
 	"github.com/bcrusu/scout/internal/api/server/config"
 	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
-	"github.com/bcrusu/scout/internal/data/server/txn"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/identity"
@@ -28,7 +28,7 @@ type Processor struct {
 	processorReadSnapshot *processorReadSnapshot
 }
 
-type statusMap map[uint32]*txn.Status
+type statusMap map[uint32]*data.TxnStatus
 
 func NewProcessor(id identity.Identity, client client.DataClient) *Processor {
 	client = &clientRetrier{
@@ -90,10 +90,10 @@ func (p *Processor) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
 func (p *Processor) autocommit(ctx context.Context, t *Txn) (*TxnResult, error) {
 	_, actions, _ := utils.GetSingleMapKey(t.participantActions)
 
-	req := &txn.AutocommitRequest{
+	req := &data.AutocommitRequest{
 		PartitionId:   t.id.PrincipalPid,
 		ReadTimestamp: t.readTimestamp,
-		Txn: &txn.Txn{
+		Txn: &data.Txn{
 			Id:      t.id,
 			Actions: actions,
 		},
@@ -107,7 +107,7 @@ func (p *Processor) autocommit(ctx context.Context, t *Txn) (*TxnResult, error) 
 	return &TxnResult{
 		Id:           t.id,
 		Timestamp:    status.Timestamp,
-		Success:      status.State == txn.Status_Committed,
+		Success:      status.State == data.TxnStatus_Committed,
 		ActionStatus: status.ActionStatus,
 	}, nil
 }
@@ -115,6 +115,6 @@ func (p *Processor) autocommit(ctx context.Context, t *Txn) (*TxnResult, error) 
 func (p *Processor) New() *Txn {
 	return &Txn{
 		processor:          p,
-		participantActions: map[uint32][]*txn.Action{},
+		participantActions: map[uint32][]*data.Action{},
 	}
 }

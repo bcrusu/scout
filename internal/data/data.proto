@@ -1,11 +1,53 @@
 syntax = "proto3";
 
-package txn;
+package data;
 
-option go_package = "github.com/bcrusu/scout/internal/data/server/txn";
+option go_package = "github.com/bcrusu/scout/internal/data";
 
-message Snapshot {
-    repeated Status status = 1;
+// Service represents the data storage service.
+service Service {
+    rpc Autocommit(AutocommitRequest) returns (TxnStatus);
+    rpc Prepare(PrepareRequest) returns (TxnStatus);
+    rpc Commit(CommitRequest) returns (TxnStatus);
+    rpc Abort(AbortRequest) returns (TxnStatus);
+    rpc StoreDecision(Decision) returns (TxnStatus);
+
+    rpc StreamPartition(StreamRequest) returns (stream StreamResponse);
+}
+
+// ====================================================================
+// Transactions:
+// ====================================================================
+
+message AutocommitRequest {
+    uint32 partition_id = 1;
+    Txn txn = 2;
+
+    // only for read-only snapshot txn
+    uint64 read_timestamp = 3;
+}
+
+message PrepareRequest {
+    uint32 participant_pid = 1;
+    Txn txn = 2;
+    bool read_only = 3;
+}
+
+message CommitRequest {
+    uint32 participant_pid = 1;
+    TxnId id = 2;
+    uint64 commit_timestamp = 3;
+    bool fetch_results = 4;
+    bool read_only = 5;
+}
+
+message AbortRequest {
+    uint32 participant_pid = 1;
+    TxnId id = 2;
+}
+
+message TxnSnapshot {
+    repeated TxnStatus status = 1;
     repeated Prepared prepared = 2;
     uint64 max_timestamp = 3;
 }
@@ -22,12 +64,12 @@ message Prepare {
 
 message Commit {
     uint64 timestamp = 1;
-    Id id = 2;
+    TxnId id = 2;
 }
 
 message Abort {
     uint64 timestamp = 1;
-    Id id = 2;
+    TxnId id = 2;
 }
 
 message StoreDecision {
@@ -39,11 +81,11 @@ message StoreDecision {
 // and the second will release the locks, completing the 2pc process.
 message MarkTimedout {
     uint64 timestamp = 1;
-    Id id = 2;
+    TxnId id = 2;
     bool release_locks = 3;
 }
 
-message Batch {
+message TxnBatch {
     repeated Autocommit autocommit = 1;
     repeated Prepare prepare = 2;
     repeated Commit commit = 3;
@@ -53,7 +95,7 @@ message Batch {
 }
 
 // Id uniquely identifies a transaction in the cluster.
-message Id {
+message TxnId {
     // The principal partition is where the txn status is written.
     // For a single-partition/autocommit txn, it corresponds to the
     // the sole partition involved in the transaction.
@@ -71,14 +113,14 @@ message Id {
 }
 
 message Txn {
-    Id id = 1;
+    TxnId id = 1;
     repeated Action actions = 2;
     
     // used only for 2PC txn and sent only to the principal partition. 
     repeated uint32 participant_pids = 3;
 }
 
-message Status  {
+message TxnStatus  {
     enum State {
         Pending = 0;
         Prepared = 1;
@@ -89,7 +131,7 @@ message Status  {
         Decided = 6;
     }
 
-    Id id = 1;
+    TxnId id = 1;
     uint64 timestamp = 2;
     State state = 3;
     map<uint32, ActionStatus> action_status = 4;
@@ -212,7 +254,7 @@ message ActionStatus {
 }
 
 message Decision {
-    Id id = 1;
+    TxnId id = 1;
     bool commit = 2;
 	uint64 commit_timestamp = 3;
 }
@@ -222,4 +264,30 @@ message Prepared {
 	repeated Lock locks = 2;
 	bool locks_released = 3;
     Decision decision = 4;
+}
+
+// ====================================================================
+// Replica streaming:
+// ====================================================================
+
+message KVAddress {
+    uint32 keyspace = 1;
+    bytes key = 2;
+    uint64 timestamp = 3;
+}
+
+message KVRecord {
+    KVAddress address = 1;
+    bytes data = 2;
+}
+
+message StreamRequest {
+    uint32 partition_id = 1;
+    uint64 min_index = 2;
+    KVAddress start_address = 3;
+}
+
+message StreamResponse {
+    repeated KVRecord records = 1;
+    bool completed = 2;
 }

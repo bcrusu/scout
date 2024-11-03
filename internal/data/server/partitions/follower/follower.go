@@ -14,15 +14,13 @@ import (
 )
 
 var (
-	_ data.ServiceServer   = (*Follower)(nil)
-	_ txn.TxnServiceServer = (*Follower)(nil)
-	_ utils.Lifecycle      = (*Follower)(nil)
+	_ data.ServiceServer = (*Follower)(nil)
+	_ utils.Lifecycle    = (*Follower)(nil)
 )
 
 // Follower implements the follower role.
 type Follower struct {
 	data.UnsafeServiceServer
-	txn.UnsafeTxnServiceServer
 	log      logging.Logger
 	txn      *txn.Service
 	streamer *shared.PartitionStreamer
@@ -54,7 +52,7 @@ func (n *Follower) IsLeader() bool {
 	return false
 }
 
-func (n *Follower) Autocommit(ctx context.Context, req *txn.AutocommitRequest) (*txn.Status, error) {
+func (n *Follower) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
 	if !req.IsSnapshotRead() {
 		return nil, errors.NotLeader
 	}
@@ -62,19 +60,19 @@ func (n *Follower) Autocommit(ctx context.Context, req *txn.AutocommitRequest) (
 	return n.txn.Autocommit(ctx, req)
 }
 
-func (n *Follower) Prepare(context.Context, *txn.PrepareRequest) (*txn.Status, error) {
+func (n *Follower) Prepare(context.Context, *data.PrepareRequest) (*data.TxnStatus, error) {
 	return nil, errors.NotLeader
 }
 
-func (n *Follower) Commit(context.Context, *txn.CommitRequest) (*txn.Status, error) {
+func (n *Follower) Commit(context.Context, *data.CommitRequest) (*data.TxnStatus, error) {
 	return nil, errors.NotLeader
 }
 
-func (n *Follower) Abort(context.Context, *txn.AbortRequest) (*txn.Status, error) {
+func (n *Follower) Abort(context.Context, *data.AbortRequest) (*data.TxnStatus, error) {
 	return nil, errors.NotLeader
 }
 
-func (n *Follower) StoreDecision(context.Context, *txn.Decision) (*txn.Status, error) {
+func (n *Follower) StoreDecision(context.Context, *data.Decision) (*data.TxnStatus, error) {
 	return nil, errors.NotLeader
 }
 
