@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package keyvalue;
+
+option go_package = "github.com/bcrusu/scout/pkg/keyvalue";
+
+import "google/protobuf/timestamp.proto";
+
+// Service represents the key-value operations.
+service Service {
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Set(SetRequest) returns (Status);
+    rpc Delete(DeleteRequest) returns (Status);
+}
+
+message GetRequest {
+    repeated bytes keys = 1;
+    google.protobuf.Timestamp snapshot = 2;
+}
+
+message GetResponse {
+    repeated bytes values = 1;
+    google.protobuf.Timestamp timestamp = 2;
+}
+
+message SetRequest {
+    repeated KeyValue items = 1;
+}
+
+message DeleteRequest {
+    repeated bytes keys = 1;
+}
+
+message KeyValue {
+    bytes key = 1;
+    bytes value = 2;
+}
+
+message Status {
+    google.protobuf.Timestamp timestamp = 1;
+}

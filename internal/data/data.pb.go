@@ -1068,7 +1068,7 @@ type Txn struct {
 
 	Id      *TxnId    `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Actions []*Action `protobuf:"bytes,2,rep,name=actions,proto3" json:"actions,omitempty"`
-	// used only for 2PC txn and sent only to the principal partition.
+	// used only during prepare and sent only to the principal partition.
 	ParticipantPids []uint32 `protobuf:"varint,3,rep,packed,name=participant_pids,json=participantPids,proto3" json:"participant_pids,omitempty"`
 }
 

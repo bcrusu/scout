@@ -4,8 +4,8 @@ package api;
 
 option go_package = "github.com/bcrusu/scout/internal/api";
 
-// Admin represents the common/admin service operations.
-service Admin {
+// Service represents the Admin/Schema operations.
+service Service {
     // Discover is used by clients to discover the service endpoints.
     rpc Discover(DiscoverRequest) returns (DiscoverResponse);
 }

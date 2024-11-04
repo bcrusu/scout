@@ -80,10 +80,10 @@ func (n *Server) Start(ctx context.Context) error {
 	session := session.New(id, n.config.RPC.Address, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	txnProcessor := txn.NewProcessor(id, dataClient)
-	adminService := NewAdminService(id)
-	keyValueService := NewKeyValueService(*keyvalue.NewStore(txnProcessor))
-	graphService := NewGraphService(graph.NewStore(txnProcessor))
-	rpcServer := rpc.NewServer(n.config.RPC, adminService, keyValueService, graphService)
+	apiService := NewApiService(id)
+	keyValueService := keyvalue.NewService(txnProcessor)
+	graphService := graph.NewService(txnProcessor)
+	rpcServer := rpc.NewServer(n.config.RPC, apiService, keyValueService, graphService)
 	httpServer := http.NewServer(n.config.HTTP)
 
 	n.components = []utils.Lifecycle{
@@ -91,7 +91,7 @@ func (n *Server) Start(ctx context.Context) error {
 		session,
 		dataClient,
 		txnProcessor,
-		adminService,
+		apiService,
 		httpServer,
 		rpcServer,
 	}

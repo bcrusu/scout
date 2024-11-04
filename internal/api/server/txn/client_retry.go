@@ -20,13 +20,13 @@ type clientRetrier struct {
 
 func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	var last *data.TxnStatus
-	var err error
+	var lastErr error
 
-	utils.RetryContextB(ctx, c.policy, func() error {
-		last, err = c.DataClient.Autocommit(ctx, req, opts...)
+	err := utils.RetryContextE(ctx, c.policy, func() error {
+		last, lastErr = c.DataClient.Autocommit(ctx, req, opts...)
 
 		// only retry txn status error
-		if err != nil || !c.needsRetry(last) {
+		if lastErr != nil || !c.needsRetry(last) {
 			return nil
 		}
 
@@ -34,18 +34,22 @@ func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitReque
 		return errors.Error("Autocommit failed")
 	})
 
-	return last, err
+	if err != nil {
+		return nil, err
+	}
+
+	return last, lastErr
 }
 
 func (c clientRetrier) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
 	var last *data.TxnStatus
-	var err error
+	var lastErr error
 
-	utils.RetryContextB(ctx, c.policy, func() error {
-		last, err = c.DataClient.Prepare(ctx, req, opts...)
+	err := utils.RetryContextE(ctx, c.policy, func() error {
+		last, lastErr = c.DataClient.Prepare(ctx, req, opts...)
 
 		// only retry txn status error
-		if err != nil || !c.needsRetry(last) {
+		if lastErr != nil || !c.needsRetry(last) {
 			return nil
 		}
 
@@ -53,7 +57,11 @@ func (c clientRetrier) Prepare(ctx context.Context, req *data.PrepareRequest, op
 		return errors.Error("Prepare failed")
 	})
 
-	return last, err
+	if err != nil {
+		return nil, err
+	}
+
+	return last, lastErr
 }
 
 func (c clientRetrier) needsRetry(status *data.TxnStatus) bool {

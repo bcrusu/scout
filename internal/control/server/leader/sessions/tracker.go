@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bcrusu/scout/internal/api"
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/config"
 	"github.com/bcrusu/scout/internal/control/server/storage"
@@ -16,7 +17,8 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
 	"github.com/bcrusu/scout/internal/utils"
-	"github.com/bcrusu/scout/pkg/api"
+	"github.com/bcrusu/scout/pkg/graph"
+	"github.com/bcrusu/scout/pkg/keyvalue"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc"
 )
@@ -71,7 +73,7 @@ func NewTracker(store storage.Store) *Tracker {
 		sessionCh:             make(chan sessionMessage, 1),
 		globalTimeOffset:      newGlobalTimeOffset(c.TimeOffset),
 		dataServiceConfigJson: c.Service.Data.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
-		apiServiceConfigJson:  c.Service.Api.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.KeyValueService_ServiceDesc, api.GraphService_ServiceDesc),
+		apiServiceConfigJson:  c.Service.Api.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.Service_ServiceDesc, keyvalue.Service_ServiceDesc, graph.Service_ServiceDesc),
 	}
 }
 

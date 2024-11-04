@@ -66,23 +66,23 @@ func (s *batcher) Apply(payload any) (*data.TxnStatus, error) {
 }
 
 func (s *batcher) mainLoop(ctx context.Context) {
+	var timer *time.Timer
+
+	batch := &data.TxnBatch{}
+	waiting := &batchWaiting{}
+	batchSize := 0
+
+	nextBatch := func() {
+		asyncCh := s.raftStore.ApplyBatch(batch)
+		go s.waitBatchResult(waiting, asyncCh)
+
+		batch = &data.TxnBatch{}
+		waiting = &batchWaiting{}
+		batchSize = 0
+		timer.Stop()
+	}
+
 	for {
-		var timer *time.Timer
-
-		batch := &data.TxnBatch{}
-		waiting := &batchWaiting{}
-		batchSize := 0
-
-		nextBatch := func() {
-			asyncCh := s.raftStore.ApplyBatch(batch)
-			go s.waitBatchResult(waiting, asyncCh)
-
-			batch = &data.TxnBatch{}
-			waiting = &batchWaiting{}
-			batchSize = 0
-			timer.Stop()
-		}
-
 		select {
 		case <-utils.GetTimerChan(timer):
 			nextBatch()

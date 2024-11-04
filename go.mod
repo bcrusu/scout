@@ -2,7 +2,7 @@ module github.com/bcrusu/scout
 
 go 1.23.0
 
-replace github.com/Jille/raft-grpc-transport => github.com/bcrusu/raft-grpc-transport v0.0.0-20241026083029-0534fcda4cbf
+replace github.com/Jille/raft-grpc-transport => github.com/bcrusu/raft-grpc-transport v0.0.0-20241102133310-68fd1048393f
 
 replace github.com/linxGnu/grocksdb => ../grocksdb_fork
 

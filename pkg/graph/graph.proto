@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package graph;
+
+option go_package = "github.com/bcrusu/scout/pkg/graph";
+
+import "google/protobuf/timestamp.proto";
+
+// Service represents the graph operations.
+service Service {
+    rpc GetVertex(GetVertexRequest) returns (Vertex);
+    rpc CreateVertex(Vertex) returns (Status);
+    rpc UpdateVertex(Vertex) returns (Status);
+    rpc DeleteVertex(VertexId) returns (Status);
+    rpc GetEdge(GetEdgeRequest) returns (Edge);
+    rpc CreateEdge(Edge) returns (Status);
+    rpc UpdateEdge(Edge) returns (Status);
+    rpc DeleteEdge(EdgeId) returns (Status);
+}
+
+message VertexId {
+    uint64 type = 1;
+    bytes value = 2;
+}
+
+message EdgeId {
+    VertexId head = 1;
+    VertexId tail = 2;
+    uint32 type = 3;
+}
+
+message Vertex {
+    VertexId id = 1;
+    map<uint32, Value> properties = 2;
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+message Edge {
+    EdgeId id = 1;
+    map<uint32, Value> properties = 2;
+    google.protobuf.Timestamp timestamp = 3;
+}
+
+message GetVertexRequest {
+    VertexId id = 1;
+    google.protobuf.Timestamp snapshot = 2;
+}
+
+message GetEdgeRequest {
+    EdgeId id = 1;
+    google.protobuf.Timestamp snapshot = 2;
+}
+
+
+message Status {
+    google.protobuf.Timestamp timestamp = 1;
+}
+
+message Value {
+    oneof payload {
+        bool bool = 1;
+        string str = 2;
+        int32 int32 = 3;
+        uint32 uint32 = 4;
+        int64 int64 = 5;
+        uint64 uint64 = 6;
+        float float32 = 7;
+        double float64 = 8;
+        bytes bytes = 9;
+        List list = 10;
+        Map map = 11;
+        google.protobuf.Timestamp timestamp = 12;
+    }
+}
+
+message List {
+    repeated Value items = 1;
+}
+
+message Map {
+    map <string, Value> items = 1;
+}

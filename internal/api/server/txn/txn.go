@@ -82,8 +82,27 @@ func (t *TxnResult) GetError() error {
 		}
 	}
 
+	// sanity check:
 	if !t.Success && len(errs) == 0 {
+		log.Warn("TxnResult.Success is false without any failed action.", "txn", t.Id)
 		return errors.Error("transaction failed")
 	}
+
 	return errors.Join(errs...)
+}
+
+func (t *TxnResult) GetFirstError() error {
+	for _, r := range t.ActionStatus {
+		if err := r.ToError(); err != nil {
+			return err
+		}
+	}
+
+	// sanity check:
+	if !t.Success {
+		log.Warn("TxnResult.Success is false without any failed action.", "txn", t.Id)
+		return errors.Error("transaction failed")
+	}
+
+	return nil
 }

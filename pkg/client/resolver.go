@@ -143,7 +143,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 	return true
 }
 
-func (r *resolverImpl) createClient() (*rpc.Conn, api.AdminClient) {
+func (r *resolverImpl) createClient() (*rpc.Conn, api.ServiceClient) {
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(r.buildOptions.DialCreds),
 		grpc.WithCredentialsBundle(r.buildOptions.CredsBundle),
@@ -159,7 +159,7 @@ func (r *resolverImpl) createClient() (*rpc.Conn, api.AdminClient) {
 	}
 
 	conn := rpc.NewConn(config, dialOpts...)
-	client := api.NewAdminClient(conn)
+	client := api.NewServiceClient(conn)
 
 	return conn, client
 }

@@ -199,9 +199,9 @@ func Update(incoming uint64) error {
 }
 
 func AsTime(timestamp uint64) time.Time {
-	x := int64(timestamp & physicalMask)
+	x := int64(timestamp)
 	sec := int64(x / 1e9)
-	nsec := x - sec
+	nsec := x % 1e9
 	return time.Unix(sec, nsec).UTC()
 }
 
@@ -210,7 +210,7 @@ func AsTimestamp(timestamp uint64) *timestamppb.Timestamp {
 }
 
 func FromTime(time time.Time) uint64 {
-	return uint64(time.UnixNano()) & physicalMask
+	return uint64(time.UnixNano())
 }
 
 func FromTimestamp(ts *timestamppb.Timestamp) uint64 {

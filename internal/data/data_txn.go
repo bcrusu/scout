@@ -246,10 +246,10 @@ func rangeLockCompatibleWithKeyLock(a *RangeLock, b *KeyLock) bool {
 
 func (t *TxnId) Validate() error {
 	if t == nil {
-		return errors.Error("Id is nil")
+		return errors.Error("TxnId is nil")
 	}
 	if t.ServerId == 0 || t.Timestamp == 0 {
-		return errors.Error("Id has missing fields")
+		return errors.Error("TxnId has missing fields")
 	}
 	return nil
 }
@@ -370,24 +370,24 @@ func (l *RangeLock) Validate() error {
 
 func (t *TxnStatus) Validate() error {
 	if t == nil {
-		return errors.Error("Status is nil")
+		return errors.Error("TxnStatus is nil")
 	}
 	if err := t.Id.Validate(); err != nil {
 		return errors.Wrap(err, "Txn.Id is invalid")
 	}
 	if _, ok := TxnStatus_State_name[int32(t.State)]; !ok {
-		return errors.Error("Status.State is invalid")
+		return errors.Error("TxnStatus.State is invalid")
 	}
-	if t.Timestamp == 0 || len(t.ParticipantPids) == 0 {
-		return errors.Error("Status has missing fields")
+	if t.Timestamp == 0 {
+		return errors.Error("TxnStatus has missing fields")
 	}
 
 	for id, action := range t.ActionStatus {
 		if err := action.Validate(); err != nil {
-			return errors.Wrap(err, "Status.ActionStatus is invalid")
+			return errors.Wrap(err, "TxnStatus.ActionStatus is invalid")
 		}
 		if id != action.Id {
-			return errors.Error("Status.ActionStatus.Id does not match")
+			return errors.Error("TxnStatus.ActionStatus.Id does not match")
 		}
 	}
 	return nil
@@ -399,6 +399,12 @@ func (a *ActionStatus) Validate() error {
 	}
 	if _, ok := ActionStatus_Code_name[int32(a.Code)]; !ok {
 		return errors.Error("ActionStatus.Code is invalid")
+	}
+	if a.Code == ActionStatus_Success && len(a.Results) == 0 {
+		return errors.Error("ActionStatus success with empty results")
+	}
+	if a.Code != ActionStatus_Success && len(a.Results) > 0 {
+		return errors.Error("ActionStatus failed with non-empty results")
 	}
 	return nil
 }

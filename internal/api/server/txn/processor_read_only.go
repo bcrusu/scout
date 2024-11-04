@@ -2,6 +2,7 @@ package txn
 
 import (
 	"context"
+	"math"
 
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
@@ -56,6 +57,10 @@ func (p *processorReadOnly) prepare(ctx context.Context, t *Txn) (statusMap, err
 				Actions: t.participantActions[pid],
 			}}
 
+		if pid == t.id.PrincipalPid {
+			req.Txn.ParticipantPids = utils.MakeKeySlice(t.participantActions)
+		}
+
 		status, err := p.client.Prepare(ctx, req)
 		resultCh <- prepareResult{
 			pid:    pid,
@@ -87,7 +92,7 @@ func (p *processorReadOnly) prepare(ctx context.Context, t *Txn) (statusMap, err
 }
 
 func (p *processorReadOnly) decide(status statusMap) (uint64, bool) {
-	commitTimestamp := uint64(0)
+	commitTimestamp := uint64(math.MaxUint64)
 
 	for _, s := range status {
 		if s.State == data.TxnStatus_Prepared {

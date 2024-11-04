@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/bcrusu/scout/internal/data"
+	"github.com/bcrusu/scout/internal/hlc"
 )
 
 // checkLocks implementation is not that clever as it simply iterates the input locks to compare
@@ -49,7 +50,14 @@ func (p *Manager) latestReadTimestampForLocks(locks []*data.Lock) uint64 {
 		conflicting = min(conflicting, p.latestReadTimestampForLock(lock))
 	}
 
-	return min(p.maxTimestamp, conflicting-1)
+	maxTimestamp := p.maxTimestamp
+
+	// if the store is empty:
+	if maxTimestamp == 0 {
+		maxTimestamp = hlc.Now()
+	}
+
+	return min(maxTimestamp, conflicting-1)
 }
 
 func (p *Manager) latestReadTimestampForLock(lock *data.Lock) uint64 {

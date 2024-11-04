@@ -6,7 +6,8 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
-	"github.com/bcrusu/scout/pkg/api"
+	"github.com/bcrusu/scout/pkg/graph"
+	"github.com/bcrusu/scout/pkg/keyvalue"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 )
@@ -20,16 +21,16 @@ func init() {
 }
 
 type Client interface {
-	api.KeyValueServiceClient
-	api.GraphServiceClient
 	utils.Lifecycle
+	KeyValue() keyvalue.ServiceClient
+	Graph() graph.ServiceClient
 }
 
 type client struct {
-	api.KeyValueServiceClient
-	api.GraphServiceClient
-	opts *options
-	conn *rpc.Conn
+	opts     *options
+	conn     *rpc.Conn
+	keyValue keyvalue.ServiceClient
+	graph    graph.ServiceClient
 }
 
 func New(opts ...Option) Client {
@@ -60,12 +61,20 @@ func (c *client) Start(ctx context.Context) error {
 
 	dialOpts := append(c.opts.dialOptions, grpc.WithResolvers(&resolverBuilder{c.opts}))
 	c.conn = rpc.NewConn(config, dialOpts...)
-	c.KeyValueServiceClient = api.NewKeyValueServiceClient(c.conn)
-	c.GraphServiceClient = api.NewGraphServiceClient(c.conn)
+	c.keyValue = keyvalue.NewServiceClient(c.conn)
+	c.graph = graph.NewServiceClient(c.conn)
 
 	return c.conn.Start(ctx)
 }
 
 func (c *client) Stop() {
 	c.conn.Stop()
+}
+
+func (c *client) KeyValue() keyvalue.ServiceClient {
+	return c.keyValue
+}
+
+func (c *client) Graph() graph.ServiceClient {
+	return c.graph
 }

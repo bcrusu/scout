@@ -15,40 +15,40 @@ import (
 )
 
 var (
-	_ rpc.Service     = (*AdminService)(nil)
-	_ api.AdminServer = (*AdminService)(nil)
-	_ utils.Lifecycle = (*AdminService)(nil)
+	_ rpc.Service       = (*ApiService)(nil)
+	_ api.ServiceServer = (*ApiService)(nil)
+	_ utils.Lifecycle   = (*ApiService)(nil)
 )
 
-// AdminService represents the administration service.
-type AdminService struct {
-	api.UnsafeAdminServer
+// ApiService represents the administration service.
+type ApiService struct {
+	api.UnsafeServiceServer
 	id         identity.Identity
 	cancelFunc context.CancelFunc
 	discover   atomic.Pointer[api.DiscoverResponse]
 }
 
-// NewAdminService returns a new AdminService instance
-func NewAdminService(id identity.Identity) *AdminService {
-	return &AdminService{
+// NewApiService returns a new ApiService instance
+func NewApiService(id identity.Identity) *ApiService {
+	return &ApiService{
 		id: id,
 	}
 }
 
-func (s *AdminService) RegisterToServer(server *grpc.Server) {
-	api.RegisterAdminServer(server, s)
+func (s *ApiService) RegisterToServer(server *grpc.Server) {
+	api.RegisterServiceServer(server, s)
 }
 
-func (s *AdminService) Start(ctx context.Context) error {
+func (s *ApiService) Start(ctx context.Context) error {
 	s.cancelFunc = utils.RunAsync(ctx, s.mainLoop)
 	return nil
 }
 
-func (s *AdminService) Stop() {
+func (s *ApiService) Stop() {
 	s.cancelFunc()
 }
 
-func (s *AdminService) mainLoop(ctx context.Context) {
+func (s *ApiService) mainLoop(ctx context.Context) {
 	apiServersSub := eventbus.Subscribe[*control.ApiServers]()
 	defer apiServersSub.Unsubscribe()
 
@@ -71,7 +71,7 @@ func (s *AdminService) mainLoop(ctx context.Context) {
 	}
 }
 
-func (s *AdminService) Discover(ctx context.Context, req *api.DiscoverRequest) (*api.DiscoverResponse, error) {
+func (s *ApiService) Discover(ctx context.Context, req *api.DiscoverRequest) (*api.DiscoverResponse, error) {
 	if disc := s.discover.Load(); disc == nil {
 		return nil, errors.Unavailable
 	} else {

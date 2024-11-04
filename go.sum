@@ -17,8 +17,8 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/armon/go-metrics v0.4.1 h1:hR91U9KYmb6bLBYLQjyM+3j+rcd/UhE+G78SFnF8gJA=
 github.com/armon/go-metrics v0.4.1/go.mod h1:E6amYzXo6aW1tqzoZGT755KkbgrJsSdpwZ+3JqfkOG4=
-github.com/bcrusu/raft-grpc-transport v0.0.0-20241026083029-0534fcda4cbf h1:wEuZGf/OhXJqVl2VL463BCxFrVjh43JtyV0yi7iImnc=
-github.com/bcrusu/raft-grpc-transport v0.0.0-20241026083029-0534fcda4cbf/go.mod h1:HbOjEdu/yzCJ/mjTF6wEOJNbAUpHfU2UOA2hVD4CNFg=
+github.com/bcrusu/raft-grpc-transport v0.0.0-20241102133310-68fd1048393f h1:jv1AKLxloKHmieN1aud1wzt5gYnMD/nr0sUge4AkPJY=
+github.com/bcrusu/raft-grpc-transport v0.0.0-20241102133310-68fd1048393f/go.mod h1:HbOjEdu/yzCJ/mjTF6wEOJNbAUpHfU2UOA2hVD4CNFg=
 github.com/bcrusu/raft-rocksdb v0.0.0-20241028075717-ef2afb4585b2 h1:b+N/F7Z5yDKB+PQgH89cPTeo9tmzOnuAO0tUlSEvuzc=
 github.com/bcrusu/raft-rocksdb v0.0.0-20241028075717-ef2afb4585b2/go.mod h1:6FvZMLRoQX4G9DM40eL3VZKbtzCXQW6F9YO3aGzln/4=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=

@@ -116,7 +116,7 @@ message Txn {
     TxnId id = 1;
     repeated Action actions = 2;
     
-    // used only for 2PC txn and sent only to the principal partition. 
+    // used only during prepare and sent only to the principal partition.
     repeated uint32 participant_pids = 3;
 }
 

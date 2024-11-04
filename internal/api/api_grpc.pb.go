@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.27.4
-// source: internal/api/admin.proto
+// source: internal/api/api.proto
 
 package api
 
@@ -19,109 +19,109 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Admin_Discover_FullMethodName = "/api.Admin/Discover"
+	Service_Discover_FullMethodName = "/api.Service/Discover"
 )
 
-// AdminClient is the client API for Admin service.
+// ServiceClient is the client API for Service service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// Admin represents the common/admin service operations.
-type AdminClient interface {
+// Service represents the Admin/Schema operations.
+type ServiceClient interface {
 	// Discover is used by clients to discover the service endpoints.
 	Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error)
 }
 
-type adminClient struct {
+type serviceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewAdminClient(cc grpc.ClientConnInterface) AdminClient {
-	return &adminClient{cc}
+func NewServiceClient(cc grpc.ClientConnInterface) ServiceClient {
+	return &serviceClient{cc}
 }
 
-func (c *adminClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
+func (c *serviceClient) Discover(ctx context.Context, in *DiscoverRequest, opts ...grpc.CallOption) (*DiscoverResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(DiscoverResponse)
-	err := c.cc.Invoke(ctx, Admin_Discover_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_Discover_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// AdminServer is the server API for Admin service.
-// All implementations must embed UnimplementedAdminServer
+// ServiceServer is the server API for Service service.
+// All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
 //
-// Admin represents the common/admin service operations.
-type AdminServer interface {
+// Service represents the Admin/Schema operations.
+type ServiceServer interface {
 	// Discover is used by clients to discover the service endpoints.
 	Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error)
-	mustEmbedUnimplementedAdminServer()
+	mustEmbedUnimplementedServiceServer()
 }
 
-// UnimplementedAdminServer must be embedded to have
+// UnimplementedServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedAdminServer struct{}
+type UnimplementedServiceServer struct{}
 
-func (UnimplementedAdminServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
+func (UnimplementedServiceServer) Discover(context.Context, *DiscoverRequest) (*DiscoverResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Discover not implemented")
 }
-func (UnimplementedAdminServer) mustEmbedUnimplementedAdminServer() {}
-func (UnimplementedAdminServer) testEmbeddedByValue()               {}
+func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
+func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
 
-// UnsafeAdminServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AdminServer will
+// UnsafeServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ServiceServer will
 // result in compilation errors.
-type UnsafeAdminServer interface {
-	mustEmbedUnimplementedAdminServer()
+type UnsafeServiceServer interface {
+	mustEmbedUnimplementedServiceServer()
 }
 
-func RegisterAdminServer(s grpc.ServiceRegistrar, srv AdminServer) {
-	// If the following call pancis, it indicates UnimplementedAdminServer was
+func RegisterServiceServer(s grpc.ServiceRegistrar, srv ServiceServer) {
+	// If the following call pancis, it indicates UnimplementedServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&Admin_ServiceDesc, srv)
+	s.RegisterService(&Service_ServiceDesc, srv)
 }
 
-func _Admin_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_Discover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DiscoverRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AdminServer).Discover(ctx, in)
+		return srv.(ServiceServer).Discover(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Admin_Discover_FullMethodName,
+		FullMethod: Service_Discover_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AdminServer).Discover(ctx, req.(*DiscoverRequest))
+		return srv.(ServiceServer).Discover(ctx, req.(*DiscoverRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// Admin_ServiceDesc is the grpc.ServiceDesc for Admin service.
+// Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Admin_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.Admin",
-	HandlerType: (*AdminServer)(nil),
+var Service_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.Service",
+	HandlerType: (*ServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Discover",
-			Handler:    _Admin_Discover_Handler,
+			Handler:    _Service_Discover_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "internal/api/admin.proto",
+	Metadata: "internal/api/api.proto",
 }

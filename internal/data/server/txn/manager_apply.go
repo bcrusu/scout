@@ -48,7 +48,7 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 
 	for i, cmd := range batch.StoreDecision {
 		status, err := p.applyStoreDecision(cmd)
-		result.Abort[i] = BatchResult{status, err}
+		result.StoreDecision[i] = BatchResult{status, err}
 	}
 
 	for i, cmd := range batch.MarkTimedout {

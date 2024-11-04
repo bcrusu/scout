@@ -73,7 +73,7 @@ func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
 
 		// two replicas on the same server would be redundant
 		if replica := f.getReplicaByServer(x.PartitionId, x.ServerId); replica != nil {
-			return errors.Error("has partition with replicas on the same server")
+			return errors.Errorf("has partition %d with replicas on the same server %d", x.PartitionId, x.ServerId)
 		}
 	}
 
@@ -87,11 +87,12 @@ func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
 		}
 
 		part := f.partitions.Items[x.PartitionId]
-		servingCount := part.ServingReplicaCount()
 
 		// does not allow the last serving replica to leave
-		if servingCount == 1 && !x.State.IsServing() {
-			return errors.Error("cannot remove last serving replica")
+		if !x.State.IsServing() && part.ServingReplicaCount() == 1 {
+			if part.Replicas[x.Replica].State.IsServing() {
+				return errors.Errorf("cannot remove last serving replica %s", x.Replica)
+			}
 		}
 	}
 
@@ -102,7 +103,7 @@ func (f *FSM) validateUpdateAssignments(cmd *UpdateAssignments) error {
 
 		// it first needs to transition to leaving, then it can be removed
 		if replica := f.getReplica(x.PartitionId, x.Replica); replica.State != control.ReplicaState_Leaving {
-			return errors.Error("cannot remove non-leaving replica")
+			return errors.Errorf("cannot remove non-leaving replica %s", x.Replica)
 		}
 	}
 
