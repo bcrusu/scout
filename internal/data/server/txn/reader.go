@@ -35,6 +35,7 @@ type reader struct {
 	pid          uint32
 	manager      *Manager
 	db           mvcc.DB
+	metrics      readerMetrics
 	log          logging.Logger
 	cancelFunc   context.CancelFunc
 	lock         sync.RWMutex
@@ -48,6 +49,7 @@ func newReader(pid uint32, manager *Manager, db mvcc.DB) *reader {
 		pid:          pid,
 		manager:      manager,
 		db:           db,
+		metrics:      newReaderMetrics(pid),
 		log:          logging.New("txn").With("partition", pid),
 		prepared:     map[id]*data.Txn{},
 		preparedTime: map[id]time.Time{},
@@ -90,6 +92,8 @@ func (s *reader) mainLoop(ctx context.Context) {
 			}
 
 			s.lock.Unlock()
+
+			s.metrics.Prepared.Add(-len(toRemove))
 		case <-ctx.Done():
 			return
 		}
@@ -128,6 +132,7 @@ func (p *reader) PrepareReadOnly(ctx context.Context, txn *data.Txn) (*data.TxnS
 	p.preparedTime[id] = time.Now()
 	p.lock.Unlock()
 
+	p.metrics.Prepared.Add(1)
 	return newStatus(id, timestamp, data.TxnStatus_Prepared), nil
 }
 

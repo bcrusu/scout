@@ -10,6 +10,7 @@ import (
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -55,6 +56,7 @@ type Config struct {
 	DB           DB                  `yaml:"db"`
 	Transactions Transactions        `yaml:"transactions"`
 	LogLevels    string              `yaml:"logLevels" default:"*:info"`
+	Metrics      metrics.Config      `yaml:"metrics"`
 	identityFile string
 	raftDir      string
 }

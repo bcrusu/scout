@@ -16,6 +16,7 @@ import (
 	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/register"
 	"github.com/bcrusu/scout/internal/rpc"
@@ -79,6 +80,7 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
+	metrics := metrics.New(n.config.Metrics, id)
 	session := session.New(id, n.config.RPC.Address, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	multiraft := n.buildMultiRaft()
@@ -89,7 +91,8 @@ func (n *Server) Start(ctx context.Context) error {
 	httpServer := http.NewServer(n.config.HTTP)
 
 	n.components = []utils.Lifecycle{
-		controlClient,
+		controlClient, // already started above, but will be needed during stop
+		metrics,
 		session,
 		dataClient,
 		multiraft,

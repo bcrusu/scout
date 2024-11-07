@@ -7,21 +7,23 @@ import (
 	"github.com/bcrusu/scout/internal/hlc"
 )
 
-// checkLocks implementation is not that clever as it simply iterates the input locks to compare
+// acquireLocks implementation is not that clever as it simply iterates the input locks to compare
 // each with all currently held locks; the quadratic runtime complexity can be avoided by using
 // an interval tree data structure with logarithmic runtime.
 // https://en.wikipedia.org/wiki/Interval_tree
-func (p *Manager) checkLocks(id id, timestamp uint64, locks []*data.Lock) *data.TxnStatus {
+func (p *Manager) acquireLocks(id id, timestamp uint64, locks []*data.Lock) *data.TxnStatus {
 	for _, lock := range locks {
-		if !p.checkLock(lock) {
+		if !p.acquireLock(lock) {
+			p.metrics.LocksFailed.Add(1)
 			return newFailedStatus(id, timestamp, lock.ActionId, data.ActionStatus_LockFailed)
 		}
 	}
 
+	p.metrics.LocksHeld.Add(len(locks))
 	return nil
 }
 
-func (p *Manager) checkLock(lock *data.Lock) bool {
+func (p *Manager) acquireLock(lock *data.Lock) bool {
 	for _, prepared := range p.prepared {
 		if prepared.LocksReleased {
 			continue
@@ -35,6 +37,20 @@ func (p *Manager) checkLock(lock *data.Lock) bool {
 	}
 
 	return true
+}
+
+func (p *Manager) releaseLocks(prepared *data.Prepared) {
+	p.metrics.LocksHeld.Add(-len(prepared.Locks))
+	prepared.Locks = nil
+	prepared.LocksReleased = true
+}
+
+func (p *Manager) countLocksHeld() int {
+	count := 0
+	for _, prepared := range p.prepared {
+		count += len(prepared.Locks)
+	}
+	return count
 }
 
 // Essentially, the latest read timestamp is computed in a similar fashion

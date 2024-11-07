@@ -32,21 +32,14 @@ type slogLogger struct {
 	ctx   context.Context
 }
 
-func newSlogLogger(name string, level Level) *slogLogger {
-	lvl := new(slog.LevelVar)
-	lvl.Set(level)
-
-	slog := slog.New(newHandler(lvl)).With("com", name)
+func newSlogLogger(name string, level *slog.LevelVar) *slogLogger {
+	slog := slog.New(newHandler(name, level))
 
 	return &slogLogger{
-		level: lvl,
+		level: level,
 		slog:  slog,
 		ctx:   context.Background(),
 	}
-}
-
-func (l *slogLogger) setLevel(level Level) {
-	l.level.Set(level)
 }
 
 func (l *slogLogger) Log(level Level, msg string, args ...any) {

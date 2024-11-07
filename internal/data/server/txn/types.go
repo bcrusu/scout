@@ -6,7 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/data"
 )
 
-// id is the map key friendly version of Id proto.
+// id is the map key friendly version of data.TxnId proto.
 type id struct {
 	PrincipalPid uint32
 	ServerID     uint64

@@ -18,16 +18,21 @@ type ctxKeyTraceID struct{}
 
 // Returns a new context
 func NewContext() context.Context {
-	return WithTraceID(context.Background(), "")
+	return WithNewTraceID(context.Background())
 }
 
 // WithTraceID returns a copy of the context populated with the provided trace identifier.
-// If the provided identifier is empty, a new value will be generated
 func WithTraceID(ctx context.Context, traceID string) context.Context {
 	if traceID == "" {
-		traceID = getNextTraceID()
+		panic("trace identifier is empty")
 	}
 
+	return context.WithValue(ctx, ctxKeyTraceID{}, traceID)
+}
+
+// WithTraceID returns a copy of the context populated with a new trace value.
+func WithNewTraceID(ctx context.Context) context.Context {
+	traceID := getNextTraceID()
 	return context.WithValue(ctx, ctxKeyTraceID{}, traceID)
 }
 

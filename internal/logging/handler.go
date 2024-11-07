@@ -10,12 +10,14 @@ import (
 )
 
 type handler struct {
-	*slog.TextHandler
+	name  string
+	inner slog.Handler
 }
 
-func newHandler(level slog.Leveler) *handler {
+func newHandler(name string, level slog.Leveler) *handler {
 	return &handler{
-		TextHandler: slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		name: name,
+		inner: slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource:   false,
 			Level:       level,
 			ReplaceAttr: replaceAttr,
@@ -23,12 +25,26 @@ func newHandler(level slog.Leveler) *handler {
 	}
 }
 
+func (h *handler) Enabled(ctx context.Context, level Level) bool {
+	return h.inner.Enabled(ctx, level)
+}
+
 func (h *handler) Handle(ctx context.Context, record slog.Record) error {
+	record.Add("com", h.name)
+
 	if traceID, ok := tracing.GetTraceID(ctx); ok {
 		record.Add("trace", traceID)
 	}
 
-	return h.TextHandler.Handle(ctx, record)
+	return h.inner.Handle(ctx, record)
+}
+
+func (h *handler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &handler{h.name, h.inner.WithAttrs(attrs)}
+}
+
+func (h *handler) WithGroup(name string) slog.Handler {
+	return &handler{h.name, h.inner.WithGroup(name)}
 }
 
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {

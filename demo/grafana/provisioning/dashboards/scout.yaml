@@ -1,0 +1,11 @@
+apiVersion: 1
+providers:
+  - name: 'Scout'
+    orgId: 1
+    folder: 'scout'
+    type: file
+    disableDeletion: true
+    editable: true
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards/scout

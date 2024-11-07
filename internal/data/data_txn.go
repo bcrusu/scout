@@ -63,11 +63,6 @@ func (t *Txn) BuildLocks() []*Lock {
 	return locks
 }
 
-func (p *Prepared) ReleaseLocks() {
-	p.Locks = nil
-	p.LocksReleased = true
-}
-
 func (s TxnStatus_State) IsFinal() bool {
 	switch s {
 	case TxnStatus_Pending, TxnStatus_Prepared, TxnStatus_Decided:
@@ -433,7 +428,7 @@ func (r *AutocommitRequest) Validate() error {
 	if err := r.Txn.Validate(); err != nil {
 		return errors.Wrap(err, "AutocommitRequest.Txn is invalid")
 	}
-	if r.PartitionId != r.Txn.Id.PrincipalPid {
+	if !r.IsSnapshotRead() && r.PartitionId != r.Txn.Id.PrincipalPid {
 		return errors.Error("AutocommitRequest.PartitionId is invalid")
 	}
 	if r.ReadTimestamp != 0 && !r.Txn.IsReadOnly() {

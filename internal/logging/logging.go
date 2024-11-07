@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -13,29 +14,30 @@ const (
 
 var (
 	lock         sync.Mutex
-	logs         = map[string]*slogLogger{}
+	levels       = map[string]*slog.LevelVar{}
 	defaultLevel = LevelInfo
 )
 
 // New returns a new named Logger.
 func New(name string) Logger {
 	lock.Lock()
+	defer lock.Unlock()
 
-	log, ok := logs[name]
+	lvl, ok := levels[name]
 	if !ok {
-		log = newSlogLogger(name, defaultLevel)
-		logs[name] = log
+		lvl = new(slog.LevelVar)
+		lvl.Set(defaultLevel)
+		levels[name] = lvl
 	}
 
-	lock.Unlock()
-	return log
+	return newSlogLogger(name, lvl)
 }
 
 // SetLevels configures the log levels. The expected format is:
 // 'name1:level1,name2:level2...' with the wildcard name '*'
 // representing the default level.
 func SetLevels(str string) error {
-	levels := map[string]Level{}
+	newLevels := map[string]Level{}
 
 	for _, level := range strings.Split(str, ",") {
 		parts := strings.Split(level, ":")
@@ -47,30 +49,31 @@ func SetLevels(str string) error {
 		if err != nil {
 			return err
 		}
-		levels[parts[0]] = lvl
+		newLevels[parts[0]] = lvl
 	}
 
 	lock.Lock()
+	defer lock.Unlock()
 
-	if level, ok := levels["*"]; ok {
+	if level, ok := newLevels["*"]; ok {
 		defaultLevel = level
 
-		for name, log := range logs {
-			if _, ok := levels[name]; !ok {
-				log.setLevel(defaultLevel)
+		for name, lvl := range levels {
+			if _, ok := newLevels[name]; !ok {
+				lvl.Set(defaultLevel)
 			}
 		}
 	}
 
-	for name, level := range levels {
-		if log, ok := logs[name]; ok {
-			log.setLevel(level)
+	for name, level := range newLevels {
+		if lvl, ok := levels[name]; ok {
+			lvl.Set(level)
 		} else {
-			log = newSlogLogger(name, level)
-			logs[name] = log
+			lvl = new(slog.LevelVar)
+			lvl.Set(level)
+			levels[name] = lvl
 		}
 	}
 
-	lock.Unlock()
 	return nil
 }

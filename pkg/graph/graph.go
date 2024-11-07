@@ -4,6 +4,88 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 )
 
+func (r *VertexId) Validate() error {
+	if r == nil {
+		return errors.Error("VertexId is nil")
+	}
+	if r.Type == 0 || len(r.Value) == 0 {
+		return errors.Error("VertexId has missing fields")
+	}
+	return nil
+}
+
+func (r *Vertex) Validate() error {
+	if r == nil {
+		return errors.Error("Vertex is nil")
+	}
+	if err := r.Validate(); err != nil {
+		return errors.Wrap(err, "Vertex.Id is invalid")
+	}
+	for id, value := range r.Properties {
+		if id == 0 {
+			return errors.Error("Vertex.Properties has invalid key")
+		}
+		if err := value.Validate(); err != nil {
+			return errors.Wrapf(err, "Vertex.Properties[%d] is invalid", id)
+		}
+	}
+	return nil
+}
+
+func (r *EdgeId) Validate() error {
+	if r == nil {
+		return errors.Error("EdgeId is nil")
+	}
+	if r.Type == 0 {
+		return errors.Error("EdgeId invalid type")
+	}
+	if err := r.Head.Validate(); err != nil {
+		return errors.Wrap(err, "EdgeId.Head is invalid")
+	}
+	if err := r.Tail.Validate(); err != nil {
+		return errors.Wrap(err, "EdgeId.Tail is invalid")
+	}
+	return nil
+}
+
+func (r *Edge) Validate() error {
+	if r == nil {
+		return errors.Error("Edge is nil")
+	}
+	if err := r.Validate(); err != nil {
+		return errors.Wrap(err, "Edge.Id is invalid")
+	}
+	for id, value := range r.Properties {
+		if id == 0 {
+			return errors.Error("Edge.Properties has invalid key")
+		}
+		if err := value.Validate(); err != nil {
+			return errors.Wrapf(err, "Edge.Properties[%d] is invalid", id)
+		}
+	}
+	return nil
+}
+
+func (r *GetVertexRequest) Validate() error {
+	if r == nil {
+		return errors.Error("GetVertexRequest is nil")
+	}
+	if err := r.Id.Validate(); err != nil {
+		return errors.Wrap(err, "GetVertexRequest.Id is invalid")
+	}
+	return nil
+}
+
+func (r *GetEdgeRequest) Validate() error {
+	if r == nil {
+		return errors.Error("GetEdgeRequest is nil")
+	}
+	if err := r.Id.Validate(); err != nil {
+		return errors.Wrap(err, "GetEdgeRequest.Id is invalid")
+	}
+	return nil
+}
+
 func (r *Status) Validate() error {
 	if r == nil {
 		return errors.Error("Status is nil")

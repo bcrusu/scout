@@ -1,6 +1,7 @@
 package txn
 
 import (
+	"context"
 	"slices"
 	"sync"
 	"time"
@@ -12,6 +13,10 @@ import (
 	"github.com/bcrusu/scout/internal/utils"
 )
 
+var (
+	_ utils.Lifecycle = (*Manager)(nil)
+)
+
 // Manager contains the read-write transaction management logic. The implementation
 // needs to be fully deterministic to ensure identical state across all Raft replicas.
 // Its state is advanced by the Raft FSM by calling the Apply method/s.
@@ -19,6 +24,7 @@ type Manager struct {
 	pid          uint32
 	db           *mvcc.DBBreaker
 	cleanAfter   time.Duration
+	metrics      managerMetrics
 	log          logging.Logger
 	lock         sync.RWMutex // guards all below
 	status       map[id]*data.TxnStatus
@@ -38,10 +44,21 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		pid:        pid,
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
+		metrics:    newManagerMetrics(pid),
 		log:        logging.New("txn_manager").With("partition", pid),
 		status:     map[id]*data.TxnStatus{},
 		prepared:   map[id]*data.Prepared{},
 	}
+}
+
+func (p *Manager) Start(ctx context.Context) error {
+	return nil
+}
+
+func (p *Manager) Stop() {
+	p.metrics.Tracked.Add(-len(p.status))
+	p.metrics.Running.Add(-p.countRunning())
+	p.metrics.LocksHeld.Add(-p.countLocksHeld())
 }
 
 func (p *Manager) Snapshot() *data.TxnSnapshot {
@@ -64,6 +81,10 @@ func (p *Manager) Restore(snap *data.TxnSnapshot) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
+	oldTracked := len(p.status)
+	oldRunning := p.countRunning()
+	oldLocksHeld := p.countLocksHeld()
+
 	p.maxTimestamp = snap.MaxTimestamp
 
 	p.status = make(map[id]*data.TxnStatus, len(snap.Status))
@@ -79,6 +100,20 @@ func (p *Manager) Restore(snap *data.TxnSnapshot) {
 
 		p.prepared[newId(x.Txn.Id)] = x
 	}
+
+	p.metrics.Tracked.Add(oldTracked - len(p.status))
+	p.metrics.Running.Add(oldRunning - p.countRunning())
+	p.metrics.LocksHeld.Add(oldLocksHeld - p.countLocksHeld())
+}
+
+func (p *Manager) countRunning() int {
+	count := 0
+	for _, prepared := range p.prepared {
+		if !prepared.LocksReleased {
+			count++
+		}
+	}
+	return count
 }
 
 func (p *Manager) getRunning() []running {
