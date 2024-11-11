@@ -1,15 +1,24 @@
 package graph
 
 import (
+	"math"
+
 	"github.com/bcrusu/scout/internal/errors"
+)
+
+const (
+	maxVertexIdValueLen = math.MaxUint32
 )
 
 func (r *VertexId) Validate() error {
 	if r == nil {
 		return errors.Error("VertexId is nil")
 	}
-	if r.Type == 0 || len(r.Value) == 0 {
-		return errors.Error("VertexId has missing fields")
+	if r.Type == 0 {
+		return errors.Error("VertexId.Type is invalid")
+	}
+	if len(r.Value) == 0 || len(r.Value) > maxVertexIdValueLen {
+		return errors.Error("VertexId.Value is invalid")
 	}
 	return nil
 }

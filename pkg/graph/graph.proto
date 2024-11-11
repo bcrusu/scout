@@ -19,7 +19,7 @@ service Service {
 }
 
 message VertexId {
-    uint64 type = 1;
+    uint32 type = 1;
     bytes value = 2;
 }
 
