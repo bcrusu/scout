@@ -69,6 +69,7 @@ func (r *Registerer) Register(ctx context.Context, params Params) (identity.Iden
 		ClusterName: params.ClusterName,
 		ServerID:    res.ServerId,
 		ServerName:  res.ServerName,
+		ServerType:  params.ServerType,
 	}
 
 	if err := r.idStore.Set(id); err != nil {

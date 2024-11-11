@@ -10,6 +10,7 @@ import (
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
@@ -51,6 +52,7 @@ type Config struct {
 	Register     Register            `yaml:"register"`
 	Session      Session             `yaml:"session"`
 	Transactions Transactions        `yaml:"transactions"`
+	Metrics      metrics.Config      `yaml:"metrics"`
 	LogLevels    string              `yaml:"logLevels" default:"*:info"`
 	identityFile string
 }

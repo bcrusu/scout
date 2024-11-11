@@ -14,12 +14,12 @@ import (
 func (p *Manager) acquireLocks(id id, timestamp uint64, locks []*data.Lock) *data.TxnStatus {
 	for _, lock := range locks {
 		if !p.acquireLock(lock) {
-			p.metrics.LocksFailed.Add(1)
+			p.meters.LocksFailed.Add(1)
 			return newFailedStatus(id, timestamp, lock.ActionId, data.ActionStatus_LockFailed)
 		}
 	}
 
-	p.metrics.LocksHeld.Add(len(locks))
+	p.meters.LocksHeld.Add(len(locks))
 	return nil
 }
 
@@ -40,7 +40,7 @@ func (p *Manager) acquireLock(lock *data.Lock) bool {
 }
 
 func (p *Manager) releaseLocks(prepared *data.Prepared) {
-	p.metrics.LocksHeld.Add(-len(prepared.Locks))
+	p.meters.LocksHeld.Add(-len(prepared.Locks))
 	prepared.Locks = nil
 	prepared.LocksReleased = true
 }

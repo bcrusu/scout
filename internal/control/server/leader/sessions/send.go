@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -25,14 +26,16 @@ func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
 		select {
 		case out := <-sess.sendBufferCh:
 			err := stream.Send(out)
-			if err == nil {
-				continue
-			}
 
-			if !errors.Is(err, io.EOF) {
+			switch {
+			case err == nil:
+				t.meters.MsgSendSuccess.Add(1)
+				continue
+			case errors.IsAny(err, io.EOF, context.Canceled, context.DeadlineExceeded):
+				sess.log.WithError(err).Debug("Session send loop done.")
+			default:
+				t.meters.MsgSendError.Add(1)
 				sess.log.WithError(err).Error("Session send failed.")
-			} else {
-				sess.log.Debug("Session send loop done.")
 			}
 
 			t.sessionCh <- sessionLoopDone{id: sess.id, err: nil}
@@ -74,6 +77,7 @@ func (s *session) trySend(out *control.SessionOut) {
 	select {
 	case s.sendBufferCh <- out:
 	default:
+		s.tracker.meters.MsgSendDropped.Add(1)
 		s.log.Warnf("Session send buffer is full. Message %T was dropped.", out)
 	}
 }

@@ -40,12 +40,15 @@ type Tracker struct {
 	apiServiceConfigJson  string
 	dataServers           atomic.Pointer[control.DataServers]
 	apiServers            atomic.Pointer[control.ApiServers]
+	meters                *trackerMeters
 }
 
 type session struct {
+	tracker       *Tracker
 	id            sessionID
 	serverID      uint64
 	serverType    control.ServerType
+	serverName    string
 	serverAddress string
 	createdAt     time.Time
 	sendBufferCh  chan *control.SessionOut
@@ -74,6 +77,7 @@ func NewTracker(store storage.Store) *Tracker {
 		globalTimeOffset:      newGlobalTimeOffset(c.TimeOffset),
 		dataServiceConfigJson: c.Service.Data.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
 		apiServiceConfigJson:  c.Service.Api.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.Service_ServiceDesc, keyvalue.Service_ServiceDesc, graph.Service_ServiceDesc),
+		meters:                newTrackerMeters(),
 	}
 }
 
@@ -84,16 +88,13 @@ func (t *Tracker) Start(ctx context.Context) error {
 
 func (t *Tracker) Stop() {
 	t.cancelFunc()
+	t.meters.Unregister()
 }
 
 func (t *Tracker) NewSession(stream sessionStream) error {
 	in, err := stream.Recv()
 	if err != nil {
 		return err
-	}
-
-	if in == nil || in.Payload == nil {
-		return errors.InvalidRequest
 	}
 
 	payload, ok := in.Payload.(*control.SessionIn_Hello)
@@ -113,7 +114,11 @@ func (t *Tracker) NewSession(stream sessionStream) error {
 	// Wait until we get the signal from the main loop below. Once
 	// this method returns, gRPC will close the stream resulting in both
 	// send and receive loops to end.
-	return <-cmd.waitCh
+
+	t.meters.SessionCount.Add(1)
+	err = <-cmd.waitCh
+	t.meters.SessionCount.Add(-1)
+	return err
 }
 
 func (t *Tracker) mainLoop(ctx context.Context) {
@@ -172,9 +177,11 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			needsUpdate := true
 
 			new := &session{
+				tracker:       t,
 				id:            sessionCounter,
 				serverID:      x.serverID,
 				serverType:    server.Type,
+				serverName:    server.Name,
 				serverAddress: x.serverAddress,
 				createdAt:     now,
 				sendBufferCh:  make(chan *control.SessionOut, t.config.Sessions.SendBufferSize),
@@ -281,6 +288,7 @@ SHUTDOWN:
 	}
 
 	t.writeLatestStatus(ctx, status)
+	status.Unregister()
 
 	// drain
 	for {

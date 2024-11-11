@@ -38,7 +38,7 @@ func IsValidTags(values ...string) bool {
 }
 
 func IsValidPartitionCount(value uint32) bool {
-	return value > 0 && value <= maxClusterNameLen
+	return value > 0 && value <= maxPartitionCount
 }
 
 func (s *Servers) ControlServers() map[uint64]*Server {
@@ -65,6 +65,16 @@ func (s *Servers) ForType(stype ServerType) map[uint64]*Server {
 	return result
 }
 
+func (s *Servers) CountForType(stype ServerType) int {
+	count := 0
+	for _, s := range s.Items {
+		if s.Type == stype {
+			count++
+		}
+	}
+	return count
+}
+
 func (s *Servers) ForName(name string) *Server {
 	for _, server := range s.Items {
 		if server.Name == name {
@@ -76,6 +86,30 @@ func (s *Servers) ForName(name string) *Server {
 
 func (p *Partitions) HasAssignments() bool {
 	return p.AssignmentsVersion > 0
+}
+
+func (p *Partitions) ReplicaCount() int {
+	result := 0
+	for _, x := range p.Items {
+		result += len(x.Replicas)
+	}
+	return result
+}
+
+func (p *Partitions) ServingReplicaCount() int {
+	result := 0
+	for _, x := range p.Items {
+		result += x.ServingReplicaCount()
+	}
+	return result
+}
+
+func (p *Partitions) ReplicaCountForState(state ReplicaState) int {
+	count := 0
+	for _, x := range p.Items {
+		count += x.ReplicaCountForState(state)
+	}
+	return count
 }
 
 func (p *Partition) ReplicaForServer(serverID uint64) *Partition_Replica {
@@ -157,6 +191,8 @@ func (x *SessionIn) Validate() error {
 	}
 
 	switch p := x.Payload.(type) {
+	case nil:
+		return errors.Error("SessionIn.Payload is nil")
 	case *SessionIn_Hello:
 		return p.Hello.Validate()
 	case *SessionIn_Heartbeat:
@@ -182,6 +218,8 @@ func (x *SessionOut) Validate() error {
 	}
 
 	switch p := x.Payload.(type) {
+	case nil:
+		return errors.Error("SessionOut.Payload is nil")
 	case *SessionOut_HelloDataServer:
 		return p.HelloDataServer.Validate()
 	case *SessionOut_HelloApiServer:

@@ -4,29 +4,19 @@ import (
 	"github.com/bcrusu/scout/internal/metrics"
 )
 
-type managerMetrics struct {
+type managerMeters struct {
 	Tracked          metrics.UpDownCounter
-	Autocommitted    metrics.Counter
 	Running          metrics.UpDownCounter
-	Prepared         metrics.Counter
-	Committed        metrics.Counter
-	Aborted          metrics.Counter
-	Decided          metrics.Counter
 	Timedout         metrics.Counter
 	LocksHeld        metrics.UpDownCounter
 	LocksFailed      metrics.Counter
 	ValidationFailed metrics.Counter
 }
 
-func newManagerMetrics(_ uint32) managerMetrics {
-	return managerMetrics{
+func newManagerMeters(_ uint32) managerMeters {
+	return managerMeters{
 		Tracked:          metrics.NewUpDownCounter("txn.rw.tracked"),
-		Autocommitted:    metrics.NewCounter("txn.rw.autocommitted"),
 		Running:          metrics.NewUpDownCounter("txn.rw.running"),
-		Prepared:         metrics.NewCounter("txn.rw.prepared"),
-		Committed:        metrics.NewCounter("txn.rw.committed"),
-		Aborted:          metrics.NewCounter("txn.rw.aborted"),
-		Decided:          metrics.NewCounter("txn.rw.decided"),
 		Timedout:         metrics.NewCounter("txn.rw.timedout"),
 		LocksHeld:        metrics.NewUpDownCounter("txn.rw.locks.held"),
 		LocksFailed:      metrics.NewCounter("txn.rw.locks.failed"),
@@ -34,12 +24,12 @@ func newManagerMetrics(_ uint32) managerMetrics {
 	}
 }
 
-type readerMetrics struct {
+type readerMeters struct {
 	Prepared metrics.UpDownCounter
 }
 
-func newReaderMetrics(_ uint32) readerMetrics {
-	return readerMetrics{
+func newReaderMeters(_ uint32) readerMeters {
+	return readerMeters{
 		Prepared: metrics.NewUpDownCounter("txn.ro.prepared"),
 	}
 }

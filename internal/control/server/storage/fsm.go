@@ -18,7 +18,8 @@ var (
 )
 
 type FSM struct {
-	notifyCh       chan bool    // notify store
+	notifyCh       chan bool // notify store
+	meters         fsmMeters
 	lock           sync.RWMutex // guards all below
 	index          uint64       // last applied raft index
 	version        uint64       // used for optimistic concurrency control
@@ -27,12 +28,13 @@ type FSM struct {
 	partitionCount uint32       // fixed number of data partitions
 	servers        *control.Servers
 	partitions     *control.Partitions
-	// TODO: store HCL timestamp
+	// TODO: store HLC timestamp
 }
 
 func NewFSM() *FSM {
 	return &FSM{
 		notifyCh: make(chan bool, 1),
+		meters:   newFsmMeters(),
 	}
 }
 
@@ -53,11 +55,13 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 
 	f.index = index
 	f.notifyStore()
+	f.meters.Update(f)
 	return result
 }
 
 func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logger) any {
 	if cmd.IfMatch != 0 && cmd.IfMatch != f.version {
+		f.meters.ApplyError.Add(1)
 		log.Debug("Command version check failed", "fsm_version", f.version, "cmd_version", cmd.IfMatch)
 		return errors.FailedPrecondition
 	}
@@ -84,6 +88,7 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	}
 
 	if err != nil {
+		f.meters.ApplyError.Add(1)
 		log.WithError(err).Errorf("Apply command %T failed.", payload)
 		return err
 	}
@@ -91,6 +96,7 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	f.version++
 	log.Debugf("Applied command %T.", payload)
 
+	f.meters.ApplySuccess.Add(1)
 	return result
 }
 
@@ -117,6 +123,7 @@ func (f *FSM) Restore(data []byte) error {
 	f.partitionCount = c.PartitionCount
 
 	f.notifyStore()
+	f.meters.Update(f)
 	return nil
 }
 

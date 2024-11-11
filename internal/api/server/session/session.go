@@ -58,13 +58,15 @@ func (m *Session) mainLoop(ctx context.Context) {
 		err := m.runSessionStream(ctx)
 
 		switch {
-		case err != nil && !errors.Is(err, io.EOF):
-			log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
-		case errors.Is(err, context.Canceled):
-			return
+		case errors.Is(err, io.EOF):
+			log.Debug("Session stream ended. Reconnecting...")
 		case errors.Is(err, errors.TimeOffsetOutOfRange):
 			utils.GracefulShutdown("Time offset is out of allowed range.")
 			return
+		case errors.IsAny(err, context.Canceled, context.DeadlineExceeded):
+			// pass
+		case err != nil:
+			log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")
 		default:
 			log.Debug("Session stream ended. Reconnecting...")
 		}
@@ -162,18 +164,20 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 				eventbus.TryPublish(dataServers)
 				eventbus.TryPublish(config)
 			case *control.ApiServerConfig:
-				if x.ETag != config.ETag {
+				if config == nil || x.ETag != config.ETag {
 					config = x
 					eventbus.TryPublish(config)
 				}
 			case *control.DataServers:
-				if x.ETag != dataServers.ETag {
+				if dataServers == nil || x.ETag != dataServers.ETag {
 					dataServers = x
 					eventbus.TryPublish(dataServers)
 				}
 			case *control.ApiServers:
-				apiServers = x
-				eventbus.TryPublish(apiServers)
+				if apiServers == nil || x.ETag != apiServers.ETag {
+					apiServers = x
+					eventbus.TryPublish(apiServers)
+				}
 			case *control.TimestampRequest:
 				sendCh <- m.newSessionIn(&control.TimestampResponse{
 					RequestTimestamp:  x.RequestTimestamp,

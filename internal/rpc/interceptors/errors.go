@@ -26,7 +26,7 @@ func UnaryErrorsServerInterceptor() grpc.UnaryServerInterceptor {
 // StreamErrorsServerInterceptor converts Go errors to gRPC errors
 func StreamErrorsServerInterceptor() grpc.StreamServerInterceptor {
 	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		err := handler(srv, ss)
+		err := handler(srv, &ssWrapperForErrors{ss})
 		return getRPCError(ss.Context(), err, info.FullMethod)
 	}
 }
@@ -47,8 +47,27 @@ func StreamErrorsClientInterceptor() grpc.StreamClientInterceptor {
 	}
 }
 
+type ssWrapperForErrors struct {
+	grpc.ServerStream
+}
+
+func (w *ssWrapperForErrors) SendMsg(m any) error {
+	err := w.ServerStream.SendMsg(m)
+	return getGoError(err)
+}
+
+func (w *ssWrapperForErrors) RecvMsg(m any) error {
+	err := w.ServerStream.RecvMsg(m)
+	return getGoError(err)
+}
+
 type csWrapperForErrors struct {
 	grpc.ClientStream
+}
+
+func (w *csWrapperForErrors) SendMsg(m any) error {
+	err := w.ClientStream.SendMsg(m)
+	return getGoError(err)
 }
 
 func (w *csWrapperForErrors) RecvMsg(m any) error {

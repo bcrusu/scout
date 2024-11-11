@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"context"
 	"io"
 
 	"github.com/bcrusu/scout/internal/control"
@@ -15,14 +16,18 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 	for {
 		in, err := stream.Recv()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				sess.log.Debug("Session receive loop done.")
+			if errors.IsAny(err, io.EOF, context.Canceled, context.DeadlineExceeded) {
+				sess.log.WithError(err).Debug("Session receive loop done.")
 				endSession(nil)
 			} else {
+				t.meters.MsgReceiveError.Add(1)
+				sess.log.WithError(err).Error("Session receive failed.")
 				endSession(err)
 			}
 			return
 		}
+
+		t.meters.MsgReceiveSuccess.Add(1)
 
 		if !sess.recvLimiter.Allow() {
 			sess.recvOffenses++
@@ -32,6 +37,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 				return
 			}
 
+			t.meters.MsgReceiveDropped.Add(1)
 			sess.log.Errorf("Session triggered receive rate limiter. Dropping message %T.", in.Payload)
 			continue
 		}

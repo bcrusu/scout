@@ -9,6 +9,7 @@ import (
 	"github.com/bcrusu/scout/internal/rpc/interceptors"
 	_ "github.com/bcrusu/scout/internal/rpc/routing" // registers resolvers and balancers
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
+	"github.com/bcrusu/scout/internal/rpc/stats"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
@@ -81,6 +82,7 @@ func DefaultDialOptions(clusterName string, enableHlc bool) []grpc.DialOption {
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: 3 * time.Second,
 		}),
+		grpc.WithStatsHandler(stats.NewClientHandler()),
 	}
 }
 
@@ -102,6 +104,7 @@ func AdminDialOptions() []grpc.DialOption {
 			Backoff:           backoff.DefaultConfig,
 			MinConnectTimeout: 3 * time.Second,
 		}),
+		grpc.WithStatsHandler(stats.NewClientHandler()),
 	}
 }
 

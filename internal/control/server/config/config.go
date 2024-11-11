@@ -10,6 +10,7 @@ import (
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/rpc/serviceconfig"
@@ -56,6 +57,7 @@ type Config struct {
 	Partitions  Partitions        `yaml:"partitions"`
 	Register    *Register         `yaml:"register"`
 	Bootstrap   *Bootstrap        `yaml:"bootstrap"`
+	Metrics     metrics.Config    `yaml:"metrics"`
 	LogLevels   string            `yaml:"logLevels" default:"*:info"`
 }
 

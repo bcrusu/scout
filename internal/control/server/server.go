@@ -12,6 +12,7 @@ import (
 	"github.com/bcrusu/scout/internal/http"
 	"github.com/bcrusu/scout/internal/identity"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/register"
 	"github.com/bcrusu/scout/internal/rpc"
@@ -83,6 +84,8 @@ func (n *Server) Start(ctx context.Context) error {
 		}
 	}
 
+	metrics := metrics.New(n.config.Metrics, id)
+
 	multiraft := n.buildMultiRaft()
 	if err := multiraft.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed to start multiraft")
@@ -98,7 +101,8 @@ func (n *Server) Start(ctx context.Context) error {
 	httpServer := http.NewServer(n.config.HTTP)
 
 	n.components = []utils.Lifecycle{
-		multiraft,
+		multiraft, // already started above, but will be needed during stop
+		metrics,
 		store,
 		controlService,
 		httpServer,

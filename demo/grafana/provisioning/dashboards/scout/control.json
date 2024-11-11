@@ -29,9 +29,9 @@
         "x": 0,
         "y": 0
       },
-      "id": 4,
+      "id": 9,
       "panels": [],
-      "title": "RPC requests",
+      "title": "Status",
       "type": "row"
     },
     {
@@ -90,23 +90,24 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ns"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 6,
         "w": 8,
         "x": 0,
         "y": 1
       },
-      "id": 5,
+      "id": 10,
       "options": {
         "legend": {
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "single",
@@ -121,37 +122,17 @@
             "uid": "scout-metrics"
           },
           "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "sum(rate(rpc_server_started_total{rpc_service=~\"$rpc_service\"}[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"}) by(rpc_service, rpc_method)",
-          "format": "time_series",
+          "editorMode": "builder",
+          "expr": "{__name__=~\"server_last_update.*\"}",
           "fullMetaSearch": false,
-          "hide": false,
           "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "Total.{{rpc_method}}",
+          "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "Totals",
-          "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "scout-metrics"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(rpc_server_started_total{rpc_service=~\"$rpc_service\"}[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"}",
-          "fullMetaSearch": false,
-          "hide": true,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{server_name}}.{{rpc_method}}",
-          "range": true,
-          "refId": "Per server",
+          "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "Request rate",
+      "title": "Server last update",
       "type": "timeseries"
     },
     {
@@ -210,23 +191,24 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "ns"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 6,
         "w": 8,
         "x": 8,
         "y": 1
       },
-      "id": 6,
+      "id": 11,
       "options": {
         "legend": {
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "single",
@@ -242,154 +224,16 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(rpc_server_completed_total{rpc_service=~\"$rpc_service\",rpc_status_code!=\"OK\"}[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"}",
-          "format": "time_series",
+          "expr": "{__name__=~\"replica_last_update.*\"}",
           "fullMetaSearch": false,
-          "hide": false,
           "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "Total.{{rpc_method}}",
+          "legendFormat": "{{__name__}}",
           "range": true,
-          "refId": "Totals",
-          "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "scout-metrics"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(rpc_server_completed_total{rpc_service=~\"$rpc_service\",rpc_status_code!=\"OK\"}[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"}",
-          "fullMetaSearch": false,
-          "hide": true,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{server_name}}.{{rpc_method}}",
-          "range": true,
-          "refId": "Per server",
+          "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "Error rate",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "scout-metrics"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 8,
-        "x": 16,
-        "y": 1
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.3.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "scout-metrics"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "histogram_quantile(.99, sum by(le, rpc_service, rpc_method)\n(rate(rpc_server_duration_bucket{rpc_service=~\"$rpc_service\"}[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"}))",
-          "format": "time_series",
-          "fullMetaSearch": false,
-          "hide": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{rpc_method}}",
-          "range": true,
-          "refId": "Totals",
-          "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "scout-metrics"
-          },
-          "editorMode": "code",
-          "expr": "(histogram_quantile(0.95, sum by(le, server_name, rpc_service, rpc_method)\n(rate(rpc_server_duration_bucket{rpc_service=~\"$rpc_service\"}[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"})))*0",
-          "format": "time_series",
-          "hide": true,
-          "instant": false,
-          "legendFormat": "{{server_name}}.{{rpc_method}}",
-          "range": true,
-          "refId": "Per server"
-        }
-      ],
-      "title": "Duration p.99",
+      "title": "Replica last update",
       "type": "timeseries"
     },
     {
@@ -398,11 +242,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 7
       },
-      "id": 3,
+      "id": 4,
       "panels": [],
-      "title": "Transactions",
+      "title": "Sessions",
       "type": "row"
     },
     {
@@ -466,10 +310,275 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 6,
+        "w": 8,
         "x": 0,
-        "y": 9
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "rate(sessions_msg_receive_success[$__rate_interval])",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Success",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "rate(sessions_msg_receive_error[$__rate_interval])",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Error",
+          "range": true,
+          "refId": "B",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "rate(sessions_msg_receive_dropped[$__rate_interval])",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Dropped",
+          "range": true,
+          "refId": "C",
+          "useBackend": false
+        }
+      ],
+      "title": "Messages in",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "scout-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "rate(sessions_msg_send_success[$__rate_interval])",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Success",
+          "range": true,
+          "refId": "D",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "rate(sessions_msg_send_error[$__rate_interval])",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Error",
+          "range": true,
+          "refId": "E",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "rate(sessions_msg_send_dropped[$__rate_interval])",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Dropped",
+          "range": true,
+          "refId": "F",
+          "useBackend": false
+        }
+      ],
+      "title": "Messages out",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "scout-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 8
       },
       "id": 1,
       "options": {
@@ -492,14 +601,127 @@
             "uid": "scout-metrics"
           },
           "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(txn_rw_autocommitted_total[$__rate_interval])\n* on (job) group_left (server_name)\ntarget_info{server_type=\"data\",server_name=~\"$server_name\"}",
+          "editorMode": "builder",
+          "expr": "sessions_count",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Count",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Count",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 6,
+      "panels": [],
+      "title": "Storage",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "scout-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 15
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "rate(fsm_apply_success_total[$__rate_interval])",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
-          "legendFormat": "Autocommitted",
+          "legendFormat": "Apply success",
           "range": true,
-          "refId": "F",
+          "refId": "B",
           "useBackend": false
         },
         {
@@ -509,17 +731,17 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "rate(txn_rw_timedout_total[$__rate_interval])",
+          "expr": "rate(fsm_apply_error_total[$__rate_interval])",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
-          "legendFormat": "Aborted {{job}}",
+          "legendFormat": "Apply error",
           "range": true,
-          "refId": "E",
+          "refId": "A",
           "useBackend": false
         }
       ],
-      "title": "Transaction rate",
+      "title": "Raft commands",
       "type": "timeseries"
     },
     {
@@ -583,12 +805,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 9
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 15
       },
-      "id": 2,
+      "id": 5,
       "options": {
         "legend": {
           "calcs": [],
@@ -610,13 +832,24 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "txn_ro_prepared",
+          "expr": "replica_total_count",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
-          "legendFormat": "Prepared read-only {{job}}",
+          "legendFormat": "Total",
           "range": true,
           "refId": "B",
+          "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "replica_joining_count",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Joining",
+          "range": true,
+          "refId": "A",
           "useBackend": false
         },
         {
@@ -625,12 +858,12 @@
             "uid": "scout-metrics"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "txn_rw_tracked",
+          "editorMode": "code",
+          "expr": "replica_serving_count",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
-          "legendFormat": "Tracked read-write {{job}}",
+          "legendFormat": "Serving",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -642,80 +875,186 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "txn_rw_running",
+          "expr": "replica_leaving_count",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
-          "legendFormat": "Running 2PC {{job}}",
+          "legendFormat": "Leaving",
           "range": true,
-          "refId": "A",
+          "refId": "D",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "replica_max_imbalance",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Max imbalance",
+          "range": true,
+          "refId": "E",
           "useBackend": false
         }
       ],
-      "title": "Transactions tracked",
+      "title": "Replicas",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "scout-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 15
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "server_total_count",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Total",
+          "range": true,
+          "refId": "B",
+          "useBackend": false
+        },
+        {
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "server_data_count",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Data",
+          "range": true,
+          "refId": "A",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "server_control_count",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "Control",
+          "range": true,
+          "refId": "C",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "scout-metrics"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "expr": "server_api_count",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "legendFormat": "API",
+          "range": true,
+          "refId": "D",
+          "useBackend": false
+        }
+      ],
+      "title": "Servers",
       "type": "timeseries"
     }
   ],
   "preload": false,
+  "refresh": "5s",
   "schemaVersion": 40,
   "tags": [],
   "templating": {
-    "list": [
-      {
-        "allValue": ".*",
-        "current": {
-          "text": [
-            "data_3"
-          ],
-          "value": [
-            "data_3"
-          ]
-        },
-        "definition": "label_values({server_type=\"data\"},server_name)",
-        "description": "",
-        "includeAll": true,
-        "label": "Server",
-        "multi": true,
-        "name": "server_name",
-        "options": [],
-        "query": {
-          "qryType": 1,
-          "query": "label_values({server_type=\"data\"},server_name)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "",
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "allValue": ".*",
-        "current": {
-          "text": [
-            "RaftTransport"
-          ],
-          "value": [
-            "RaftTransport"
-          ]
-        },
-        "definition": "query_result(rpc_server_started_total * on (job) group_left (server_name) target_info {server_type=\"data\"})",
-        "description": "",
-        "includeAll": true,
-        "label": "Service",
-        "multi": true,
-        "name": "rpc_service",
-        "options": [],
-        "query": {
-          "qryType": 3,
-          "query": "query_result(rpc_server_started_total * on (job) group_left (server_name) target_info {server_type=\"data\"})",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "regex": "/rpc_service=\"([^\"]+)\"/",
-        "sort": 1,
-        "type": "query"
-      }
-    ]
+    "list": []
   },
   "time": {
     "from": "now-15m",
@@ -723,8 +1062,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Data",
-  "uid": "de38kf3dvl88wc",
+  "title": "Control",
+  "uid": "fe39anf47fi0wb",
   "version": 1,
   "weekStart": ""
 }

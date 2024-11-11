@@ -1,6 +1,9 @@
 package identity
 
-import "github.com/bcrusu/scout/internal/logging"
+import (
+	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/logging"
+)
 
 var (
 	log = logging.New("identity")
@@ -8,9 +11,10 @@ var (
 
 // Identity is the name of the machine.
 type Identity struct {
-	ClusterName string `json:"clusterName"`
-	ServerID    uint64 `json:"serverId"`
-	ServerName  string `json:"serverName"`
+	ClusterName string             `json:"clusterName"`
+	ServerID    uint64             `json:"serverId"`
+	ServerName  string             `json:"serverName"`
+	ServerType  control.ServerType `json:"serverType"`
 }
 
 // Store provides a way for servers to persist their identity bits.

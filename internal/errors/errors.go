@@ -32,11 +32,17 @@ func Join(errs ...error) error {
 
 // Is returns true if err matches the other err.
 func Is(err, other error) bool {
+	if err == nil {
+		return false
+	}
 	return errors.Is(err, other)
 }
 
 // Is returns true if err matches any other error.
 func IsAny(err error, others ...error) bool {
+	if err == nil {
+		return false
+	}
 	for _, other := range others {
 		if Is(err, other) {
 			return true

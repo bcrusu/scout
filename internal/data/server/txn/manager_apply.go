@@ -64,7 +64,7 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	// Ignores the HLC.Update error as log entries can be applied in various
 	// scenarios from lagging group members to new members joining that need
 	// to catch up with the leader, etc. The call here is mainly to ensure
-	// that the newly-elected leader adopts a HCL timestamp greater than any
+	// that the newly-elected leader adopts a HLC timestamp greater than any
 	// write timestamps issued by the previous leader/s.
 	hlc.Update(p.maxTimestamp)
 
@@ -100,8 +100,7 @@ func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc
 	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
 
 	p.status[id] = status
-	p.metrics.Tracked.Add(1)
-	p.metrics.Autocommitted.Add(1)
+	p.meters.Tracked.Add(1)
 	return status, writes, nil
 }
 
@@ -137,9 +136,8 @@ func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
 	}
 
 	p.status[id] = status
-	p.metrics.Prepared.Add(1)
-	p.metrics.Running.Add(1)
-	p.metrics.Tracked.Add(1)
+	p.meters.Running.Add(1)
+	p.meters.Tracked.Add(1)
 	return status, nil
 }
 
@@ -170,8 +168,7 @@ func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record,
 		status.ParticipantPids = prepared.Txn.ParticipantPids
 
 		p.status[id] = status
-		p.metrics.Running.Add(-1)
-		p.metrics.Committed.Add(1)
+		p.meters.Running.Add(-1)
 		return status, writes, nil
 	default:
 		return nil, nil, errors.FailedPrecondition
@@ -203,8 +200,7 @@ func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
 		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Aborted)
 
 		p.status[id] = status
-		p.metrics.Running.Add(-1)
-		p.metrics.Aborted.Add(1)
+		p.meters.Running.Add(-1)
 		return status, nil
 	default:
 		return nil, errors.FailedPrecondition
@@ -243,7 +239,6 @@ func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, 
 		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Decided)
 
 		p.status[id] = status
-		p.metrics.Decided.Add(1)
 		return status, nil
 	default:
 		return nil, errors.FailedPrecondition
@@ -276,8 +271,8 @@ func (p *Manager) applyMarkTimedout(cmd *data.MarkTimedout) (*data.TxnStatus, er
 		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Timedout)
 
 		p.status[id] = status
-		p.metrics.Running.Add(-1)
-		p.metrics.Timedout.Add(1)
+		p.meters.Running.Add(-1)
+		p.meters.Timedout.Add(1)
 		return status, nil
 	default:
 		return nil, errors.FailedPrecondition
@@ -303,14 +298,14 @@ func (p *Manager) validate(id id, timestamp uint64, txn *data.Txn) *data.TxnStat
 			addr := mvcc.NewAddress(x.Insert.Keyspace, x.Insert.Key)
 
 			if p.db.Exists(p.pid, timestamp-1, addr) {
-				p.metrics.ValidationFailed.Add(1)
+				p.meters.ValidationFailed.Add(1)
 				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyAlreadyExists)
 			}
 		case *data.Action_Update:
 			addr := mvcc.NewAddress(x.Update.Keyspace, x.Update.Key)
 
 			if !p.db.Exists(p.pid, timestamp-1, addr) {
-				p.metrics.ValidationFailed.Add(1)
+				p.meters.ValidationFailed.Add(1)
 				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
 			}
 		case *data.Action_Upsert:
@@ -319,7 +314,7 @@ func (p *Manager) validate(id id, timestamp uint64, txn *data.Txn) *data.TxnStat
 			addr := mvcc.NewAddress(x.Delete.Keyspace, x.Delete.Key)
 
 			if !p.db.Exists(p.pid, timestamp-1, addr) {
-				p.metrics.ValidationFailed.Add(1)
+				p.meters.ValidationFailed.Add(1)
 				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_KeyNotFound)
 			}
 		case *data.Action_LockKey:
@@ -333,7 +328,7 @@ func (p *Manager) validate(id id, timestamp uint64, txn *data.Txn) *data.TxnStat
 			expected := x.LockKey.Check == data.LockKey_MustExist
 
 			if actual != expected {
-				p.metrics.ValidationFailed.Add(1)
+				p.meters.ValidationFailed.Add(1)
 				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_LockCheckFailed)
 			}
 		case *data.Action_LockRange:
@@ -348,7 +343,7 @@ func (p *Manager) validate(id id, timestamp uint64, txn *data.Txn) *data.TxnStat
 			expected := x.LockRange.Check == data.LockRange_MustNotBeEmpty
 
 			if actual != expected {
-				p.metrics.ValidationFailed.Add(1)
+				p.meters.ValidationFailed.Add(1)
 				return newFailedStatus(id, timestamp, action.Id, data.ActionStatus_LockCheckFailed)
 			}
 		}
@@ -413,5 +408,5 @@ func (p *Manager) cleanup() {
 		delete(p.prepared, id)
 	}
 
-	p.metrics.Tracked.Add(-len(toRemove))
+	p.meters.Tracked.Add(-len(toRemove))
 }

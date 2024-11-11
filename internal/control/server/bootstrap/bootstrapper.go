@@ -82,6 +82,7 @@ func ValidateParams(p *Params) error {
 		ClusterName: p.ClusterName,
 		ServerID:    p.serverIDs[idx],
 		ServerName:  p.serverNames[idx],
+		ServerType:  control.ServerType_Control,
 	}
 
 	p.valid = true

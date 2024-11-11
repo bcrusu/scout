@@ -71,7 +71,7 @@ func (c *Controller) mainLoop(ctx context.Context) {
 				c.syncPartitions(ctx, config)
 			}
 		case <-publishStatusTicker.C:
-			eventbus.TryPublish(c.getPartitionsStatus())
+			eventbus.TryPublish(c.getReplicaStatus())
 		case <-ctx.Done():
 			c.stopPartitions()
 			return
@@ -148,7 +148,7 @@ func (c *Controller) getLocalReplicaConfig(config *control.DataServerConfig_Part
 	return nil
 }
 
-func (c *Controller) getPartitionsStatus() events.ReplicaStatus {
+func (c *Controller) getReplicaStatus() events.ReplicaStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 

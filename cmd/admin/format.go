@@ -8,22 +8,15 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/control"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type Signed interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64
-}
-
-type Unsigned interface {
-	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
-}
-
-func formatInt[T Signed](val T) string {
+func formatInt[T utils.Signed](val T) string {
 	return strconv.FormatInt(int64(val), 10)
 }
 
-func formatUint[T Unsigned](val T) string {
+func formatUint[T utils.Unsigned](val T) string {
 	return strconv.FormatUint(uint64(val), 10)
 }
 

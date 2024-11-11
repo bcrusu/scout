@@ -38,6 +38,7 @@ func (r *SetRequest) Validate() error {
 	if len(r.Items) == 0 {
 		return errors.Error("SetRequest is empty")
 	}
+	// TODO: no not allow duplicate keys
 	for _, kv := range r.Items {
 		if err := kv.Validate(); err != nil {
 			return errors.Wrap(err, "SetRequest has invalid items")

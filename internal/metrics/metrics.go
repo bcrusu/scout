@@ -3,6 +3,8 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
@@ -16,6 +18,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+)
+
+const (
+	scope = "scout"
 )
 
 var (
@@ -75,6 +81,7 @@ func (m *Metrics) Start(ctx context.Context) error {
 		runtime.Start()
 	}
 
+	otel.SetErrorHandler(&errorHandler{})
 	otel.SetMeterProvider(provider)
 	m.provider = provider
 	return nil
@@ -93,11 +100,12 @@ func (m *Metrics) Stop() {
 func (m *Metrics) newResource(ctx context.Context) (*resource.Resource, error) {
 	return resource.New(ctx,
 		resource.WithAttributes(
-			semconv.ServiceNamespace("scout"),
-			semconv.ServiceName(m.id.ServerName),
+			semconv.ServiceNamespace(scope),
+			semconv.ServiceName(fmt.Sprintf("%s/%s", m.id.ClusterName, m.id.ServerName)),
 			attribute.String("cluster.name", m.id.ClusterName),
 			attribute.String("server.name", m.id.ServerName),
-			attribute.String("server.id", fmt.Sprintf("%d", m.id.ServerID)),
+			attribute.String("server.id", strconv.FormatUint(m.id.ServerID, 10)),
+			attribute.String("server.type", strings.ToLower(m.id.ServerType.String())),
 		),
 	)
 }

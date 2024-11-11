@@ -24,7 +24,7 @@ type Manager struct {
 	pid          uint32
 	db           *mvcc.DBBreaker
 	cleanAfter   time.Duration
-	metrics      managerMetrics
+	meters       managerMeters
 	log          logging.Logger
 	lock         sync.RWMutex // guards all below
 	status       map[id]*data.TxnStatus
@@ -44,7 +44,7 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		pid:        pid,
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
-		metrics:    newManagerMetrics(pid),
+		meters:     newManagerMeters(pid),
 		log:        logging.New("txn_manager").With("partition", pid),
 		status:     map[id]*data.TxnStatus{},
 		prepared:   map[id]*data.Prepared{},
@@ -56,9 +56,9 @@ func (p *Manager) Start(ctx context.Context) error {
 }
 
 func (p *Manager) Stop() {
-	p.metrics.Tracked.Add(-len(p.status))
-	p.metrics.Running.Add(-p.countRunning())
-	p.metrics.LocksHeld.Add(-p.countLocksHeld())
+	p.meters.Tracked.Add(-len(p.status))
+	p.meters.Running.Add(-p.countRunning())
+	p.meters.LocksHeld.Add(-p.countLocksHeld())
 }
 
 func (p *Manager) Snapshot() *data.TxnSnapshot {
@@ -101,9 +101,9 @@ func (p *Manager) Restore(snap *data.TxnSnapshot) {
 		p.prepared[newId(x.Txn.Id)] = x
 	}
 
-	p.metrics.Tracked.Add(oldTracked - len(p.status))
-	p.metrics.Running.Add(oldRunning - p.countRunning())
-	p.metrics.LocksHeld.Add(oldLocksHeld - p.countLocksHeld())
+	p.meters.Tracked.Add(oldTracked - len(p.status))
+	p.meters.Running.Add(oldRunning - p.countRunning())
+	p.meters.LocksHeld.Add(oldLocksHeld - p.countLocksHeld())
 }
 
 func (p *Manager) countRunning() int {
