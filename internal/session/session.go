@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
-	"github.com/bcrusu/scout/internal/api/server/config"
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/client"
 	"github.com/bcrusu/scout/internal/errors"
@@ -25,22 +25,38 @@ var (
 	log                                        = logging.New("session")
 )
 
+type Config struct {
+	NewSessionThrottle time.Duration `yaml:"newSessionThrottle" default:"3s" validate:"min:100ms"`
+	MaxTimeOffset      time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:10ms"`
+	HeartbeatInterval  time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
+	SendBufferSize     int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
+	Address            string
+}
+
 type Session struct {
-	config     config.Session
-	id         identity.Identity
-	address    string
-	client     client.ControlClient
-	cancelFunc context.CancelFunc
+	config          Config
+	id              identity.Identity
+	client          client.ControlClient
+	cancelFunc      context.CancelFunc
+	statusCallback  StatusCallback
+	configETag      etag
+	dataServersETag etag
+	apiServersETag  etag
+}
+
+type StatusCallback func() any
+
+type etag struct {
+	ptr atomic.Pointer[string]
 }
 
 type stream = grpc.BidiStreamingClient[control.SessionIn, control.SessionOut]
 
-func New(id identity.Identity, address string, client client.ControlClient) *Session {
+func New(id identity.Identity, config Config, client client.ControlClient) *Session {
 	return &Session{
-		config:  config.Get().Session,
-		id:      id,
-		address: address,
-		client:  client,
+		config: config,
+		id:     id,
+		client: client,
 	}
 }
 
@@ -51,6 +67,10 @@ func (m *Session) Start(ctx context.Context) error {
 
 func (m *Session) Stop() {
 	m.cancelFunc()
+}
+
+func (m *Session) SetStatusCallback(cb StatusCallback) {
+	m.statusCallback = cb
 }
 
 func (m *Session) mainLoop(ctx context.Context) {
@@ -80,12 +100,10 @@ func (m *Session) mainLoop(ctx context.Context) {
 }
 
 func (m *Session) runSessionStream(ctx context.Context) error {
-	refreshDataServersSub := eventbus.SubscribeThrottled[eventbus.RefreshDataServers](ctx, refreshDataServersThrottle)
+	refreshDataServersSub := eventbus.SubscribeThrottled[refreshDataServers](ctx, refreshDataServersThrottle)
 	heartbeatTicker := time.NewTicker(utils.AddJitter(m.config.HeartbeatInterval))
-	statusTicker := time.NewTicker(utils.AddJitter(m.config.StatusInterval))
 	defer refreshDataServersSub.Unsubscribe()
 	defer heartbeatTicker.Stop()
-	defer statusTicker.Stop()
 
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	stream, err := m.client.NewSession(streamCtx)
@@ -100,12 +118,6 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 
 	go m.sendLoop(stream, sendCh, loopDoneCh)
 	go m.recvLoop(stream, recvCh, loopDoneCh)
-
-	gotHello := false
-	var config *control.ApiServerConfig
-	var apiServers *control.ApiServers
-	var dataServers *control.DataServers
-	status := &control.ApiServerStatus{}
 
 	drainLoop := func() {
 		for range recvCh {
@@ -131,52 +143,22 @@ func (m *Session) runSessionStream(ctx context.Context) error {
 			closeSession(err)
 			return err
 		case <-heartbeatTicker.C:
-			if gotHello {
-				sendCh <- m.newSessionIn(&control.Heartbeat{
-					ConfigETag: config.ETag,
-				})
-			}
-		case <-statusTicker.C:
-			if gotHello {
-				sendCh <- m.newSessionIn(status)
+			if x := m.newHeartbeat(); x != nil {
+				sendCh <- x
 			}
 		case <-refreshDataServersSub.Items():
-			if gotHello {
+			if !m.dataServersETag.IsEmpty() {
 				sendCh <- m.newSessionIn(&control.GetDataServers{
-					IfNoMatch: dataServers.ETag,
+					IfNoMatch: m.dataServersETag.Get(),
 				})
 			}
 		case msg := <-recvCh:
 			switch x := msg.(type) {
-			case *control.HelloApiServer:
-				if err := hlc.Update(x.Timestamp); err != nil {
+			case *control.HelloResponse:
+				if err := hlc.Update(x.HlcTimestamp); err != nil {
 					log.WithError(err).Error("Failed to update HLC with hello timestamp.")
 					closeSession(nil)
 					return err
-				}
-
-				config = x.Config
-				apiServers = x.ApiServers
-				dataServers = x.DataServers
-				gotHello = true
-
-				eventbus.TryPublish(apiServers)
-				eventbus.TryPublish(dataServers)
-				eventbus.TryPublish(config)
-			case *control.ApiServerConfig:
-				if config == nil || x.ETag != config.ETag {
-					config = x
-					eventbus.TryPublish(config)
-				}
-			case *control.DataServers:
-				if dataServers == nil || x.ETag != dataServers.ETag {
-					dataServers = x
-					eventbus.TryPublish(dataServers)
-				}
-			case *control.ApiServers:
-				if apiServers == nil || x.ETag != apiServers.ETag {
-					apiServers = x
-					eventbus.TryPublish(apiServers)
 				}
 			case *control.TimestampRequest:
 				sendCh <- m.newSessionIn(&control.TimestampResponse{
@@ -202,7 +184,8 @@ func (m *Session) sendLoop(stream stream, sendCh <-chan *control.SessionIn, done
 	for {
 		select {
 		case in := <-sendCh:
-			log.Tracef("Sending session message %T.", in.Payload)
+			log.Tracef("Sending message %T.", in.Payload)
+
 			if err := stream.Send(in); err != nil {
 				doneCh <- err
 				return
@@ -221,13 +204,15 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 		return
 	}
 
-	payload, ok := out.Payload.(*control.SessionOut_HelloApiServer)
+	payload, ok := out.Payload.(*control.SessionOut_Hello)
 	if !ok {
 		doneCh <- errors.Error("server did not send hello.")
 		return
 	}
 
-	recvCh <- payload.HelloApiServer
+	log.Trace("Received hello.")
+
+	recvCh <- payload.Hello
 
 	for {
 		out, err := stream.Recv()
@@ -236,15 +221,19 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 			return
 		}
 
+		log.Tracef("Received message %T.", out.Payload)
+
 		switch x := out.Payload.(type) {
-		case *control.SessionOut_HelloApiServer:
+		case *control.SessionOut_Hello:
 			log.Warn("Received duplicate server hello.")
+		case *control.SessionOut_DataServerConfig:
+			publish(&m.configETag, x.DataServerConfig.ETag, x.DataServerConfig)
 		case *control.SessionOut_ApiServerConfig:
-			recvCh <- x.ApiServerConfig
+			publish(&m.configETag, x.ApiServerConfig.ETag, x.ApiServerConfig)
 		case *control.SessionOut_DataServers:
-			recvCh <- x.DataServers
+			publish(&m.dataServersETag, x.DataServers.ETag, x.DataServers)
 		case *control.SessionOut_ApiServers:
-			recvCh <- x.ApiServers
+			publish(&m.apiServersETag, x.ApiServers.ETag, x.ApiServers)
 		case *control.SessionOut_TimestampRequest:
 			recvCh <- x.TimestampRequest
 		default:
@@ -254,15 +243,45 @@ func (m *Session) recvLoop(stream stream, recvCh chan<- any, doneCh chan<- error
 }
 
 func (m *Session) newHello() *control.SessionIn {
-	return m.newSessionIn(&control.Hello{
+	return m.newSessionIn(&control.HelloRequest{
 		ServerId: m.id.ServerID,
-		Address:  m.address,
+		Address:  m.config.Address,
 	})
+}
+
+func (m *Session) newHeartbeat() *control.SessionIn {
+	if m.statusCallback == nil {
+		log.Warn("Status callback not set.")
+		return nil
+	} else if m.configETag.IsEmpty() {
+		return nil
+	}
+
+	switch x := m.statusCallback().(type) {
+	case *control.ControlServerStatus:
+		return m.newSessionIn(&control.Heartbeat{
+			ConfigETag: m.configETag.Get(),
+			Status:     &control.Heartbeat_ControlServerStatus{ControlServerStatus: x},
+		})
+	case *control.DataServerStatus:
+		return m.newSessionIn(&control.Heartbeat{
+			ConfigETag: m.configETag.Get(),
+			Status:     &control.Heartbeat_DataServerStatus{DataServerStatus: x},
+		})
+	case *control.ApiServerStatus:
+		return m.newSessionIn(&control.Heartbeat{
+			ConfigETag: m.configETag.Get(),
+			Status:     &control.Heartbeat_ApiServerStatus{ApiServerStatus: x},
+		})
+	default:
+		log.Warnf("Unknown server status type %T", x)
+		return nil
+	}
 }
 
 func (m *Session) newSessionIn(payload any) *control.SessionIn {
 	switch p := payload.(type) {
-	case *control.Hello:
+	case *control.HelloRequest:
 		return &control.SessionIn{Payload: &control.SessionIn_Hello{Hello: p}}
 	case *control.Heartbeat:
 		return &control.SessionIn{Payload: &control.SessionIn_Heartbeat{Heartbeat: p}}
@@ -270,11 +289,33 @@ func (m *Session) newSessionIn(payload any) *control.SessionIn {
 		return &control.SessionIn{Payload: &control.SessionIn_GetDataServers{GetDataServers: p}}
 	case *control.GetApiServers:
 		return &control.SessionIn{Payload: &control.SessionIn_GetApiServers{GetApiServers: p}}
-	case *control.ApiServerStatus:
-		return &control.SessionIn{Payload: &control.SessionIn_ApiServerStatus{ApiServerStatus: p}}
 	case *control.TimestampResponse:
 		return &control.SessionIn{Payload: &control.SessionIn_TimestampResponse{TimestampResponse: p}}
 	default:
 		panic(fmt.Sprintf("unhandled SessionIn payload type %T", payload))
 	}
+}
+
+func (t *etag) Get() string {
+	if x := t.ptr.Load(); x != nil {
+		return *x
+	}
+	return ""
+}
+
+func (t *etag) IsEmpty() bool {
+	return t.Get() == ""
+}
+
+func (t *etag) Set(value string) {
+	t.ptr.Store(&value)
+}
+
+func publish[T any](etag *etag, newETag string, msg T) {
+	if oldETag := etag.Get(); oldETag == newETag {
+		return
+	}
+
+	eventbus.TryPublish(msg)
+	etag.Set(newETag)
 }

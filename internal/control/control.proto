@@ -172,48 +172,42 @@ message Partitions {
 
 message SessionIn {
     oneof payload {
-        Hello hello = 1;
+        HelloRequest hello = 1;
         Heartbeat heartbeat = 2;
         GetDataServers get_data_servers = 3;
         GetApiServers get_api_servers = 4;
-        DataServerStatus data_server_status = 5;
-        ApiServerStatus api_server_status = 6;
-        TimestampResponse timestamp_response = 7;
+        TimestampResponse timestamp_response = 5;
     }
 }
 
 message SessionOut {
     oneof payload {
-        HelloDataServer hello_data_server = 1;
-        HelloApiServer hello_api_server = 2;
-        DataServerConfig data_server_config = 3;
-        ApiServerConfig api_server_config = 4;
-        DataServers data_servers = 5;
-        ApiServers api_servers = 6;
-        TimestampRequest timestamp_request = 7;
+        HelloResponse hello = 1;
+        DataServerConfig data_server_config = 2;
+        ApiServerConfig api_server_config = 3;
+        DataServers data_servers = 4;
+        ApiServers api_servers = 5;
+        TimestampRequest timestamp_request = 6;
     }
 }
 
-message Hello {
+message HelloRequest {
     uint64 server_id = 1;
     string address = 2;
 }
 
-message HelloDataServer {
-    uint64 timestamp = 1; // HLC timestamp 
-    DataServerConfig config = 2;
-    DataServers data_servers = 3;
-}
-
-message HelloApiServer {
-    uint64 timestamp = 1; // HLC timestamp
-    ApiServerConfig config = 2;
-    DataServers data_servers = 3;
-    ApiServers api_servers = 4;
+message HelloResponse {
+    uint64 hlc_timestamp = 1;
 }
 
 message Heartbeat {
     string config_e_tag = 1;
+
+    oneof status {
+        ControlServerStatus control_server_status = 2;
+        DataServerStatus data_server_status = 3;
+        ApiServerStatus api_server_status = 4;
+    }
 }
 
 message DataServerConfig {
@@ -291,6 +285,8 @@ message DataServerStatus {
 }
 
 message ApiServerStatus {}
+
+message ControlServerStatus {}
 
 // TimestampRequest and TimestampResponse are used to determine the wall
 // clock offset between servers. The exchange is initiated by the control

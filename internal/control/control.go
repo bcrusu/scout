@@ -201,10 +201,6 @@ func (x *SessionIn) Validate() error {
 		return p.GetDataServers.Validate()
 	case *SessionIn_GetApiServers:
 		return p.GetApiServers.Validate()
-	case *SessionIn_DataServerStatus:
-		return p.DataServerStatus.Validate()
-	case *SessionIn_ApiServerStatus:
-		return p.ApiServerStatus.Validate()
 	case *SessionIn_TimestampResponse:
 		return p.TimestampResponse.Validate()
 	default:
@@ -220,10 +216,8 @@ func (x *SessionOut) Validate() error {
 	switch p := x.Payload.(type) {
 	case nil:
 		return errors.Error("SessionOut.Payload is nil")
-	case *SessionOut_HelloDataServer:
-		return p.HelloDataServer.Validate()
-	case *SessionOut_HelloApiServer:
-		return p.HelloApiServer.Validate()
+	case *SessionOut_Hello:
+		return p.Hello.Validate()
 	case *SessionOut_DataServerConfig:
 		return p.DataServerConfig.Validate()
 	case *SessionOut_ApiServerConfig:
@@ -239,56 +233,24 @@ func (x *SessionOut) Validate() error {
 	}
 }
 
-func (x *Hello) Validate() error {
+func (x *HelloRequest) Validate() error {
 	if x == nil {
-		return errors.Error("Hello is nil")
+		return errors.Error("HelloRequest is nil")
 	}
 
 	if x.ServerId == 0 || x.Address == "" {
-		return errors.Error("Hello has missing fields")
+		return errors.Error("HelloRequest has missing fields")
 	}
 
 	return nil
 }
 
-func (x *HelloDataServer) Validate() error {
+func (x *HelloResponse) Validate() error {
 	if x == nil {
-		return errors.Error("HelloDataServer is nil")
+		return errors.Error("HelloResponse is nil")
 	}
-
-	err1 := x.Config.Validate()
-	err2 := x.DataServers.Validate()
-
-	if err := errors.Join(err1, err2); err != nil {
-		return errors.Wrap(err, "HelloDataServer has invalid fields")
-	}
-
-	for _, part := range x.Config.Partitions {
-		for name, replica := range part.Replicas {
-			if x.DataServers.Servers[replica.ServerId] == nil {
-				return errors.Error("HelloDataServer.Partitions.Replicas.ServerId missing from DataServers.Servers")
-			}
-
-			if name != replica.Name {
-				return errors.Error("HelloDataServer.Partitions.Replicas.Name does not match")
-			}
-		}
-	}
-
-	return nil
-}
-
-func (x *HelloApiServer) Validate() error {
-	if x == nil {
-		return errors.Error("HelloApiServer is nil")
-	}
-
-	err1 := x.Config.Validate()
-	err2 := x.DataServers.Validate()
-	err3 := x.ApiServers.Validate()
-
-	if err := errors.Join(err1, err2, err3); err != nil {
-		return errors.Wrap(err, "HelloApiServer has invalid fields")
+	if x.HlcTimestamp == 0 {
+		return errors.Error("HelloResponse has missing fields")
 	}
 
 	return nil
@@ -468,6 +430,14 @@ func (x *DataServers_Partition) Validate() error {
 	return nil
 }
 
+func (x *ControlServerStatus) Validate() error {
+	if x == nil {
+		return errors.Error("ControlServerStatus is nil")
+	}
+
+	return nil
+}
+
 func (x *DataServerStatus) Validate() error {
 	if x == nil {
 		return errors.Error("DataServerStatus is nil")
@@ -502,8 +472,22 @@ func (x *Heartbeat) Validate() error {
 	if x == nil {
 		return errors.Error("Heartbeat is nil")
 	}
+	if x.ConfigETag == "" {
+		return errors.Error("Heartbeat.ConfigETag is missing")
+	}
 
-	return nil
+	switch p := x.Status.(type) {
+	case nil:
+		return errors.Error("Heartbeat.Status is nil")
+	case *Heartbeat_ControlServerStatus:
+		return p.ControlServerStatus.Validate()
+	case *Heartbeat_DataServerStatus:
+		return p.DataServerStatus.Validate()
+	case *Heartbeat_ApiServerStatus:
+		return p.ApiServerStatus.Validate()
+	default:
+		return errors.Error("Heartbeat.Status is unknown.")
+	}
 }
 
 func (x *GetDataServers) Validate() error {

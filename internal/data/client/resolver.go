@@ -5,6 +5,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/session"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
@@ -70,7 +71,7 @@ func (r *resolverImpl) mainLoop() {
 			if !ok {
 				return
 			}
-			eventbus.TryPublishRefreshDataServers()
+			session.RefreshDataServers()
 		case ds := <-dataServersSub.Items():
 			if err := r.updateState(ds); err != nil {
 				logR.WithError(err).Warn("Failed to update resolver state.")

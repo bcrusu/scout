@@ -84,7 +84,7 @@ type Sessions struct {
 	ReceiveBurst        int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
 	ReceiveMaxOffenses  int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
 	WriteStatusInterval time.Duration `yaml:"writeStatusInterval" default:"5s" validate:"min:100ms"`
-	SendBufferSize      int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
+	SendBufferSize      int           `yaml:"sendBufferSize" default:"16" validate:"min:5"`
 }
 
 type TimeOffset struct {

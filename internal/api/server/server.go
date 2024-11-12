@@ -6,7 +6,6 @@ import (
 	"github.com/bcrusu/scout/internal/api/server/config"
 	"github.com/bcrusu/scout/internal/api/server/graph"
 	"github.com/bcrusu/scout/internal/api/server/keyvalue"
-	"github.com/bcrusu/scout/internal/api/server/session"
 	"github.com/bcrusu/scout/internal/api/server/txn"
 	"github.com/bcrusu/scout/internal/control"
 	cclient "github.com/bcrusu/scout/internal/control/client"
@@ -18,6 +17,7 @@ import (
 	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/register"
 	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/session"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
@@ -79,7 +79,7 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	metrics := metrics.New(n.config.Metrics, id)
-	session := session.New(id, n.config.RPC.Address, controlClient)
+	session := session.New(id, n.config.Session, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	txnProcessor := txn.NewProcessor(id, dataClient)
 	apiService := NewApiService(id)
@@ -98,6 +98,8 @@ func (n *Server) Start(ctx context.Context) error {
 		httpServer,
 		rpcServer,
 	}
+
+	session.SetStatusCallback(n.statusCallback)
 
 	return utils.LifecycleStart(ctx, log, n.components[1:]...)
 }
@@ -125,4 +127,8 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 	}
 
 	return identity.NewStore(n.config.IdentityFile())
+}
+
+func (n *Server) statusCallback() any {
+	return &control.ApiServerStatus{}
 }

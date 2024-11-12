@@ -63,16 +63,6 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 				endSession(err)
 				return
 			}
-		case *control.SessionIn_DataServerStatus:
-			if err := t.handleDataServerStatus(sess, x.DataServerStatus); err != nil {
-				endSession(err)
-				return
-			}
-		case *control.SessionIn_ApiServerStatus:
-			if err := t.handleApiServerStatus(sess, x.ApiServerStatus); err != nil {
-				endSession(err)
-				return
-			}
 		case *control.SessionIn_TimestampResponse:
 			if err := t.handleTimestampResponse(sess, x.TimestampResponse); err != nil {
 				endSession(err)
@@ -87,13 +77,27 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 func (t *Tracker) handleHeartbeat(sess *session, msg *control.Heartbeat) error {
 	switch sess.serverType {
 	case control.ServerType_Data:
+		status, ok := msg.Status.(*control.Heartbeat_DataServerStatus)
+		if !ok {
+			return errors.InvalidRequest
+		}
+
 		if msg.ConfigETag != sess.dsConfig.ETag {
 			sess.trySend(newSessionOut(sess.dsConfig))
 		}
+
+		return t.handleDataServerStatus(sess, status.DataServerStatus)
 	case control.ServerType_Api:
+		status, ok := msg.Status.(*control.Heartbeat_ApiServerStatus)
+		if !ok {
+			return errors.InvalidRequest
+		}
+
 		if msg.ConfigETag != sess.asConfig.ETag {
 			sess.trySend(newSessionOut(sess.asConfig))
 		}
+
+		return t.handleApiServerStatus(sess, status.ApiServerStatus)
 	}
 
 	return nil

@@ -7,7 +7,6 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/data/client"
-	"github.com/bcrusu/scout/internal/data/server/events"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/eventbus"
@@ -18,10 +17,9 @@ import (
 )
 
 var (
-	_                     utils.Lifecycle = (*Controller)(nil)
-	logC                                  = logging.New("partition_controller")
-	debounceInterval                      = 100 * time.Millisecond
-	publishStatusInterval                 = time.Second / 2
+	_                utils.Lifecycle = (*Controller)(nil)
+	logC                             = logging.New("partition_controller")
+	debounceInterval                 = 100 * time.Millisecond
 )
 
 type Controller struct {
@@ -57,8 +55,6 @@ func (c *Controller) Stop() {
 
 func (c *Controller) mainLoop(ctx context.Context) {
 	dataServerConfigSub := eventbus.SubscribeDebounced[*control.DataServerConfig](ctx, debounceInterval)
-	publishStatusTicker := time.NewTicker(publishStatusInterval)
-	defer publishStatusTicker.Stop()
 	defer dataServerConfigSub.Unsubscribe()
 
 	var config *control.DataServerConfig
@@ -70,8 +66,6 @@ func (c *Controller) mainLoop(ctx context.Context) {
 				config = newConfig
 				c.syncPartitions(ctx, config)
 			}
-		case <-publishStatusTicker.C:
-			eventbus.TryPublish(c.getReplicaStatus())
 		case <-ctx.Done():
 			c.stopPartitions()
 			return
@@ -148,11 +142,11 @@ func (c *Controller) getLocalReplicaConfig(config *control.DataServerConfig_Part
 	return nil
 }
 
-func (c *Controller) getReplicaStatus() events.ReplicaStatus {
+func (c *Controller) GetReplicaStatus() map[uint32]*control.DataServerStatus_Replica {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	result := events.ReplicaStatus{}
+	result := map[uint32]*control.DataServerStatus_Replica{}
 
 	for id, replica := range c.replicas {
 		if status := replica.getStatus(); status != nil {

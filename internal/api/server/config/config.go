@@ -3,7 +3,6 @@ package config
 import (
 	"path"
 	"path/filepath"
-	"time"
 
 	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
@@ -12,6 +11,7 @@ import (
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/metrics"
 	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/session"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/bcrusu/scout/internal/validation"
 	"github.com/google/uuid"
@@ -50,7 +50,7 @@ type Config struct {
 	DataDir      string              `yaml:"dataDir"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	Register     Register            `yaml:"register"`
-	Session      Session             `yaml:"session"`
+	Session      session.Config      `yaml:"session"`
 	Transactions Transactions        `yaml:"transactions"`
 	Metrics      metrics.Config      `yaml:"metrics"`
 	LogLevels    string              `yaml:"logLevels" default:"*:info"`
@@ -61,14 +61,6 @@ type Register struct {
 	Token        string        `yaml:"token" default:"GENERATE_RANDOM" validate:"required,maxLen:1024"`
 	Tags         []string      `yaml:"tags" validate:"maxLen:10,maxItemLen:128"`
 	RetryBackoff utils.Backoff `yaml:"retryBackoff"`
-}
-
-type Session struct {
-	NewSessionThrottle time.Duration `yaml:"newSessionThrottle" default:"3s" validate:"min:100ms"`
-	MaxTimeOffset      time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:1ms"`
-	HeartbeatInterval  time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
-	StatusInterval     time.Duration `yaml:"statusInterval" default:"3s" validate:"min:100ms"`
-	SendBufferSize     int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
 }
 
 type Transactions struct {
@@ -94,6 +86,7 @@ func (c *Config) prepare() error {
 
 	c.RPC.ClusterName = c.ClusterName
 	c.RPC.EnableHlc = false
+	c.Session.Address = c.RPC.Address
 
 	hlc.Set(hlc.New(c.Session.MaxTimeOffset))
 	return c.prepareDirs()

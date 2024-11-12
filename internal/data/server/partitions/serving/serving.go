@@ -16,6 +16,7 @@ import (
 	"github.com/bcrusu/scout/internal/eventbus"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
+	"github.com/bcrusu/scout/internal/session"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/hashicorp/raft"
 )
@@ -84,7 +85,7 @@ func (p *Serving) mainLoop(ctx context.Context) {
 		servers := shared.TryMakeRaftServerList(partConfig, dataServers)
 
 		if len(servers) == 0 {
-			eventbus.TryPublishRefreshDataServers()
+			session.RefreshDataServers()
 			return
 		} else if raft == nil {
 			log.Debug("Creating raft instance...")
@@ -121,12 +122,6 @@ func (p *Serving) mainLoop(ctx context.Context) {
 			isLeader = next
 
 			update(isLeader)
-
-			// TODO: wait store.Appliedindex == raft.CommitedIndex
-
-			if isLeader {
-				store.NewLeader()
-			}
 		case x := <-p.setConfigCh:
 			if partConfig == nil || partConfig.ETag != x.ETag {
 				partConfig = x
@@ -198,6 +193,18 @@ func (p *Serving) updateRole(ctx context.Context, isLeader bool, store *raftStor
 		return
 	}
 
+	if isLeader {
+		// If this write fails, the leader must step down to ensure the safety requirements.
+		// For now, simply shutdown to trigger a soft container restart, but in the future it
+		// could use the leadership transfer raft functionlaity.
+		if err := store.NewLeader(); err != nil {
+			p.log.WithContext(ctx).WithError(err).Errorf("New leader write failed. Shutting down...")
+			utils.GracefulShutdown("New leader write failed.")
+			return
+		}
+	}
+
+	// switch to the new role only if all the above are successful:
 	p.role.Store(drainer)
 }
 

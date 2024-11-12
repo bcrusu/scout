@@ -26,17 +26,22 @@ func newRaftStore(pid uint32, replica string, raft *multiraft.Raft) *raftStore {
 	}
 }
 
-// NewLeader, for now, performs an empty barrier write to kickstart the partition log.
-// This is especially helpful for joining replicas that cannot make progress if the
-// log is empty (check the restore FSM notes). In the future, this approach could
-// evolve into a leader "lease" system.
-func (s *raftStore) NewLeader() {
+// NewLeader, for now, performs an empty barrier write which has multiple purposes:
+//   - it ensures that the FSM has processed all outstanding commited logs, thus it
+//     has observed all txn timestamps and updated the HLC accordingly.
+//   - it kickstarts the partition log with the first write to help joining replicas
+//     make progress when the log is empty (check the restore FSM notes for details).
+//   - and possible other scenarios that require action/s on leader change. Might even
+//     evolve into a leadership "lease" system.
+func (s *raftStore) NewLeader() error {
 	cmd := &storage.Command{Payload: &storage.Command_Barrier{Barrier: &storage.Barrier{}}}
 	data := errors.Assert2(utils.MarshalProto(cmd))
 
 	if _, err := s.raft.Apply(data); err != nil {
-		s.log.WithError(err).Error("New leader barrier failed.")
+		return errors.Wrap(err, "new leader barrier failed")
 	}
+
+	return nil
 }
 
 func (s *raftStore) ApplyBatch(batch *data.TxnBatch) <-chan multiraft.AsyncResult {

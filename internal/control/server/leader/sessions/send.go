@@ -17,9 +17,19 @@ func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
 	timestampTicker := time.NewTicker(utils.AddJitter(t.config.TimeOffset.CheckInterval))
 	defer timestampTicker.Stop()
 
-	// enqueue server hello
-	if out := t.makeServerHello(sess); out != nil {
-		sess.sendBufferCh <- out
+	// enqueue server hello and all the other things a new session might need to live long and prosper
+	switch sess.serverType {
+	case control.ServerType_Control:
+		sess.sendBufferCh <- t.newServerHello()
+	case control.ServerType_Data:
+		sess.sendBufferCh <- t.newServerHello()
+		sess.sendBufferCh <- newSessionOut(sess.dsConfig)
+		sess.sendBufferCh <- newSessionOut(t.dataServers.Load())
+	case control.ServerType_Api:
+		sess.sendBufferCh <- t.newServerHello()
+		sess.sendBufferCh <- newSessionOut(sess.asConfig)
+		sess.sendBufferCh <- newSessionOut(t.dataServers.Load())
+		sess.sendBufferCh <- newSessionOut(t.apiServers.Load())
 	}
 
 	for {
@@ -51,26 +61,10 @@ func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
 	}
 }
 
-func (t *Tracker) makeServerHello(sess *session) *control.SessionOut {
-	var out *control.SessionOut
-
-	switch sess.serverType {
-	case control.ServerType_Data:
-		out = newSessionOut(&control.HelloDataServer{
-			Timestamp:   hlc.Now(),
-			Config:      sess.dsConfig,
-			DataServers: t.dataServers.Load(),
-		})
-	case control.ServerType_Api:
-		out = newSessionOut(&control.HelloApiServer{
-			Timestamp:   hlc.Now(),
-			Config:      sess.asConfig,
-			DataServers: t.dataServers.Load(),
-			ApiServers:  t.apiServers.Load(),
-		})
-	}
-
-	return out
+func (t *Tracker) newServerHello() *control.SessionOut {
+	return newSessionOut(&control.HelloResponse{
+		HlcTimestamp: hlc.Now(),
+	})
 }
 
 func (s *session) trySend(out *control.SessionOut) {
@@ -104,10 +98,8 @@ func (s sessions) trySendServerType(out *control.SessionOut, serverType control.
 
 func newSessionOut(payload any) *control.SessionOut {
 	switch p := payload.(type) {
-	case *control.HelloDataServer:
-		return &control.SessionOut{Payload: &control.SessionOut_HelloDataServer{HelloDataServer: p}}
-	case *control.HelloApiServer:
-		return &control.SessionOut{Payload: &control.SessionOut_HelloApiServer{HelloApiServer: p}}
+	case *control.HelloResponse:
+		return &control.SessionOut{Payload: &control.SessionOut_Hello{Hello: p}}
 	case *control.DataServerConfig:
 		return &control.SessionOut{Payload: &control.SessionOut_DataServerConfig{DataServerConfig: p}}
 	case *control.ApiServerConfig:

@@ -8,7 +8,6 @@ import (
 	dclient "github.com/bcrusu/scout/internal/data/client"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/data/server/partitions"
-	"github.com/bcrusu/scout/internal/data/server/session"
 	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/data/server/storage/inmem"
 	"github.com/bcrusu/scout/internal/data/server/storage/rocksdb"
@@ -20,6 +19,7 @@ import (
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/register"
 	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/session"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
@@ -36,9 +36,10 @@ var (
 type Action string
 
 type Server struct {
-	config     config.Config
-	action     Action
-	components []utils.Lifecycle
+	config              config.Config
+	action              Action
+	components          []utils.Lifecycle
+	partitionController *partitions.Controller
 }
 
 func NewServer(action Action) *Server {
@@ -81,12 +82,12 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	metrics := metrics.New(n.config.Metrics, id)
-	session := session.New(id, n.config.RPC.Address, controlClient)
+	session := session.New(id, n.config.Session, controlClient)
 	dataClient := dclient.New(dclient.WithClusterName(id.ClusterName))
 	multiraft := n.buildMultiRaft()
 	db := n.buildDB()
-	partitionController := partitions.NewController(id, db, multiraft, dataClient)
-	dataService := NewDataService(partitionController)
+	n.partitionController = partitions.NewController(id, db, multiraft, dataClient)
+	dataService := NewDataService(n.partitionController)
 	rpcServer := rpc.NewServer(n.config.RPC, dataService, multiraft)
 	httpServer := http.NewServer(n.config.HTTP)
 
@@ -97,10 +98,12 @@ func (n *Server) Start(ctx context.Context) error {
 		dataClient,
 		multiraft,
 		db,
-		partitionController,
+		n.partitionController,
 		httpServer,
 		rpcServer,
 	}
+
+	session.SetStatusCallback(n.statusCallback)
 
 	return utils.LifecycleStart(ctx, log, n.components[1:]...)
 }
@@ -144,4 +147,10 @@ func (n *Server) buildDB() storage.DB {
 	}
 
 	return rocksdb.New()
+}
+
+func (n *Server) statusCallback() any {
+	return &control.DataServerStatus{
+		Replicas: n.partitionController.GetReplicaStatus(),
+	}
 }
