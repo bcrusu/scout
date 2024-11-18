@@ -52,6 +52,7 @@ type Config struct {
 	Register     Register            `yaml:"register"`
 	Session      session.Config      `yaml:"session"`
 	Transactions Transactions        `yaml:"transactions"`
+	ProxyMode    bool                `yaml:"proxyMode" default:"true"`
 	Metrics      metrics.Config      `yaml:"metrics"`
 	LogLevels    string              `yaml:"logLevels" default:"*:info"`
 	identityFile string
@@ -80,13 +81,21 @@ func (c *Config) prepare() error {
 		return errors.Wrap(err, "failed to set log levels")
 	}
 
+	if c.RPC.Address == "" {
+		c.RPC.Address = errors.Assert2(utils.GetBindAddress())
+	}
+
+	if c.HTTP.Address == "" {
+		c.HTTP.Address = errors.Assert2(utils.GetBindAddress())
+	}
+
 	if c.Register.Token == "GENERATE_RANDOM" {
 		c.Register.Token = uuid.New().String()
 	}
 
 	c.RPC.ClusterName = c.ClusterName
 	c.RPC.EnableHlc = false
-	c.Session.Address = c.RPC.Address
+	c.Session.Address = c.RPC.ListenAddress()
 
 	hlc.Set(hlc.New(c.Session.MaxTimeOffset))
 	return c.prepareDirs()

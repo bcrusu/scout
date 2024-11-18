@@ -32,6 +32,7 @@ type picker struct {
 }
 
 type balancerCfg struct {
+	proxyAddress      string
 	response          *api.DiscoverResponse
 	reconnectInterval time.Duration
 }
@@ -67,6 +68,12 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 
 	b.etag = cfg.response.ETag
 
+	if cfg.response.ProxyMode {
+		logLB.Debug("Running in proxy mode.", "proxy", cfg.proxyAddress)
+		return b.conn.Connect(cfg.proxyAddress)
+	}
+
+	logLB.Debug("Running in load-balanced mode.", "servers", cfg.response.Servers)
 	return b.conn.Connect(cfg.response.Servers...)
 }
 

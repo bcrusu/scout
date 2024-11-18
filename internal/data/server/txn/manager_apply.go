@@ -158,21 +158,33 @@ func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record,
 	case data.TxnStatus_Committed:
 		// idempotent calls
 		return status, nil, nil
-	case data.TxnStatus_Prepared, data.TxnStatus_Decided:
-		p.releaseLocks(prepared)
-		writes := p.buildWriteEntries(cmd.Timestamp, prepared.Txn)
-
-		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
-		// stores the list of participants to be able to recompose the txn results
-		// after the initial client call returns.
-		status.ParticipantPids = prepared.Txn.ParticipantPids
-
-		p.status[id] = status
-		p.meters.Running.Add(-1)
-		return status, writes, nil
+	case data.TxnStatus_Decided:
+		// the principal partition stores the txn decision...
+		if cmd.Timestamp != prepared.Decision.CommitTimestamp {
+			p.log.Error("Detected commit timestamp different than decision timestamp.")
+			return nil, nil, errors.InvalidRequest
+		}
+	case data.TxnStatus_Prepared:
+		// ... while all other participant partitions follow the decision
+		if cmd.Timestamp < status.Timestamp {
+			p.log.Error("Detected commit timestamp before prepared timestamp.")
+			return nil, nil, errors.InvalidRequest
+		}
 	default:
 		return nil, nil, errors.FailedPrecondition
 	}
+
+	p.releaseLocks(prepared)
+	writes := p.buildWriteEntries(cmd.Timestamp, prepared.Txn)
+
+	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
+	// stores the list of participants to be able to recompose the txn results
+	// after the initial client call returns.
+	status.ParticipantPids = prepared.Txn.ParticipantPids
+
+	p.status[id] = status
+	p.meters.Running.Add(-1)
+	return status, writes, nil
 }
 
 func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
@@ -235,6 +247,11 @@ func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, 
 		// prepared txn was marked as timedout by the watchdog
 		return status, nil
 	case data.TxnStatus_Prepared:
+		if cmd.Decision.CommitTimestamp < status.Timestamp {
+			p.log.Error("Detected commit timestamp before prepared timestamp.")
+			return nil, errors.InvalidRequest
+		}
+
 		prepared.Decision = cmd.Decision
 		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Decided)
 

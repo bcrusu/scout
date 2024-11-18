@@ -3,36 +3,37 @@ package main
 import (
 	"os"
 
+	"github.com/bcrusu/scout/internal/api/server"
 	"github.com/bcrusu/scout/internal/api/server/config"
 	"github.com/bcrusu/scout/internal/cmd"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
-func newRootCmd() *cobra.Command {
+func newCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:           "api",
 		Short:         "API server.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+		RunE: func(c *cobra.Command, args []string) error {
 			cfg, err := getConfig(c)
 			if err != nil {
 				return err
+			} else if err := config.Set(cfg); err != nil {
+				return err
 			}
 
-			return config.Set(cfg)
+			log := logging.New("api")
+			s := server.NewServer()
+			return utils.LifecycleRun(c.Context(), log, s)
 		},
 	}
 
 	cmd.AddCommonParameters(c)
-
-	c.AddCommand(
-		newJoinCmd(),
-		newStartCmd(),
-	)
 
 	return c
 }

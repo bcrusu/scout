@@ -4,7 +4,7 @@ go 1.23.0
 
 replace github.com/Jille/raft-grpc-transport => github.com/bcrusu/raft-grpc-transport v0.0.0-20241102133310-68fd1048393f
 
-replace github.com/linxGnu/grocksdb => ../grocksdb_fork
+replace github.com/linxGnu/grocksdb => github.com/bcrusu/grocksdb v0.0.0-20241115093056-fef3a46ad080
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2

@@ -1,0 +1,15 @@
+# Config options are defined in github.com/bcrusu/scouot/internal/control/server/config/config.go
+
+clusterName: demo
+dataDir: /scout/storage/
+bootstrap:
+  initialServers:
+    - control1:11001
+    - control2:11001
+    - control3:11001
+  partitionCount: 100
+partitions:
+  replicationFactor: 3
+logLevels: "*:info"
+metrics:
+  exportEndpoint: otelcol:4317

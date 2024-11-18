@@ -14,6 +14,7 @@ message DiscoverRequest {}
 
 message DiscoverResponse {
     string e_tag = 1;
-    repeated string servers = 2;
-    string service_config_json = 3;
+    bool proxy_mode = 2;
+    repeated string servers = 3;
+    string service_config_json = 4;
 }

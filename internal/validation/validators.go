@@ -18,6 +18,7 @@ var (
 		"positive":   positive,
 		"minItemLen": minItemLen,
 		"maxItemLen": maxItemLen,
+		"port":       port,
 	}
 )
 

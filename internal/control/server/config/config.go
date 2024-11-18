@@ -98,8 +98,8 @@ type TimeOffset struct {
 
 type Partitions struct {
 	ReplicationFactor      int           `yaml:"replicationFactor" default:"3" validate:"min:1"`
-	InitDelay              time.Duration `yaml:"initDelay" default:"1m" validate:"min:1s"`
-	RebalanceInterval      time.Duration `yaml:"rebalanceInterval" default:"1m" validate:"min:1s"`
+	InitDelay              time.Duration `yaml:"initDelay" default:"10s" validate:"min:1s"`
+	RebalanceInterval      time.Duration `yaml:"rebalanceInterval" default:"30s" validate:"min:1s"`
 	MaxJoining             int           `yaml:"maxJoining" default:"16" validate:"min:1"`
 	MaxJoiningForServer    int           `yaml:"maxJoiningForServer" default:"2" validate:"min:1"`
 	MaxJoiningForPartition int           `yaml:"maxJoiningForPartition" default:"1" validate:"min:1"`
@@ -120,6 +120,18 @@ func (c Config) Validate() error {
 func (c *Config) prepare() error {
 	if err := logging.SetLevels(c.LogLevels); err != nil {
 		return errors.Wrap(err, "failed to set log levels")
+	}
+
+	if c.RPC.Address == "" {
+		c.RPC.Address = errors.Assert2(utils.GetBindAddress())
+	}
+
+	if c.HTTP.Address == "" {
+		c.HTTP.Address = errors.Assert2(utils.GetBindAddress())
+	}
+
+	if c.Bootstrap != nil {
+		c.Bootstrap.InitialServers = errors.Assert2(utils.LookupHosts(c.Bootstrap.InitialServers...))
 	}
 
 	if c.Register != nil && c.Register.Token == "GENERATE_RANDOM" {

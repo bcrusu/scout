@@ -14,28 +14,86 @@ ScoutDB is a distributed key-value database.
 - Time travel queries
 - Automated replica rebalance and data streaming
 
-## Demo 
+## Building
 
-- TODO: build Docker images
+### Docker
 
-## Building locally
+Simply run `make docker_images` to build everything as Docker images. The process will take a few moments as it needs to download and compile the latest version of RocksDB, but once completed the following images will be added to the local Docker repository:
 
-Download and install [RocksDB](https://github.com/facebook/rocksdb):
- - https://github.com/facebook/rocksdb/releases
+- scout/control: the control plane server
+- scout/data: the data plane server
+- scout/api: the front-end API server
+- scout/admin: the admin CLI tool
 
-Or build from source:
- - https://github.com/facebook/rocksdb/blob/master/INSTALL.md
- - and don't forget to set the $LD_LIBRARY_PATH flag if you are using a custom build path.
+### Dev environment setup
 
-Configure CGO flags required by the `grocksdb` library:
- - https://github.com/linxGnu/grocksdb/blob/master/README.md#install
+Configure RocksDB:
+- check the official [install guide](https://github.com/facebook/rocksdb/blob/master/INSTALL.md) for the supported platforms and build options
+- download a recent [release](https://github.com/facebook/rocksdb/releases),
+- the minimum supported version is 9.x.x as it contains specific changes made for ScoutDB (TODO)
+- ensure that all dependencies listed in the install guide are available
+- and compile it using `make static_lib` or `make shared_lib`
+- or install using `make install-static` or `make install-shared`
 
-After RocksDB is configured, run the following commands to build the binaries:
+Then configure the [grocksdb](https://github.com/linxGnu/grocksdb) package:
+- set the CGO environment variables as [required](https://github.com/linxGnu/grocksdb/blob/master/README.md#install) 
+- and don't forget to set the $LD_LIBRARY_PATH flag if you are building as shared lib with a custom build path.
 
-- `go build github.com/bcrusu/scout/cmd/control` to build the control plane binary
+And lastly, build ScoutDB components:
+- `go build github.com/bcrusu/scout/cmd/control` to build the control plane server binary
 - `go build github.com/bcrusu/scout/cmd/data` to build the data store binary
 - `go build github.com/bcrusu/scout/cmd/api` builds the API binary
 - `go build github.com/bcrusu/scout/cmd/admin` builds the admin command
+
+For an example, check the [Dockerfile](Dockerfile) which builds RocksDB as static lib on Debian.
+
+## Demo
+
+The demo uses Docker Compose to bring up the following components:
+- ScoutDB control and data planes
+- ScoutDB API service
+- Nginx proxy
+- Observability stack: OpenTelemetry Collector, Grafana, Prometheus, and Jaeger
+- the demo bridge network
+
+To start the cluster:
+- first build the Docker images as described above,
+- then change to the *demo* dir, and
+- run `make start` which creates by default a cluster with:
+  - 3 control plane servers
+  - 10 data plane servers
+  - 3 api servers
+  - and boostraps it with 100 partitions and replication factor 3
+- later, when done run `make stop` to stop the containers and remove all persisted state
+
+To interact with the cluster:
+- run `go run demo.go` which starts writing and reading random data
+- check [Grafana](http://localhost:3000/dashboards/f/scout/) dashboards to see the live cluster activity
+- or use the admin command to query detailed info about the cluster:
+  - `docker run -it --network scout_default scout/admin` to run the admin CLI container attached to the demo network
+  - and from inside it run the `admin get` command to fetch details about the cluster, servers, partitions, and replicas:
+  - for example, `admin get replicas --server control1:11001` lists all replicas and their state:
+```
+-----+------+---------+--------------+-------+-------+--------+------------------+----------------------+----------------------+----------------------+
+|  #  | PART | REPLICA |    SERVER    | STATE | READY | LEADER | APPLIED/COMMITED |       CREATED        |      TRANSITION      |       UPDATED        |
++-----+------+---------+--------------+-------+-------+--------+------------------+----------------------+----------------------+----------------------+
+|   1 |    0 | p0_r1   | data_11 (11) | Voter | ✓     | ✗      | 30/30            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:31Z |
+|   2 |    0 | p0_r2   | data_13 (13) | Voter | ✓     | ✗      | 30/30            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:32Z |
+|   3 |    0 | p0_r3   | data_6 (6)   | Voter | ✓     | TRUE   | 30/30            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:33Z |
+|   4 |    1 | p1_r1   | data_10 (10) | Voter | ✓     | ✗      | 23/25            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:31Z |
+|   5 |    1 | p1_r2   | data_12 (12) | Voter | ✓     | TRUE   | 25/25            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:34Z |
+|   6 |    1 | p1_r3   | data_9 (9)   | Voter | ✓     | ✗      | 25/25            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:32Z |
+|   7 |    2 | p2_r1   | data_7 (7)   | Voter | ✓     | ✗      | 23/23            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:30Z |
+|   8 |    2 | p2_r2   | data_8 (8)   | Voter | ✓     | ✗      | 23/23            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:34Z |
+|   9 |    2 | p2_r3   | data_11 (11) | Voter | ✓     | TRUE   | 23/23            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:31Z |
+|  10 |    3 | p3_r1   | data_6 (6)   | Voter | ✓     | ✗      | 21/21            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:33Z |
+...
+```
+
+To modify the cluster configuration, update:
+- the [.env](demo/.env) file, and
+- the config files in [scout](demo/scout) dir,
+- then restart using `make restart` to apply the changes.
 
 ## Architecture
 

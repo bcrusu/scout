@@ -60,7 +60,7 @@ func (n *Server) Start(ctx context.Context) error {
 	case DoBootstrap:
 		bparams = &bootstrap.Params{
 			ClusterName:    n.config.ClusterName,
-			LocalAddress:   n.config.RPC.Address,
+			LocalAddress:   n.config.RPC.ListenAddress(),
 			InitialServers: n.config.Bootstrap.InitialServers,
 			PartitionCount: n.config.Bootstrap.PartitionCount,
 		}
@@ -139,7 +139,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store) (identity
 	params := register.Params{
 		ServerType:  control.ServerType_Control,
 		ClusterName: n.config.ClusterName,
-		Address:     n.config.RPC.Address,
+		Address:     n.config.RPC.ListenAddress(),
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}
@@ -158,10 +158,10 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 
 func (n *Server) buildMultiRaft() *multiraft.Multi {
 	if n.config.InMem {
-		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.Address)
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.ListenAddress())
 	}
 
-	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.Address)
+	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.ListenAddress())
 }
 
 func (n *Server) buildStore(id identity.Identity, multi *multiraft.Multi) (storage.Store, error) {

@@ -3,7 +3,6 @@ package client
 import (
 	"time"
 
-	"github.com/bcrusu/scout/internal/discovery"
 	"google.golang.org/grpc"
 )
 
@@ -11,7 +10,7 @@ type Option func(*options)
 
 type options struct {
 	clusterName       string
-	discovery         discovery.Discovery
+	address           string
 	dialOptions       []grpc.DialOption
 	resolveInterval   time.Duration
 	resolveThrottle   time.Duration
@@ -33,10 +32,10 @@ func WithClusterName(clusterName string) Option {
 	}
 }
 
-// WithDiscovery sets the connecton target.
-func WithDiscovery(discovery discovery.Discovery) Option {
+// WithAddress sets the connecton address.
+func WithAddress(address string) Option {
 	return func(o *options) {
-		o.discovery = discovery
+		o.address = address
 	}
 }
 

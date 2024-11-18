@@ -11,7 +11,7 @@ import (
 
 func main() {
 	cobra.EnableTraverseRunHooks = true
-	cmd := newRootCmd()
+	cmd := newCmd()
 	ctx := context.Background()
 	log := logging.New("main")
 

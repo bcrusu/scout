@@ -111,13 +111,21 @@ func (c *Config) prepare() error {
 		return errors.Wrap(err, "failed to set log levels")
 	}
 
+	if c.RPC.Address == "" {
+		c.RPC.Address = errors.Assert2(utils.GetBindAddress())
+	}
+
+	if c.HTTP.Address == "" {
+		c.HTTP.Address = errors.Assert2(utils.GetBindAddress())
+	}
+
 	if c.Register.Token == "GENERATE_RANDOM" {
 		c.Register.Token = uuid.New().String()
 	}
 
 	c.RPC.ClusterName = c.ClusterName
 	c.RPC.EnableHlc = true
-	c.Session.Address = c.RPC.Address
+	c.Session.Address = c.RPC.ListenAddress()
 
 	hlc.Set(hlc.New(c.Session.MaxTimeOffset))
 	return c.prepareDirs()

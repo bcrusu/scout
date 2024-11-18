@@ -165,12 +165,10 @@ func (r *resolverImpl) createClient() (*rpc.Conn, api.ServiceClient) {
 }
 
 func (r *resolverImpl) updateState(resp *api.DiscoverResponse) error {
-	if len(resp.Servers) == 0 {
-		return errors.Error("Discover returned empty response")
+	if !resp.ProxyMode && len(resp.Servers) > 0 {
+		// update discovery target with latest servers
+		r.discoveryTarget = routing.FormatTargetStatic(resp.Servers...)
 	}
-
-	// update discovery target with latest servers
-	r.discoveryTarget = routing.FormatTargetStatic(resp.Servers...)
 
 	parseResult := r.clientConn.ParseServiceConfig(resp.ServiceConfigJson)
 	if parseResult.Err != nil {
@@ -178,6 +176,7 @@ func (r *resolverImpl) updateState(resp *api.DiscoverResponse) error {
 	}
 
 	cfg := balancerCfg{
+		proxyAddress:      r.options.address,
 		response:          resp,
 		reconnectInterval: r.options.reconnectInterval,
 	}

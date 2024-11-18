@@ -1,3 +1,5 @@
+name: scout
+
 x-default-logging: &logging
   driver: "json-file"
   options:
@@ -7,13 +9,80 @@ x-default-logging: &logging
 
 networks:
   default:
-    name: scout-demo
     driver: bridge
 
 services:
+  control1: &control
+    image: ${SCOUT_CONTROL_IMAGE}
+    hostname: control1
+    restart: unless-stopped
+    command:
+      - bootstrap
+      - "--config-file=/scout/config.yaml"
+    volumes:
+      - ./scout/config-control.yaml:/scout/config.yaml
+    logging: *logging
+    depends_on:
+      - otelcol
+
+  control2:
+    <<: *control
+    hostname: control2
+
+  control3:
+    <<: *control
+    hostname: control3
+
+  data:
+    image: ${SCOUT_DATA_IMAGE}
+    restart: unless-stopped
+    command:
+      - "--config-file=/scout/config.yaml"
+    volumes:
+      - ./scout/config-data.yaml:/scout/config.yaml
+    logging: *logging
+    depends_on:
+      - otelcol
+      - control1
+      - control2
+      - control3
+    deploy:
+      mode: replicated
+      replicas: ${SCOUT_DATA_REPLICAS}
+
+  api:
+    image: ${SCOUT_API_IMAGE}
+    restart: unless-stopped
+    command:
+      - "--config-file=/scout/config.yaml"
+    volumes:
+      - ./scout/config-api.yaml:/scout/config.yaml
+    ports:
+      - ${SCOUT_API_PORT}
+    logging: *logging
+    depends_on:
+      - otelcol
+      - control1
+      - control2
+      - control3
+    deploy:
+      mode: replicated
+      replicas: ${SCOUT_API_REPLICAS}
+      endpoint_mode: vip
+
+  nginx:
+    image: ${NGINX_IMAGE}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - ${NGINX_PORT}:${NGINX_PORT}
+    logging: *logging
+    depends_on:
+      - api
+
   otelcol:
     image: ${OTEL_COLLECTOR_IMAGE}
-    container_name: otelcol
+    hostname: otelcol
     deploy:
       resources:
         limits:
@@ -24,8 +93,8 @@ services:
     volumes:
       - ./otelcollector/otelcol-config.yaml:/etc/otelcol-config.yaml
     ports:
-      - "${OTEL_COLLECTOR_PORT_GRPC}:${OTEL_COLLECTOR_PORT_GRPC}"
-      - "${OTEL_COLLECTOR_PORT_HTTP}:${OTEL_COLLECTOR_PORT_HTTP}"
+      - ${OTEL_COLLECTOR_PORT_GRPC}:${OTEL_COLLECTOR_PORT_GRPC}
+      - ${OTEL_COLLECTOR_PORT_HTTP}:${OTEL_COLLECTOR_PORT_HTTP}
     depends_on:
       jaeger:
         condition: service_started
@@ -37,7 +106,7 @@ services:
 
   jaeger:
     image: ${JAEGER_IMAGE}
-    container_name: jaeger
+    hostname: jaeger
     command:
       - "--memory.max-traces=1000"
       - "--query.base-path=/jaeger/ui"
@@ -50,15 +119,15 @@ services:
           memory: 100M
     restart: unless-stopped
     ports:
-      - "${JAEGER_SERVICE_PORT}"
-      - "${OTEL_COLLECTOR_PORT_GRPC}"
+      - ${JAEGER_SERVICE_PORT}
+      - ${OTEL_COLLECTOR_PORT_GRPC}
     environment:
       - METRICS_STORAGE_TYPE=prometheus
     logging: *logging
 
   grafana:
     image: ${GRAFANA_IMAGE}
-    container_name: grafana
+    hostname: grafana
     deploy:
       resources:
         limits:
@@ -68,12 +137,12 @@ services:
       - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/provisioning/:/etc/grafana/provisioning/
     ports:
-      - "${GRAFANA_SERVICE_PORT}:${GRAFANA_SERVICE_PORT}"
+      - ${GRAFANA_SERVICE_PORT}:${GRAFANA_SERVICE_PORT}
     logging: *logging
 
   prometheus:
     image: ${PROMETHEUS_IMAGE}
-    container_name: prometheus
+    hostname: prometheus
     command:
       - --web.console.templates=/etc/prometheus/consoles
       - --web.console.libraries=/etc/prometheus/console_libraries
@@ -93,5 +162,5 @@ services:
           memory: 300M
     restart: unless-stopped
     ports:
-      - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
+      - ${PROMETHEUS_SERVICE_PORT}
     logging: *logging

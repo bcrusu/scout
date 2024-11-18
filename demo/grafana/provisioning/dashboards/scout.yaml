@@ -3,6 +3,7 @@ providers:
   - name: 'Scout'
     orgId: 1
     folder: 'scout'
+    folderUid: 'scout'
     type: file
     disableDeletion: true
     editable: true

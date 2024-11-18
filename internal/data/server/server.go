@@ -23,29 +23,20 @@ import (
 	"github.com/bcrusu/scout/internal/utils"
 )
 
-const (
-	DoStart    Action = "start"
-	DoRegister Action = "register"
-)
-
 var (
 	_   utils.Lifecycle = (*Server)(nil)
 	log                 = logging.New("server")
 )
 
-type Action string
-
 type Server struct {
 	config              config.Config
-	action              Action
 	components          []utils.Lifecycle
 	partitionController *partitions.Controller
 }
 
-func NewServer(action Action) *Server {
+func NewServer() *Server {
 	return &Server{
 		config: config.Get(),
-		action: action,
 	}
 }
 
@@ -64,21 +55,14 @@ func (n *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	var id identity.Identity
-
-	switch n.action {
-	case DoRegister:
+	id, ok := idStore.Get()
+	if !ok {
 		id, err = n.register(ctx, idStore, controlClient)
 		if err != nil {
 			return err
 		}
-	default:
-		var ok bool
-		if id, ok = idStore.Get(); ok {
-			return errors.Error("server identity not found; must join a cluster first.")
-		} else if id.ClusterName != n.config.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
-		}
+	} else if id.ClusterName != n.config.ClusterName {
+		return errors.Errorf("config cluster name differs from identity cluster name %s", id.ClusterName)
 	}
 
 	metrics := metrics.New(n.config.Metrics, id)
@@ -116,7 +100,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store, controlCl
 	params := register.Params{
 		ServerType:  control.ServerType_Data,
 		ClusterName: n.config.ClusterName,
-		Address:     n.config.RPC.Address,
+		Address:     n.config.RPC.ListenAddress(),
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}
@@ -135,10 +119,10 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 
 func (n *Server) buildMultiRaft() *multiraft.Multi {
 	if n.config.InMem {
-		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.Address)
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.ListenAddress())
 	}
 
-	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.Address)
+	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.ListenAddress())
 }
 
 func (n *Server) buildDB() storage.DB {

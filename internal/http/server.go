@@ -18,7 +18,8 @@ var (
 
 // ServerConfig is the HTTP server configuration.
 type ServerConfig struct {
-	Address           string        `yaml:"address" validate:"required,minLen:2,maxLen:128"`
+	Address           string        `yaml:"address" validate:"maxLen:128"`
+	Port              int           `yaml:"port" default:"8080" validate:"required,port"`
 	ReadTimeout       time.Duration `yaml:"readTimeout" default:"10s" validate:"positive"`
 	ReadHeaderTimeout time.Duration `yaml:"readHeaderTimeout" default:"3s" validate:"positive"`
 	WriteTimeout      time.Duration `yaml:"writeTimeout" default:"10s" validate:"positive"`
@@ -44,7 +45,7 @@ func NewServer(config ServerConfig) *Server {
 	}
 
 	server := &http.Server{
-		Addr:              config.Address,
+		Addr:              utils.JoinHostPort(config.Address, config.Port),
 		Handler:           r,
 		ReadTimeout:       config.ReadTimeout,
 		ReadHeaderTimeout: config.ReadHeaderTimeout,

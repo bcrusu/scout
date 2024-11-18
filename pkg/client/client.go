@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 
+	"github.com/bcrusu/scout/internal/discovery"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/utils"
@@ -49,12 +50,12 @@ func (c *client) Start(ctx context.Context) error {
 		return nil
 	} else if c.opts.clusterName == "" {
 		return errors.Error("missing cluster name")
-	} else if err := c.opts.discovery.Validate(); err != nil {
-		return err
+	} else if c.opts.address == "" {
+		return errors.Error("missing address")
 	}
 
 	config := rpc.ConnConfig{
-		Target:      c.opts.discovery.Target(),
+		Target:      discovery.Servers(c.opts.address).Target(),
 		ClusterName: c.opts.clusterName,
 		EnableHlc:   false,
 	}

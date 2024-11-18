@@ -6,21 +6,11 @@ import (
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc/routing"
-	"github.com/bcrusu/scout/internal/validation"
 )
 
 const (
 	Scheme = "scout"
 )
-
-var (
-	_ validation.CanValidate = (*Discovery)(nil)
-)
-
-type Discovery struct {
-	Servers []string `yaml:"servers"`
-	DNS     string   `yaml:"dns"`
-}
 
 // String returns the corresponding gRPC target string.
 func (d Discovery) Target() string {
@@ -46,16 +36,6 @@ func (d Discovery) getTarget() string {
 		target = "dns:" + target
 	}
 	return target
-}
-
-func (d Discovery) Validate() error {
-	if len(d.Servers) > 0 && d.DNS != "" {
-		return errors.Error("multiple discovery methods are not supported")
-	}
-	if len(d.Servers) == 0 && d.DNS == "" {
-		return errors.Error("is empty")
-	}
-	return nil
 }
 
 // GetDiscoveryTarget parses the URL to extract discovery target.
