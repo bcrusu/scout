@@ -1,0 +1,29 @@
+{
+  "name": "scout_bridge",
+  "cniVersion": "1.1.0",
+  "plugins": [
+    {
+      "type": "bridge",
+      "bridge": "scout-br0",
+      "isDefaultGateway": true,
+      "forceAddress": false,
+      "ipMasq": true,
+      "hairpinMode": true,
+      "mtu": 1500,
+      "ipam": {
+        "type": "host-local",
+        "subnet": "192.168.13.0/24",
+        "resolvConf": "/etc/resolv.conf"
+      }
+    },
+    {
+      "type": "firewall"
+    },
+    {
+      "type": "tc-redirect-tap"
+    },
+    {
+      "type": "loopback"
+    }
+  ]
+}

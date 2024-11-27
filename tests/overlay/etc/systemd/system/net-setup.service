@@ -1,0 +1,5 @@
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/net-setup.sh
+[Install]
+WantedBy=sshd.service

@@ -8,12 +8,12 @@ import (
 )
 
 const (
+	LevelOff   = Level(-1000)
 	LevelTrace = Level(-8)
 	LevelDebug = Level(slog.LevelDebug)
 	LevelInfo  = Level(slog.LevelInfo)
 	LevelWarn  = Level(slog.LevelWarn)
 	LevelError = Level(slog.LevelError)
-	LevelOff   = Level(100)
 )
 
 type Level = slog.Level

@@ -5,7 +5,7 @@ ARG GOLANG_IMAGE=golang:1.23.3-bookworm
 ###################################################################
 # RocksDB builder
 ###################################################################
-FROM ${DEBIAN_IMAGE} as rocksdb_builder
+FROM ${DEBIAN_IMAGE} AS rocksdb_builder
 ARG J=7
 WORKDIR /rocksdb/
 
@@ -76,7 +76,7 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 ###################################################################
 # Scout base image
 ###################################################################
-FROM ${BASE_IMAGE} as scout_base
+FROM ${BASE_IMAGE} AS scout_base
 ARG SCOUT_UID="888"
 ARG SCOUT_GID="888"
 ARG SCOUT_DIR="/scout"
@@ -100,18 +100,18 @@ EXPOSE 8080
 ###################################################################
 # Scout images
 ###################################################################
-FROM scout_base as scout_control
+FROM scout_base AS scout_control
 COPY --from=scout_builder /go/bin/control /scout
 ENTRYPOINT [ "/scout/control" ]
 
-FROM scout_base as scout_data
+FROM scout_base AS scout_data
 COPY --from=scout_builder /go/bin/data /scout
 ENTRYPOINT [ "/scout/data" ]
 
-FROM scout_base as scout_api
+FROM scout_base AS scout_api
 COPY --from=scout_builder /go/bin/api /scout
 ENTRYPOINT [ "/scout/api" ]
 
-FROM scout_base as scout_admin
+FROM scout_base AS scout_admin
 ENV PATH="$PATH:/scout/"
 COPY --from=scout_builder /go/bin/admin /scout

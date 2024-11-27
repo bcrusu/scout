@@ -1,0 +1,21 @@
+{
+  "name": "scout_ptp",
+  "cniVersion": "1.1.0",
+  "plugins": [
+    {
+      "type": "ptp",
+      "ipMasq": true,
+      "ipam": {
+        "type": "host-local",
+        "subnet": "192.168.13.0/24",
+        "resolvConf": "/etc/resolv.conf"
+      }
+    },
+    {
+      "type": "firewall"
+    },
+    {
+      "type": "tc-redirect-tap"
+    }
+  ]
+}

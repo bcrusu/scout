@@ -51,6 +51,15 @@ func IsAny(err error, others ...error) bool {
 	return false
 }
 
+// As finds the first error in err's tree that matches target.
+func As[T error](err error) (T, bool) {
+	var target T
+	if errors.As(err, &target) {
+		return target, true
+	}
+	return target, false
+}
+
 // Assert stops the show right quick when err != nil.
 func Assert(err error) {
 	if err != nil {
