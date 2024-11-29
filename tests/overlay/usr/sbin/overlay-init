@@ -1,0 +1,31 @@
+#!/bin/sh
+
+mount_workfs() {
+    local workfs_dev="/dev/vdc"
+    local workfs_dir="/workfs"
+    local root_dir=$workfs_dir/root
+    local work_dir=$workfs_dir/work
+
+    mount -t ext4 $workfs_dev $workfs_dir
+    mkdir -p $root_dir $work_dir
+
+    mount \
+	-o noatime,lowerdir=/,upperdir=$root_dir,workdir=$work_dir \
+	-t overlay "overlayfs:$root_dir" /mnt
+
+    pivot_root /mnt /mnt/old_root
+}
+
+# The $scout_hostname env var is injected via a kernel arg
+set_hostname() {
+    if [ -n "$scout_hostname" ]; then
+        echo "$scout_hostname" > /etc/hostname
+        hostname $scout_hostname
+    fi
+}
+
+mount_workfs
+set_hostname
+
+# invoke systemd
+exec /usr/sbin/init $@

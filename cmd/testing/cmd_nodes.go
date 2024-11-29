@@ -39,8 +39,9 @@ func newNodesCmd() *cobra.Command {
 
 	c.PersistentFlags().String("work-dir", "", "Current dir if not specified.")
 	c.PersistentFlags().String("kernel-image", "vmlinux-6.1.102", "Kernel image found in work/downloads dir.")
-	c.PersistentFlags().String("kernel-args", "reboot=k panic=1 pci=off", "Kernel args.") // TODO init=/sbin/overlay-init
+	c.PersistentFlags().String("kernel-args", "reboot=k panic=1 pci=off", "Kernel args.")
 	c.PersistentFlags().String("rootfs", "rootfs.ext4", "Root filesystem (read-only).")
+	c.PersistentFlags().String("scoutfs", "scoutfs.ext4", "Scout filesystem (read-only).")
 	c.PersistentFlags().String("workfs", "workfs.ext4", "Work filesystem (read-write).")
 	c.PersistentFlags().String("cni-network", "scout_bridge", "CNI network name.")
 	c.PersistentFlags().Int("node-cpu", 2, "Node CPU count.")
@@ -70,6 +71,7 @@ func GetNodesConfig(c *cobra.Command) (nodes.Config, error) {
 
 	kernelImage := path.Join(workDir, "downloads", errors.Assert2(c.Flags().GetString("kernel-image")))
 	rootFS := path.Join(workDir, errors.Assert2(c.Flags().GetString("rootfs")))
+	scoutFS := path.Join(workDir, errors.Assert2(c.Flags().GetString("scoutfs")))
 	workFS := path.Join(workDir, errors.Assert2(c.Flags().GetString("workfs")))
 
 	nodeCPU := errors.Assert2(c.Flags().GetInt("node-cpu"))
@@ -90,7 +92,7 @@ func GetNodesConfig(c *cobra.Command) (nodes.Config, error) {
 		return nodes.Config{}, err
 	}
 
-	if err := pathMustExist(false, kernelImage, rootFS, workFS); err != nil {
+	if err := pathMustExist(false, kernelImage, rootFS, scoutFS, workFS); err != nil {
 		return nodes.Config{}, err
 	}
 
@@ -99,6 +101,7 @@ func GetNodesConfig(c *cobra.Command) (nodes.Config, error) {
 		KernelImage: kernelImage,
 		KernelArgs:  errors.Assert2(c.Flags().GetString("kernel-args")),
 		RootFS:      rootFS,
+		ScoutFS:     scoutFS,
 		WorkFS:      workFS,
 		NodeCPU:     nodeCPU,
 		NodeMemory:  nodeMemory,

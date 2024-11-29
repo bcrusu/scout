@@ -8,8 +8,8 @@ import (
 
 func newNodesStopCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "stop",
-		Short: "Stop the specified nodes.",
+		Use:   "stop [ID]...",
+		Short: "Stop all or only the the specified nodes.",
 		RunE: func(c *cobra.Command, args []string) error {
 			config, err := GetNodesConfig(c)
 			if err != nil {

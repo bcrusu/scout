@@ -49,12 +49,17 @@ $(WORK)/firecracker:
 # ext4 filesystems
 ########################################################
 
-fs: $(WORK)/rootfs.ext4 $(WORK)/workfs.ext4
+fs: $(WORK)/rootfs.ext4 $(WORK)/scoutfs.ext4 $(WORK)/workfs.ext4
 
 $(WORK)/rootfs.ext4: $(WORK)/id_rsa
 	@set -eux; \
     truncate -s 1024M $(WORK)/rootfs.ext4; \
 	docker build --target rootfs_builder --output type=tar,dest=- . | mkfs.ext4 -F $(WORK)/rootfs.ext4 -d -;
+
+$(WORK)/scoutfs.ext4:
+	@set -eux; \
+    truncate -s 100M $(WORK)/scoutfs.ext4; \
+	docker build --target scoutfs_builder --output type=tar,dest=- . | mkfs.ext4 -F $(WORK)/scoutfs.ext4 -d -;
 
 $(WORK)/workfs.ext4:
 	@set -eux; \
@@ -80,8 +85,8 @@ $(WORK)/cni_bin/tc-redirect-tap: $(DOWNLOADS)/tc-redirect-tap
 	cd $(DOWNLOADS)/tc-redirect-tap; \
 	go build -o $(WORK)/cni_bin/ github.com/awslabs/tc-redirect-tap/cmd/tc-redirect-tap;
 
-$(WORK)/cni_conf: cni_conf
-	cp -r cni_conf $(WORK)/cni_conf
+$(WORK)/cni_conf: $(PWD)/cni_conf
+	ln -s $(PWD)/cni_conf $(WORK)/cni_conf
 
 ########################################################
 # Some quick smoke tests:
@@ -93,6 +98,7 @@ MASK_SHORT="/30"
 FC_CONFIG=fc.config
 FC_SOCKET=/tmp/firecracker.socket
 FC_LOG=/tmp/firecracker.log
+FC_WORKFS=/tmp/firecracker.ext4
 
 setup_net:
 	@set -eux; \
@@ -102,9 +108,9 @@ setup_net:
 	sudo ip addr add "$(TAP_IP)$(MASK_SHORT)" dev "$(TAP_DEV)"; \
 	sudo ip link set dev "$(TAP_DEV)" up;
 
-start_fc:
+start_fc: fs
 	@set -eux; \
-	sudo rm -f $(FC_LOG); \
-	sudo rm -f $(FC_SOCKET); \
+	sudo rm -f $(FC_LOG) $(FC_SOCKET) $(FC_WORKFS); \
 	sudo touch $(FC_LOG); \
-	sudo $(WORK)/firecracker --api-sock $(FC_SOCKET) --config-file $(FC_CONFIG)
+	sudo cp $(WORK)/workfs.ext4 $(FC_WORKFS); \
+	sudo $(WORK)/firecracker --api-sock $(FC_SOCKET) --config-file $(FC_CONFIG);

@@ -8,8 +8,8 @@ import (
 
 func newNodesStartCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "start",
-		Short: "Start the specified nodes.",
+		Use:   "start [ID]...",
+		Short: "Start all or only the the specified nodes.",
 		RunE: func(c *cobra.Command, args []string) error {
 			config, err := GetNodesConfig(c)
 			if err != nil {

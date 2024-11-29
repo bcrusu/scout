@@ -1,5 +1,5 @@
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/net-setup.sh
+ExecStart=/usr/local/bin/scout-setup.sh
 [Install]
 WantedBy=sshd.service

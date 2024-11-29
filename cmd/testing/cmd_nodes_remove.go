@@ -8,8 +8,8 @@ import (
 
 func newNodesRemoveCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "rm",
-		Short: "Remove nodes.",
+		Use:   "rm [ID]...",
+		Short: "Remove all or only the specified nodes.",
 		RunE: func(c *cobra.Command, args []string) error {
 			config, err := GetNodesConfig(c)
 			if err != nil {

@@ -16,11 +16,12 @@ RUN set -eux; \
     echo "scout" > /etc/hostname; \
     passwd -d root; \
     mkdir -p /etc/systemd/system/sysinit.target.wants; \
-    ln -s /etc/systemd/system/net-setup.service /etc/systemd/system/sysinit.target.wants/net-setup.service; \
+    ln -s /etc/systemd/system/scout-setup.service /etc/systemd/system/sysinit.target.wants/scout-setup.service; \
     ln -s /usr/share/systemd/tmp.mount /etc/systemd/system/tmp.mount; \
     systemctl enable tmp.mount; \
     systemctl disable e2scrub_reap.service; \
-    rm -vf /etc/systemd/system/timers.target.wants/*;
+    rm -vf /etc/systemd/system/timers.target.wants/*; \
+    mkdir -p /old_root /workfs /scout;
 
 # Dependencies required by Jepsen
 # Listed at: https://github.com/jepsen-io/jepsen/blob/main/jepsen/src/jepsen/os/debian.clj#L165
@@ -52,8 +53,10 @@ RUN set -eux; \
         unzip \
         vim \
         wget; \
-    rm -rf /var/lib/apt/lists/*;
+    rm -rf /var/lib/apt/lists /usr/share/doc /var/cache/apt/archives; 
 
-COPY --from=scout/control:latest /scout/control /scout/control
-COPY --from=scout/data:latest /scout/data /scout/data
-COPY --from=scout/api:latest /scout/api /scout/api
+FROM scratch AS scoutfs_builder
+
+COPY --from=scout/control:latest /scout/control /control
+COPY --from=scout/data:latest /scout/data /data
+COPY --from=scout/api:latest /scout/api /api

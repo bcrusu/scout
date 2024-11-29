@@ -1,6 +1,8 @@
 package nodes
 
 import (
+	"fmt"
+
 	"github.com/bcrusu/scout/internal/utils"
 	sdk "github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
@@ -11,6 +13,7 @@ type Config struct {
 	KernelImage string
 	KernelArgs  string
 	RootFS      string
+	ScoutFS     string
 	WorkFS      string
 	NodeCPU     int
 	NodeMemory  int
@@ -27,7 +30,7 @@ func (n Config) GetNodeConfig(node Node) sdk.Config {
 		LogPath:         node.LogPath,
 		LogLevel:        "Info",
 		KernelImagePath: n.KernelImage,
-		KernelArgs:      n.KernelArgs,
+		KernelArgs:      n.getKernelArgs(node),
 		MachineCfg: models.MachineConfiguration{
 			VcpuCount:       utils.PointerOf(int64(n.NodeCPU)),
 			MemSizeMib:      utils.PointerOf(int64(n.NodeMemory)),
@@ -41,14 +44,20 @@ func (n Config) GetNodeConfig(node Node) sdk.Config {
 				PathOnHost:   utils.PointerOf(n.RootFS),
 				IoEngine:     utils.PointerOf("Async"),
 			},
-			// TODO
-			// {
-			// 	DriveID:      utils.PointerOf("workfs"),
-			// 	IsRootDevice: utils.PointerOf(false),
-			// 	IsReadOnly:   utils.PointerOf(false),
-			// 	PathOnHost:   utils.PointerOf(n.WorkFS),
-			// 	IoEngine:     utils.PointerOf("Async"),
-			// },
+			{
+				DriveID:      utils.PointerOf("scoutfs"),
+				IsRootDevice: utils.PointerOf(false),
+				IsReadOnly:   utils.PointerOf(true),
+				PathOnHost:   utils.PointerOf(n.ScoutFS),
+				IoEngine:     utils.PointerOf("Async"),
+			},
+			{
+				DriveID:      utils.PointerOf("workfs"),
+				IsRootDevice: utils.PointerOf(false),
+				IsReadOnly:   utils.PointerOf(false),
+				PathOnHost:   utils.PointerOf(n.WorkFS),
+				IoEngine:     utils.PointerOf("Async"),
+			},
 		},
 		NetworkInterfaces: sdk.NetworkInterfaces{
 			{
@@ -62,4 +71,9 @@ func (n Config) GetNodeConfig(node Node) sdk.Config {
 			},
 		},
 	}
+}
+
+// sets custom kernel args to be used during VM init script
+func (n Config) getKernelArgs(node Node) string {
+	return fmt.Sprintf("%s init=/sbin/overlay-init scout_hostname=%s", n.KernelArgs, node.ID)
 }

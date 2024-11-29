@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strconv"
+
 	"github.com/bcrusu/scout/cmd/testing/nodes"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/spf13/cobra"
@@ -8,7 +10,7 @@ import (
 
 func newNodesAddCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "add",
+		Use:   "add COUNT",
 		Short: "Add nodes.",
 		RunE: func(c *cobra.Command, args []string) error {
 			config, err := GetNodesConfig(c)
@@ -16,18 +18,22 @@ func newNodesAddCmd() *cobra.Command {
 				return err
 			}
 
-			count, err := c.Flags().GetInt("count")
+			if len(args) != 1 {
+				return errors.Error("expected a single count arg")
+			}
+
+			count, err := strconv.ParseInt(args[0], 10, 64)
 			if err != nil {
-				return err
-			} else if count < 1 || count > 10 {
+				return errors.Error("could not parse count arg")
+			}
+
+			if count < 1 || count > 10 {
 				return errors.Error("invalid count value")
 			}
 
-			return nodes.AddNodes(config, count)
+			return nodes.AddNodes(config, int(count))
 		},
 	}
-
-	c.PersistentFlags().Int("count", 1, "Nodes to add.")
 
 	return c
 }
