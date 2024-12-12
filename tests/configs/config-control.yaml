@@ -1,0 +1,16 @@
+# Config options are defined in github.com/bcrusu/scouot/internal/control/server/config/config.go
+
+clusterName: will_be_set_at_runtime 
+dataDir: /storage/data/
+bootstrap:
+  initialServers:
+    - address: will_be_set_at_runtime
+  retryBackoff:
+      minDelay: 100ms
+      maxDelay: 2s
+      jitter: 0.15
+      multiplier: 1.75
+  partitionCount: 10
+partitions:
+  replicationFactor: 3
+logLevels: "*:info,hraft:error,rpc_logger:error"

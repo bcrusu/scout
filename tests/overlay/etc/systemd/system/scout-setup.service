@@ -1,5 +1,6 @@
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/scout-setup.sh
+
 [Install]
-WantedBy=sshd.service
+WantedBy=sysinit.target

@@ -1,0 +1,14 @@
+[Unit]
+After=scout-setup.service
+
+[Service]
+Type=exec
+Restart=always
+RestartSec=1
+User=scout
+Group=scout
+StandardOutput=append:/storage/scout.log
+ExecStart=/scout/%i --config-file=/storage/config.yaml
+
+[Install]
+WantedBy=sysinit.target

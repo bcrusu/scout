@@ -17,7 +17,6 @@ services:
     hostname: control1
     restart: unless-stopped
     command:
-      - bootstrap
       - "--config-file=/scout/config.yaml"
     volumes:
       - ./scout/config-control.yaml:/scout/config.yaml

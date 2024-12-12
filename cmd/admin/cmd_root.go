@@ -5,6 +5,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc"
 	"github.com/bcrusu/scout/internal/rpc/routing"
+	"github.com/bcrusu/scout/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,8 @@ func newConn(c *cobra.Command) (*rpc.Conn, error) {
 	} else if server == "" {
 		return nil, errors.Error("missing server flag")
 	}
+
+	server = utils.EnsureAddressPort(server, rpc.DefaultPort)
 
 	target := routing.FormatTargetStatic(server)
 	conn := rpc.NewAdminConn(target)

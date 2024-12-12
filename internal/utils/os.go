@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"strings"
 
 	"github.com/bcrusu/scout/internal/errors"
 )
@@ -32,5 +33,38 @@ func MkdirAll(path string) error {
 	} else if !exists {
 		return os.MkdirAll(path, 0755)
 	}
+	return nil
+}
+
+// EnsureFile creates an empty file if it does not already exist.
+func EnsureFile(filePath string) error {
+	if file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644); err != nil {
+		return errors.Wrapf(err, "failed to open file %s", filePath)
+	} else if err := file.Close(); err != nil {
+		return errors.Wrapf(err, "faild to close file %s", filePath)
+	}
+	return nil
+}
+
+// EnsureEnvPath adds the target path to the PATH env variable.
+func EnsureEnvPath(targetPath string) error {
+	path := os.Getenv("PATH")
+	set := MakeSet(strings.Split(path, ":"))
+
+	if set[targetPath] {
+		return nil
+	}
+
+	var newPath string
+	if path == "" {
+		newPath = targetPath
+	} else {
+		newPath = path + ":" + targetPath
+	}
+
+	if err := os.Setenv("PATH", newPath); err != nil {
+		return errors.Wrap(err, "failed to set PATH")
+	}
+
 	return nil
 }

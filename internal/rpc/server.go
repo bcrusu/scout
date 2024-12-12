@@ -14,6 +14,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const (
+	DefaultPort = 11001
+)
+
 var (
 	_     utils.Lifecycle = (*Server)(nil)
 	logRS                 = logging.New("rpc_server")
@@ -22,13 +26,12 @@ var (
 // ServerConfig is the gRPC server configuration.
 type ServerConfig struct {
 	Address              string        `yaml:"address" validate:"maxLen:128"`
-	Port                 int           `yaml:"port" default:"11001" validate:"required,port"`
 	ConnectionTimeout    time.Duration `yaml:"connectionTimeout" default:"5s" validate:"positive"`
 	ShutdownTimeout      time.Duration `yaml:"shutdownTimeout" default:"5s" validate:"positive"`
 	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
 	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB" validate:"min:1KB"`
-	ClusterName          string
-	EnableHlc            bool // API servers do not require HLC checks
+	ClusterName          string        `yaml:"-"`
+	EnableHlc            bool          `yaml:"-"` // API servers do not require HLC checks
 }
 
 // Server represents the gRPC server.
@@ -88,7 +91,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 
 // Start the server.
 func (s *Server) Start(ctx context.Context) error {
-	listener, err := net.Listen("tcp", s.config.ListenAddress())
+	listener, err := net.Listen("tcp", s.config.Address)
 	if err != nil {
 		return errors.Wrap(err, "failed to create TCP listener")
 	}
@@ -117,8 +120,4 @@ func (s *Server) Stop() {
 		s.server.Stop()
 	case <-stopped:
 	}
-}
-
-func (c ServerConfig) ListenAddress() string {
-	return utils.JoinHostPort(c.Address, c.Port)
 }

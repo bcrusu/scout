@@ -21,10 +21,7 @@ import (
 )
 
 const (
-	raftId      uint32 = 888
-	DoStart     Action = "start"
-	DoBootstrap Action = "bootstrap"
-	DoRegister  Action = "register"
+	raftId uint32 = 888
 )
 
 var (
@@ -32,18 +29,14 @@ var (
 	log                 = logging.New("server")
 )
 
-type Action string
-
 type Server struct {
 	config     config.Config
-	action     Action
 	components []utils.Lifecycle
 }
 
-func NewServer(action Action) *Server {
+func NewServer() *Server {
 	return &Server{
 		config: config.Get(),
-		action: action,
 	}
 }
 
@@ -54,34 +47,28 @@ func (n *Server) Start(ctx context.Context) error {
 	}
 
 	var bparams *bootstrap.Params
-	var id identity.Identity
 
-	switch n.action {
-	case DoBootstrap:
-		bparams = &bootstrap.Params{
-			ClusterName:    n.config.ClusterName,
-			LocalAddress:   n.config.RPC.ListenAddress(),
-			InitialServers: n.config.Bootstrap.InitialServers,
-			PartitionCount: n.config.Bootstrap.PartitionCount,
-		}
+	id, ok := idStore.Get()
+	if !ok {
+		switch {
+		case n.config.Bootstrap != nil:
+			bparams = n.buildBootstrapParams()
 
-		if err := bootstrap.ValidateParams(bparams); err != nil {
-			return err
-		}
+			if err := bootstrap.ValidateParams(bparams); err != nil {
+				return err
+			}
 
-		id = bparams.Identity()
-	case DoRegister:
-		id, err = n.register(ctx, idStore)
-		if err != nil {
-			return err
-		}
-	default:
-		var ok bool
-		if id, ok = idStore.Get(); ok {
+			id = bparams.Identity()
+		case n.config.Register != nil:
+			id, err = n.register(ctx, idStore)
+			if err != nil {
+				return err
+			}
+		default:
 			return errors.Error("server identity not found; must join a cluster first.")
-		} else if id.ClusterName != n.config.ClusterName {
-			return errors.Errorf("cluster name differs from stored cluster name %s", id.ClusterName)
 		}
+	} else if id.ClusterName != n.config.ClusterName {
+		return errors.Errorf("config cluster name differs from identity cluster name %s", id.ClusterName)
 	}
 
 	metrics := metrics.New(n.config.Metrics, id)
@@ -139,7 +126,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store) (identity
 	params := register.Params{
 		ServerType:  control.ServerType_Control,
 		ClusterName: n.config.ClusterName,
-		Address:     n.config.RPC.ListenAddress(),
+		Address:     n.config.RPC.Address,
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}
@@ -158,10 +145,10 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 
 func (n *Server) buildMultiRaft() *multiraft.Multi {
 	if n.config.InMem {
-		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.ListenAddress())
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.Address)
 	}
 
-	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.ListenAddress())
+	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.Address)
 }
 
 func (n *Server) buildStore(id identity.Identity, multi *multiraft.Multi) (storage.Store, error) {
@@ -174,4 +161,21 @@ func (n *Server) buildStore(id identity.Identity, multi *multiraft.Multi) (stora
 
 	store := storage.NewStore(raft, fsm)
 	return store, nil
+}
+
+func (n *Server) buildBootstrapParams() *bootstrap.Params {
+	servers := make([]bootstrap.Server, len(n.config.Bootstrap.InitialServers))
+	for i, server := range n.config.Bootstrap.InitialServers {
+		servers[i] = bootstrap.Server{
+			Address: server.Address,
+			Tags:    server.Tags,
+		}
+	}
+
+	return &bootstrap.Params{
+		ClusterName:    n.config.ClusterName,
+		LocalAddress:   n.config.RPC.Address,
+		InitialServers: servers,
+		PartitionCount: n.config.Bootstrap.PartitionCount,
+	}
 }

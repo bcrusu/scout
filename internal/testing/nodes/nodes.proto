@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package nodes;
+
+option go_package = "github.com/bcrusu/scout/internal/testing/nodes";
+
+import "google/protobuf/empty.proto";
+
+// Service represents the nodes management service.
+service Service {
+    rpc GetNode(Id) returns (Node);
+    rpc GetNodes(google.protobuf.Empty) returns (Nodes);
+    rpc Create(CreateRequest) returns (google.protobuf.Empty);
+    rpc Start(Ids) returns (Status);
+    rpc Stop(Ids) returns (Status);
+    rpc Reset(Ids) returns (Status);
+    rpc Remove(Ids) returns (Status);
+}
+
+message Id {
+    string id = 1;
+}
+
+message Ids {
+    repeated string ids = 1;
+}
+
+enum NodeState {
+    NotStarted = 0;
+	Running = 1;
+	Paused = 2;
+    Error = 3;
+}
+
+message Node {
+    string id = 1;
+    uint32 pid = 2;
+    string ip = 3;
+    NodeState state = 4;
+}
+
+message Nodes {
+    repeated Node nodes = 1;
+}
+
+message CreateRequest {
+    int32 count = 1;
+}
+
+message Status {
+    int32 failure_count = 1;
+}

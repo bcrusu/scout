@@ -7,7 +7,7 @@ import (
 
 func newRootCmd() *cobra.Command {
 	c := &cobra.Command{
-		Use:           "tests",
+		Use:           "testing",
 		Short:         "Scout tests helper command.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -26,7 +26,10 @@ func newRootCmd() *cobra.Command {
 	c.PersistentFlags().String("log-levels", "*:info", "Log levels.")
 
 	c.AddCommand(
-		newNodesCmd(),
+		newAgentCmd(),
+		newNodeCmd(),
+		newServiceCmd(),
+		newTestCmd(),
 	)
 
 	return c

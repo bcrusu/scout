@@ -57,21 +57,26 @@ type Config struct {
 	Partitions  Partitions        `yaml:"partitions"`
 	Register    *Register         `yaml:"register"`
 	Bootstrap   *Bootstrap        `yaml:"bootstrap"`
-	Metrics     metrics.Config    `yaml:"metrics"`
 	LogLevels   string            `yaml:"logLevels" default:"*:info"`
+	Metrics     metrics.Config    `yaml:"metrics"`
 }
 
 type Register struct {
-	Token        string              `yaml:"token" default:"GENERATE_RANDOM" validate:"required,maxLen:1024"`
-	Tags         []string            `yaml:"tags" validate:"maxLen:10,maxItemLen:128"`
+	Token        string              `yaml:"token" validate:"required,maxLen:1024"`
+	Tags         []string            `yaml:"tags,flow" validate:"maxLen:10,maxItemLen:128"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	RetryBackoff utils.Backoff       `yaml:"retryBackoff"`
 }
 
+type InitialServer struct {
+	Address string   `yaml:"address" validate:"maxLen:128"`
+	Tags    []string `yaml:"tags,flow" validate:"maxLen:10,maxItemLen:128"`
+}
+
 type Bootstrap struct {
-	InitialServers []string      `yaml:"initialServers"`
-	PartitionCount uint32        `yaml:"partitionCount" validate:"min:1,max:65536"`
-	RetryBackoff   utils.Backoff `yaml:"retryBackoff"`
+	InitialServers []InitialServer `yaml:"initialServers"`
+	PartitionCount uint32          `yaml:"partitionCount" validate:"min:1,max:65536"`
+	RetryBackoff   utils.Backoff   `yaml:"retryBackoff"`
 }
 
 type Service struct {
@@ -122,20 +127,42 @@ func (c *Config) prepare() error {
 		return errors.Wrap(err, "failed to set log levels")
 	}
 
+	bindAddress, err := utils.GetBindAddress()
+	if err != nil {
+		return err
+	}
+
 	if c.RPC.Address == "" {
-		c.RPC.Address = errors.Assert2(utils.GetBindAddress())
+		c.RPC.Address = utils.JoinHostPort(bindAddress, rpc.DefaultPort)
+	} else {
+		c.RPC.Address = utils.EnsureAddressPort(c.RPC.Address, rpc.DefaultPort)
 	}
 
 	if c.HTTP.Address == "" {
-		c.HTTP.Address = errors.Assert2(utils.GetBindAddress())
+		c.HTTP.Address = utils.JoinHostPort(bindAddress, http.DefaultPort)
+	} else {
+		c.HTTP.Address = utils.EnsureAddressPort(c.HTTP.Address, http.DefaultPort)
 	}
 
 	if c.Bootstrap != nil {
-		c.Bootstrap.InitialServers = errors.Assert2(utils.LookupHosts(c.Bootstrap.InitialServers...))
+		for i, server := range c.Bootstrap.InitialServers {
+			addr, err := utils.LookupHost(server.Address)
+			if err != nil {
+				return err
+			}
+
+			c.Bootstrap.InitialServers[i].Address = utils.EnsureAddressPort(addr, rpc.DefaultPort)
+		}
 	}
 
-	if c.Register != nil && c.Register.Token == "GENERATE_RANDOM" {
-		c.Register.Token = uuid.New().String()
+	if c.Register != nil {
+		if c.Register.Token == "" {
+			c.Register.Token = uuid.New().String()
+		}
+
+		for i, server := range c.Register.Discovery.Servers {
+			c.Register.Discovery.Servers[i] = utils.EnsureAddressPort(server, rpc.DefaultPort)
+		}
 	}
 
 	c.RPC.ClusterName = c.ClusterName

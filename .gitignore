@@ -1,8 +1,2 @@
 .vscode
-Procfile
-/admin
-/control
-/data
-/api
-/*.yaml
-/tests/.work
+.work

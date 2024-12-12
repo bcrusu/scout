@@ -4,9 +4,9 @@ clusterName: demo
 dataDir: /scout/storage/
 bootstrap:
   initialServers:
-    - control1:11001
-    - control2:11001
-    - control3:11001
+    - address: control1
+    - address: control2
+    - address: control3
   partitionCount: 100
 partitions:
   replicationFactor: 3

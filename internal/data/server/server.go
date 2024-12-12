@@ -100,7 +100,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store, controlCl
 	params := register.Params{
 		ServerType:  control.ServerType_Data,
 		ClusterName: n.config.ClusterName,
-		Address:     n.config.RPC.ListenAddress(),
+		Address:     n.config.RPC.Address,
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}
@@ -119,10 +119,10 @@ func (n *Server) buildIdentityStore() (identity.Store, error) {
 
 func (n *Server) buildMultiRaft() *multiraft.Multi {
 	if n.config.InMem {
-		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.ListenAddress())
+		return multiraft.NewInmem(n.config.Raft, n.config.ClusterName, n.config.RPC.Address)
 	}
 
-	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.ListenAddress())
+	return multiraft.New(n.config.Raft, n.config.RaftDir(), n.config.ClusterName, n.config.RPC.Address)
 }
 
 func (n *Server) buildDB() storage.DB {

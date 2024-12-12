@@ -70,9 +70,9 @@ To interact with the cluster:
 - run `go run demo.go` which starts writing and reading random data
 - check [Grafana](http://localhost:3000/dashboards/f/scout/) dashboards to see the live cluster activity
 - or use the admin command to query detailed info about the cluster:
-  - `docker run -it --network scout_default scout/admin` to run the admin CLI container attached to the demo network
+  - `docker run -it --network scout_default --entrypoint /bin/sh scout/admin` to run the admin CLI container attached to the demo network
   - and from inside it run the `admin get` command to fetch details about the cluster, servers, partitions, and replicas:
-  - for example, `admin get replicas --server control1:11001` lists all replicas and their state:
+  - for example, `admin get replicas --server control1` lists all replicas and their state:
 ```
 -----+------+---------+--------------+-------+-------+--------+------------------+----------------------+----------------------+----------------------+
 |  #  | PART | REPLICA |    SERVER    | STATE | READY | LEADER | APPLIED/COMMITED |       CREATED        |      TRANSITION      |       UPDATED        |
@@ -131,6 +131,11 @@ Essentially all system components can be improved in many ways, with some notabl
 - Support for interactive transactions: with client-driven multi read/write operations.
 
 - Testing with [Jepsen](https://github.com/jepsen-io/jepsen): one of the main reasons I built the whole thing.
+
+### Features
+
+TODO
+- Nodes monitor/decommission
 
 ## License
 

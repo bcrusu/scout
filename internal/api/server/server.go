@@ -96,7 +96,7 @@ func (n *Server) register(ctx context.Context, idStore identity.Store, controlCl
 	params := register.Params{
 		ServerType:  control.ServerType_Api,
 		ClusterName: n.config.ClusterName,
-		Address:     n.config.RPC.ListenAddress(),
+		Address:     n.config.RPC.Address,
 		Token:       n.config.Register.Token,
 		Tags:        n.config.Register.Tags,
 	}

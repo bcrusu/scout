@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/control/server/storage"
@@ -25,14 +26,17 @@ var (
 type Params struct {
 	ClusterName    string
 	LocalAddress   string
-	InitialServers []string
+	InitialServers []Server
 	PartitionCount uint32
+	valid          bool
+	identity       identity.Identity
+}
 
-	valid       bool
-	serverIDs   []uint64
-	serverNames []string
-	serverAddrs []string
-	identity    identity.Identity
+type Server struct {
+	Address string
+	Tags    []string
+	id      uint64
+	name    string
 }
 
 // Bootstrapper is used only once, in the beginning of time, when a new baby cluster is born.
@@ -58,30 +62,27 @@ func ValidateParams(p *Params) error {
 		return errors.Error("invalid bootstrap parameters")
 	}
 
-	if utils.ContainsDuplicates(p.InitialServers) {
+	if containsDuplicates(p.InitialServers) {
 		return errors.Error("initial server list contains duplicates.")
 	}
 
-	p.serverAddrs = slices.Clone(p.InitialServers)
-	if !slices.Contains(p.serverAddrs, p.LocalAddress) {
-		p.serverAddrs = append(p.serverAddrs, p.LocalAddress)
+	slices.SortFunc(p.InitialServers, func(a, b Server) int { return strings.Compare(a.Address, b.Address) })
+
+	for i := range len(p.InitialServers) {
+		id := uint64(i + 1)
+		p.InitialServers[i].id = id
+		p.InitialServers[i].name = fmt.Sprintf("%s%d", serverNamePrefix, id)
 	}
 
-	slices.Sort(p.serverAddrs)
-
-	p.serverIDs = make([]uint64, len(p.serverAddrs))
-	p.serverNames = make([]string, len(p.serverAddrs))
-
-	for i := range len(p.serverAddrs) {
-		p.serverIDs[i] = uint64(i + 1)
-		p.serverNames[i] = fmt.Sprintf("%s%d", serverNamePrefix, p.serverIDs[i])
+	idx := slices.IndexFunc(p.InitialServers, func(s Server) bool { return s.Address == p.LocalAddress })
+	if idx < 0 {
+		return errors.Error("initial server list does not contain the local server.")
 	}
 
-	idx := slices.Index(p.serverAddrs, p.LocalAddress)
 	p.identity = identity.Identity{
 		ClusterName: p.ClusterName,
-		ServerID:    p.serverIDs[idx],
-		ServerName:  p.serverNames[idx],
+		ServerID:    p.InitialServers[idx].id,
+		ServerName:  p.InitialServers[idx].name,
 		ServerType:  control.ServerType_Control,
 	}
 
@@ -103,7 +104,7 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 		return errors.Errorf("cannot bootstrap, already part of cluster %s", id.ClusterName)
 	}
 
-	log := log.WithContext(ctx).With("cluster", p.ClusterName, "ids", p.serverIDs, "names", p.serverNames, "addresses", p.serverAddrs)
+	log := log.WithContext(ctx).With("cluster", p.ClusterName)
 	log.Debug("Bootstrapping the raft cluster...")
 
 	if err := b.bootstrapRaft(p); err != nil {
@@ -146,13 +147,13 @@ func (b *Bootstrapper) Bootstrap(ctx context.Context, p Params) error {
 }
 
 func (b *Bootstrapper) bootstrapRaft(p Params) error {
-	servers := make([]raft.Server, len(p.serverNames))
+	servers := make([]raft.Server, len(p.InitialServers))
 
-	for i, name := range p.serverNames {
+	for i, server := range p.InitialServers {
 		servers[i] = raft.Server{
 			Suffrage: raft.Voter,
-			ID:       raft.ServerID(name),
-			Address:  raft.ServerAddress(p.serverAddrs[i]),
+			ID:       raft.ServerID(server.name),
+			Address:  raft.ServerAddress(server.Address),
 		}
 	}
 
@@ -164,12 +165,13 @@ func (b *Bootstrapper) bootstrapRaft(p Params) error {
 }
 
 func (b *Bootstrapper) initalWriteWithRetry(ctx context.Context, p Params) error {
-	servers := make([]*storage.Bootstrap_Server, len(p.serverIDs))
-	for i, id := range p.serverIDs {
+	servers := make([]*storage.Bootstrap_Server, len(p.InitialServers))
+	for i, server := range p.InitialServers {
 		servers[i] = &storage.Bootstrap_Server{
-			Id:      id,
-			Name:    p.serverNames[i],
-			Address: p.serverAddrs[i],
+			Id:      server.id,
+			Name:    server.name,
+			Address: server.Address,
+			Tags:    server.Tags,
 		}
 	}
 
@@ -231,4 +233,16 @@ func (b *Bootstrapper) storeIdentityWithRetry(ctx context.Context, p Params) err
 
 func (p *Params) Identity() identity.Identity {
 	return p.identity
+}
+
+func containsDuplicates(servers []Server) bool {
+	set := map[string]bool{}
+	for _, server := range servers {
+		if set[server.Address] {
+			return true
+		}
+		set[server.Address] = true
+	}
+
+	return false
 }

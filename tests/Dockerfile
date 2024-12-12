@@ -1,6 +1,10 @@
+# syntax=docker/dockerfile:1
+
 ARG DEBIAN_IMAGE=debian:bookworm-slim
 
 FROM ${DEBIAN_IMAGE} AS rootfs_builder
+ARG SCOUT_UID="888"
+ARG SCOUT_GID="888"
 
 COPY overlay /
 COPY .work/id_rsa.pub /root/.ssh/authorized_keys
@@ -12,51 +16,22 @@ RUN set -eux; \
         udev \
         systemd-sysv \
         openssh-server \
-        socat; \
+        iproute2; \
     echo "scout" > /etc/hostname; \
     passwd -d root; \
-    mkdir -p /etc/systemd/system/sysinit.target.wants; \
-    ln -s /etc/systemd/system/scout-setup.service /etc/systemd/system/sysinit.target.wants/scout-setup.service; \
-    ln -s /usr/share/systemd/tmp.mount /etc/systemd/system/tmp.mount; \
-    systemctl enable tmp.mount; \
+    systemctl enable \
+        tmp.mount \
+        scout-setup.service \
+        scout-agent.service; \
     systemctl disable e2scrub_reap.service; \
     rm -vf /etc/systemd/system/timers.target.wants/*; \
-    mkdir -p /old_root /workfs /scout;
-
-# Dependencies required by Jepsen
-# Listed at: https://github.com/jepsen-io/jepsen/blob/main/jepsen/src/jepsen/os/debian.clj#L165
-RUN set -eux; \
-    apt-get install -y --no-install-recommends \
-        build-essential \
-        bzip2 \
-        ca-certificates \
-        curl \
-        dirmngr \
-        dnsutils \
-        faketime \
-        iproute2 \
-        iptables \
-        iputils-ping \
-        libzip4 \
-        logrotate \
-        lsb-release \
-        man \
-        man-db \
-        net-tools \
-        netcat-openbsd \
-        ntpdate \
-        psmisc \
-        python3 \
-        rsyslog \
-        sudo \
-        tcpdump \
-        unzip \
-        vim \
-        wget; \
-    rm -rf /var/lib/apt/lists /usr/share/doc /var/cache/apt/archives; 
+    mkdir -p /old_root /workfs /scout; \
+    addgroup --system --gid ${SCOUT_GID} scout; \
+    adduser --system --uid ${SCOUT_UID} --ingroup scout scout;
 
 FROM scratch AS scoutfs_builder
 
 COPY --from=scout/control:latest /scout/control /control
 COPY --from=scout/data:latest /scout/data /data
 COPY --from=scout/api:latest /scout/api /api
+COPY --from=scout/testing:latest /scout/testing /testing

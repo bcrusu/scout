@@ -63,8 +63,8 @@ type Config struct {
 }
 
 type Register struct {
-	Token        string        `yaml:"token" default:"GENERATE_RANDOM" validate:"required,maxLen:1024"`
-	Tags         []string      `yaml:"tags" validate:"maxLen:10,maxItemLen:128"`
+	Token        string        `yaml:"token" validate:"maxLen:1024"`
+	Tags         []string      `yaml:"tags,flow" validate:"maxLen:10,maxItemLen:128"`
 	RetryBackoff utils.Backoff `yaml:"retryBackoff"`
 }
 
@@ -89,7 +89,7 @@ type DB struct {
 }
 
 type RocksDB struct {
-	DataDir               string
+	DataDir               string        `yaml:"-"`
 	WriteBufferSize       utils.Bytes   `yaml:"writeBufferSize" default:"128MB" validate:"min:32MB"`
 	CacheSize             utils.Bytes   `yaml:"cacheSize" default:"1GB" validate:"min:1MB"`
 	TTL                   time.Duration `yaml:"ttl" default:"24h" validate:"min:1m"` // TODO
@@ -111,21 +111,34 @@ func (c *Config) prepare() error {
 		return errors.Wrap(err, "failed to set log levels")
 	}
 
+	bindAddress, err := utils.GetBindAddress()
+	if err != nil {
+		return err
+	}
+
 	if c.RPC.Address == "" {
-		c.RPC.Address = errors.Assert2(utils.GetBindAddress())
+		c.RPC.Address = utils.JoinHostPort(bindAddress, rpc.DefaultPort)
+	} else {
+		c.RPC.Address = utils.EnsureAddressPort(c.RPC.Address, rpc.DefaultPort)
 	}
 
 	if c.HTTP.Address == "" {
-		c.HTTP.Address = errors.Assert2(utils.GetBindAddress())
+		c.HTTP.Address = utils.JoinHostPort(bindAddress, http.DefaultPort)
+	} else {
+		c.HTTP.Address = utils.EnsureAddressPort(c.HTTP.Address, http.DefaultPort)
 	}
 
-	if c.Register.Token == "GENERATE_RANDOM" {
+	if c.Register.Token == "" {
 		c.Register.Token = uuid.New().String()
 	}
 
 	c.RPC.ClusterName = c.ClusterName
 	c.RPC.EnableHlc = true
-	c.Session.Address = c.RPC.ListenAddress()
+	c.Session.Address = c.RPC.Address
+
+	for i, server := range c.Discovery.Servers {
+		c.Discovery.Servers[i] = utils.EnsureAddressPort(server, rpc.DefaultPort)
+	}
 
 	hlc.Set(hlc.New(c.Session.MaxTimeOffset))
 	return c.prepareDirs()

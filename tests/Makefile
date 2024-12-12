@@ -8,7 +8,7 @@ FC_TAR=$(FC_BIN).tgz
 CNI_VER=v1.6.0
 CNI_TAR=cni-plugins-linux-amd64-$(CNI_VER).tgz
 
-all: dirs testing $(WORK)/firecracker fs cni
+all: dirs testing $(WORK)/firecracker fs cni $(WORK)/configs
 
 .PHONY: dirs
 dirs:
@@ -17,9 +17,16 @@ dirs:
 $(WORK)/id_rsa:
 	cd $(WORK) && ssh-keygen -f id_rsa -N "";
 
+$(WORK)/configs:
+	ln -s $(PWD)/configs $(WORK)/configs
+
 .PHONY: testing
 testing:
-	go build -o $(WORK) github.com/bcrusu/scout/cmd/testing
+	@set -eux; \
+	$(MAKE) -C ../ docker_image_testing; \
+	CONTAINER_ID=$$(docker create "scout/testing:latest"); \
+	docker cp "$$CONTAINER_ID:/scout/testing" "$(WORK)/testing"; \
+	docker rm "$$CONTAINER_ID";
 
 ########################################################
 # Downloads
@@ -53,12 +60,13 @@ fs: $(WORK)/rootfs.ext4 $(WORK)/scoutfs.ext4 $(WORK)/workfs.ext4
 
 $(WORK)/rootfs.ext4: $(WORK)/id_rsa
 	@set -eux; \
-    truncate -s 1024M $(WORK)/rootfs.ext4; \
+    truncate -s 1000M $(WORK)/rootfs.ext4; \
 	docker build --target rootfs_builder --output type=tar,dest=- . | mkfs.ext4 -F $(WORK)/rootfs.ext4 -d -;
 
 $(WORK)/scoutfs.ext4:
 	@set -eux; \
-    truncate -s 100M $(WORK)/scoutfs.ext4; \
+    truncate -s 200M $(WORK)/scoutfs.ext4; \
+	$(MAKE) -C ../ docker_images; \
 	docker build --target scoutfs_builder --output type=tar,dest=- . | mkfs.ext4 -F $(WORK)/scoutfs.ext4 -d -;
 
 $(WORK)/workfs.ext4:
@@ -85,7 +93,7 @@ $(WORK)/cni_bin/tc-redirect-tap: $(DOWNLOADS)/tc-redirect-tap
 	cd $(DOWNLOADS)/tc-redirect-tap; \
 	go build -o $(WORK)/cni_bin/ github.com/awslabs/tc-redirect-tap/cmd/tc-redirect-tap;
 
-$(WORK)/cni_conf: $(PWD)/cni_conf
+$(WORK)/cni_conf:
 	ln -s $(PWD)/cni_conf $(WORK)/cni_conf
 
 ########################################################

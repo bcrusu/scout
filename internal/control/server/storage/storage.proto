@@ -35,6 +35,7 @@ message Bootstrap {
         uint64 id = 1;
         string name = 2;
         string address = 3;
+        repeated string tags = 4;
     }
 
     string cluster_name = 1;

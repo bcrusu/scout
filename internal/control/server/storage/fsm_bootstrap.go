@@ -30,6 +30,7 @@ func (f *FSM) applyBootstrap(appendedAt time.Time, cmd *Bootstrap) (*BootstrapRe
 			Id:           server.Id,
 			Name:         server.Name,
 			Type:         control.ServerType_Control,
+			Tags:         server.Tags,
 			RegisteredAt: timestamppb.New(appendedAt),
 			LastSeen:     timestamppb.New(appendedAt),
 			LastAddress:  server.Address,

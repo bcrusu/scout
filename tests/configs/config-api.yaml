@@ -1,0 +1,8 @@
+# Config options are defined in github.com/bcrusu/scouot/internal/api/server/config/config.go
+
+clusterName: will_be_set_at_runtime
+dataDir: /storage/data/
+discovery:
+  servers:
+    - will_be_set_at_runtime
+logLevels: "*:info,hraft:error,rpc_logger:error"

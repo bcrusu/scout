@@ -5,9 +5,9 @@ dataDir: /scout/storage/
 proxyMode: true
 discovery:
   servers:
-    - control1:11001
-    - control2:11001
-    - control3:11001
+    - control1
+    - control2
+    - control3
 logLevels: "*:info"
 metrics:
   exportEndpoint: otelcol:4317

@@ -30,7 +30,7 @@ var (
 )
 
 type Config struct {
-	ExportEndpoint       string        `yaml:"exportEndpoint" validate:"required"`
+	ExportEndpoint       string        `yaml:"exportEndpoint"`
 	ExportInterval       time.Duration `yaml:"exportInterval" default:"5s" validate:"min:1s"`
 	EnableRuntime        bool          `yaml:"enableRuntime" default:"true"`
 	ReadMemStatsInterval time.Duration `yaml:"readMemStatsInterval" default:"5s" validate:"min:1s"`
@@ -50,6 +50,10 @@ func New(config Config, id identity.Identity) *Metrics {
 }
 
 func (m *Metrics) Start(ctx context.Context) error {
+	if m.config.ExportEndpoint == "" {
+		return nil
+	}
+
 	resource, err := m.newResource(ctx)
 	if err != nil {
 		return errors.Wrap(err, "failed to create resource")
@@ -88,6 +92,10 @@ func (m *Metrics) Start(ctx context.Context) error {
 }
 
 func (m *Metrics) Stop() {
+	if m.config.ExportEndpoint == "" {
+		return
+	}
+
 	if err := m.provider.ForceFlush(context.Background()); err != nil {
 		log.WithError(err).Error("Failed to flush provider.")
 	}

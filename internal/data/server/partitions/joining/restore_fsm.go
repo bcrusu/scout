@@ -132,7 +132,10 @@ func (f *restoreFsm) loadCheckpoint(minIndex uint64) (*data.KVAddress, bool) {
 	}
 
 	var chk checkpoint
-	errors.Assert(json.Unmarshal(record.Data, &chk))
+	if err := json.Unmarshal(record.Data, &chk); err != nil {
+		f.log.WithError(err).Error("Failed to unmarshal checkpoint. Dropping past progress...")
+		return nil, false
+	}
 
 	if chk.MinIndex < minIndex {
 		// Past progress needs to be discarded because we received a newer Raft snapshot.

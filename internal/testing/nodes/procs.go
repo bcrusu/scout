@@ -4,39 +4,42 @@ import (
 	"strings"
 
 	"github.com/bcrusu/scout/internal/errors"
-	"github.com/bcrusu/scout/internal/logging"
 	"github.com/shirou/gopsutil/v4/process"
 )
 
-var (
-	pidCache = map[string]int32{} // map[node_ID]PID
-)
-
-func InitPIDCache(firecrackerPath string) error {
+func loadProcs(firecrackerPath string) (map[string]int, error) {
 	pids, err := process.Pids()
 	if err != nil {
-		return errors.Wrap(err, "failed to list process pids.")
+		return nil, errors.Wrap(err, "failed to list procs")
 	}
+
+	result := map[string]int{}
 
 	for _, pid := range pids {
 		proc, err := process.NewProcess(pid)
 		if err != nil {
-			log.WithError(err).Log(getLogLevel(err), "Failed to create process.", "pid", pid)
-			continue
+			if unknownProc(err) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "NewProcess call failed for pid=%d", pid)
 		}
 
 		exePath, err := proc.Exe()
 		if err != nil {
-			log.WithError(err).Log(getLogLevel(err), "Failed to get process exe.", "pid", pid)
-			continue
+			if unknownProc(err) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "Pocess.Exe call failed for pid=%d", pid)
 		} else if exePath != firecrackerPath {
 			continue
 		}
 
 		cmdLine, err := proc.Cmdline()
 		if err != nil {
-			log.WithError(err).Log(getLogLevel(err), "Failed to get cmd line.", "pid", pid)
-			continue
+			if unknownProc(err) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "Pocess.Cmdline call failed for pid=%d", pid)
 		}
 
 		id := extractId(cmdLine)
@@ -44,10 +47,10 @@ func InitPIDCache(firecrackerPath string) error {
 			continue
 		}
 
-		pidCache[id] = pid
+		result[id] = int(pid)
 	}
 
-	return nil
+	return result, nil
 }
 
 func extractId(cmdLine string) string {
@@ -61,11 +64,7 @@ func extractId(cmdLine string) string {
 	return id[:idx]
 }
 
-func getLogLevel(err error) logging.Level {
+func unknownProc(err error) bool {
 	str := err.Error()
-	if strings.Contains(str, "no such file or directory") {
-		return logging.LevelOff
-	}
-
-	return logging.LevelDebug
+	return strings.Contains(str, "no such file or directory")
 }

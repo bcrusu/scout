@@ -3,6 +3,7 @@ package utils
 import (
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
@@ -24,7 +25,7 @@ func GetBindAddress() (string, error) {
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return "", errors.Wrap(err, "failed to get interfaces")
+		return "", errors.Wrap(err, "GetBindAddress: failed to get interfaces")
 	}
 
 	addr := getBindAddress(ifaces, ipv4Filter)
@@ -32,10 +33,10 @@ func GetBindAddress() (string, error) {
 		addr = getBindAddress(ifaces, ipv6Filter)
 	}
 	if addr == "" {
-		return "", errors.Error("could not determine bind address")
+		return "", errors.Error("GetBindAddress: could not determine bind address")
 	}
 
-	logNet.Infof("Using bind address=%s", addr)
+	logNet.Debugf("Using bind address=%s", addr)
 	bindAddres = addr
 	return addr, nil
 }
@@ -45,27 +46,52 @@ func JoinHostPort(addr string, port int) string {
 	return net.JoinHostPort(addr, strconv.Itoa(port))
 }
 
-// LookupHosts resolve names to IP addresses.
-func LookupHosts(addrs ...string) ([]string, error) {
-	result := make([]string, len(addrs))
-
-	for i, addr := range addrs {
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, errors.Wrapf(err, "invalid address %s", addr)
+// SplitHostPort retruns the host, port pair.
+func SplitHostPort(addr string) (string, int, error) {
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing port in address") {
+			return addr, 0, nil
 		}
-
-		addrs, err := net.LookupHost(host)
-		if err != nil {
-			return nil, errors.Wrapf(err, "lookup failed for %s", host)
-		} else if len(addrs) == 0 {
-			return nil, errors.Wrapf(err, "lookup result in empty for %s", host)
-		}
-
-		result[i] = net.JoinHostPort(addrs[0], port)
+		return "", 0, err
 	}
 
-	return result, nil
+	port := errors.Assert2(strconv.Atoi(portStr))
+	return host, port, nil
+}
+
+// EnsureAddressPort adds the defaultPort if the addr is missing the port.
+func EnsureAddressPort(addr string, defaultPort int) string {
+	if host, port, err := SplitHostPort(addr); err != nil {
+		// return the invalid original address
+		return addr
+	} else if port == 0 {
+		return JoinHostPort(host, defaultPort)
+	}
+
+	return addr
+}
+
+// LookupHost resolve names to IP addresses.
+func LookupHost(addr string) (string, error) {
+	host, port, err := SplitHostPort(addr)
+	if err != nil {
+		return "", errors.Wrapf(err, "invalid address %s", addr)
+	}
+
+	addrs, err := net.LookupHost(host)
+	if err != nil {
+		return "", errors.Wrapf(err, "lookup failed for %s", host)
+	} else if len(addrs) == 0 {
+		return "", errors.Wrapf(err, "lookup result in empty for %s", host)
+	}
+
+	if port == 0 {
+		return addrs[0], nil
+	}
+
+	addr = JoinHostPort(addrs[0], port)
+	return addr, nil
 }
 
 func getBindAddress(ifaces []net.Interface, filter ipFilter) string {

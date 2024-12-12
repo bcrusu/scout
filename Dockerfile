@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ARG BASE_IMAGE=busybox:1.37.0-glibc
 ARG DEBIAN_IMAGE=debian:bookworm
 ARG GOLANG_IMAGE=golang:1.23.3-bookworm
@@ -50,9 +52,11 @@ RUN --mount=type=cache,target=/rocksdb/cache/ \
 # Scout builder
 ###################################################################
 FROM ${GOLANG_IMAGE} AS scout_builder
-WORKDIR /scout
-ENV CGO_LDFLAGS="-static -s -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -lzstd -ldl"
+ARG CMD_NAME=unset
+ARG CGO_LDFLAGS="-static -s -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -lzstd -ldl"
 ARG LD_FLAGS="-linkmode 'external'"
+
+WORKDIR /scout
 
 COPY --from=rocksdb_builder /usr/lib/x86_64-linux-gnu/libz.a /usr/lib/x86_64-linux-gnu/
 COPY --from=rocksdb_builder /usr/lib/x86_64-linux-gnu/libbz2.a /usr/lib/x86_64-linux-gnu/
@@ -68,18 +72,17 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
     set -eux; \
     cd src; \
     go mod download; \
-    go install -ldflags "$LD_FLAGS" github.com/bcrusu/scout/cmd/control; \
-    go install -ldflags "$LD_FLAGS" github.com/bcrusu/scout/cmd/data; \
-    go install -ldflags "$LD_FLAGS" github.com/bcrusu/scout/cmd/api; \
-    go install -ldflags "$LD_FLAGS" github.com/bcrusu/scout/cmd/admin;
+    go install -ldflags "$LD_FLAGS" github.com/bcrusu/scout/cmd/${CMD_NAME};
 
 ###################################################################
-# Scout base image
+# Scout image
 ###################################################################
-FROM ${BASE_IMAGE} AS scout_base
+FROM ${BASE_IMAGE} AS scout
+ARG CMD_NAME=unset
 ARG SCOUT_UID="888"
 ARG SCOUT_GID="888"
 ARG SCOUT_DIR="/scout"
+ENV PATH="$PATH:/scout/"
 
 WORKDIR ${SCOUT_DIR}
 
@@ -97,21 +100,10 @@ EXPOSE 11001
 # HTTP port
 EXPOSE 8080
 
-###################################################################
-# Scout images
-###################################################################
-FROM scout_base AS scout_control
-COPY --from=scout_builder /go/bin/control /scout
-ENTRYPOINT [ "/scout/control" ]
+COPY --chmod=755 <<EOF /scout/entrypoint.sh
+#!/bin/sh
+exec /scout/${CMD_NAME} \$@
+EOF
 
-FROM scout_base AS scout_data
-COPY --from=scout_builder /go/bin/data /scout
-ENTRYPOINT [ "/scout/data" ]
-
-FROM scout_base AS scout_api
-COPY --from=scout_builder /go/bin/api /scout
-ENTRYPOINT [ "/scout/api" ]
-
-FROM scout_base AS scout_admin
-ENV PATH="$PATH:/scout/"
-COPY --from=scout_builder /go/bin/admin /scout
+COPY --from=scout_builder /go/bin/${CMD_NAME} ${SCOUT_DIR}
+ENTRYPOINT [ "/scout/entrypoint.sh" ]

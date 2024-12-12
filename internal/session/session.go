@@ -30,7 +30,7 @@ type Config struct {
 	MaxTimeOffset      time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:10ms"`
 	HeartbeatInterval  time.Duration `yaml:"heartbeatInterval" default:"5s" validate:"min:100ms"`
 	SendBufferSize     int           `yaml:"sendBufferSize" default:"16" validate:"min:1"`
-	Address            string
+	Address            string        `yaml:"-"`
 }
 
 type Session struct {
