@@ -3,6 +3,8 @@ package client
 import (
 	"time"
 
+	"github.com/bcrusu/scout/internal/rpc"
+	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/grpc"
 )
 
@@ -35,7 +37,7 @@ func WithClusterName(clusterName string) Option {
 // WithAddress sets the connecton address.
 func WithAddress(address string) Option {
 	return func(o *options) {
-		o.address = address
+		o.address = utils.EnsureAddressPort(address, rpc.DefaultPort)
 	}
 }
 

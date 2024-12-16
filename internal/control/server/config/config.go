@@ -62,7 +62,7 @@ type Config struct {
 }
 
 type Register struct {
-	Token        string              `yaml:"token" validate:"required,maxLen:1024"`
+	Token        string              `yaml:"token,omitempty" validate:"required,maxLen:1024"`
 	Tags         []string            `yaml:"tags,flow" validate:"maxLen:10,maxItemLen:128"`
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	RetryBackoff utils.Backoff       `yaml:"retryBackoff"`

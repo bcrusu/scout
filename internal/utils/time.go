@@ -7,6 +7,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
+const (
+	RFC3339Milli = "2006-01-02T15:04:05.999Z07:00"
+)
+
 // AddJitter adds random jitter in the range (-pct, +pct).
 // If pct is not provided, will use 0.15 as the default value.
 func AddJitter(d time.Duration, pct ...float64) time.Duration {

@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -32,6 +33,10 @@ func newService() (*service, error) {
 }
 
 func (s *service) GetStatus(ctx context.Context, _ *emptypb.Empty) (*Status, error) {
+	// fetch time asap to avoid any unnecessary delays as the value
+	// is used to compute max time offset between nodes.
+	now := timestamppb.Now()
+
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -47,6 +52,7 @@ func (s *service) GetStatus(ctx context.Context, _ *emptypb.Empty) (*Status, err
 	return &Status{
 		ServiceType:   s.serviceType,
 		ServiceActive: active,
+		Time:          now,
 	}, nil
 }
 
@@ -135,4 +141,20 @@ func (s *service) Reset(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, 
 
 	s.serviceType = ServiceType_None
 	return nil, nil
+}
+
+func (s *service) GetLogs(ctx context.Context, _ *emptypb.Empty) (*Logs, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.serviceType == ServiceType_None {
+		return &Logs{}, nil
+	}
+
+	data, err := os.ReadFile(LogFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Logs{Data: data}, nil
 }

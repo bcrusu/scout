@@ -14,6 +14,7 @@ service Service {
     rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc GetLogs(google.protobuf.Empty) returns (Logs);
 }
 
 enum ServiceType {
@@ -26,9 +27,14 @@ enum ServiceType {
 message Status {
     ServiceType service_type = 1;
     bool service_active = 2;
+    google.protobuf.Timestamp time = 3;
 }
 
 message ConfigRequest {
     ServiceType service_type = 1;
     bytes config_file = 2;
+}
+
+message Logs {
+    bytes data = 1;
 }

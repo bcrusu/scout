@@ -3,6 +3,7 @@ package nodes
 import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -11,11 +12,28 @@ const (
 	logFileName       = "firecracker.log"
 	ipFileName        = "ip"
 	workFSFileName    = "workfs.ext4"
+	sdkLogLevel       = logrus.ErrorLevel
 )
 
 var (
 	log = logging.New("nodes")
 )
+
+func newLogger(id string, client bool) *logrus.Entry {
+	sdk := "server"
+	if client {
+		sdk = "client"
+	}
+
+	fields := logrus.Fields{
+		"id":  id,
+		"sdk": sdk,
+	}
+
+	log := logrus.New()
+	log.SetLevel(sdkLogLevel)
+	return log.WithFields(fields)
+}
 
 func (x *Id) Validate() error {
 	if x == nil {

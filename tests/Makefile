@@ -1,5 +1,6 @@
 ARCH=x86_64
-WORK=$(PWD)/.work
+TESTS=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+WORK=$(TESTS)/.work
 DOWNLOADS=$(WORK)/downloads
 VMLINUX=vmlinux-6.1.102
 FC_VER=v1.10.1
@@ -18,7 +19,10 @@ $(WORK)/id_rsa:
 	cd $(WORK) && ssh-keygen -f id_rsa -N "";
 
 $(WORK)/configs:
-	ln -s $(PWD)/configs $(WORK)/configs
+	ln -s $(TESTS)/configs $(WORK)/configs
+
+$(WORK)/sshx: $(TESTS)/sshx
+	@cp $(TESTS)/sshx $(WORK)/sshx
 
 .PHONY: testing
 testing:
@@ -26,6 +30,14 @@ testing:
 	$(MAKE) -C ../ docker_image_testing; \
 	CONTAINER_ID=$$(docker create "scout/testing:latest"); \
 	docker cp "$$CONTAINER_ID:/scout/testing" "$(WORK)/testing"; \
+	docker rm "$$CONTAINER_ID";
+
+.PHONY: admin
+admin:
+	@set -eux; \
+	$(MAKE) -C ../ docker_image_admin; \
+	CONTAINER_ID=$$(docker create "scout/admin:latest"); \
+	docker cp "$$CONTAINER_ID:/scout/admin" "$(WORK)/admin"; \
 	docker rm "$$CONTAINER_ID";
 
 ########################################################
@@ -94,7 +106,7 @@ $(WORK)/cni_bin/tc-redirect-tap: $(DOWNLOADS)/tc-redirect-tap
 	go build -o $(WORK)/cni_bin/ github.com/awslabs/tc-redirect-tap/cmd/tc-redirect-tap;
 
 $(WORK)/cni_conf:
-	ln -s $(PWD)/cni_conf $(WORK)/cni_conf
+	ln -s $(TESTS)/cni_conf $(WORK)/cni_conf
 
 ########################################################
 # Some quick smoke tests:

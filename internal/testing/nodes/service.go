@@ -10,13 +10,11 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
 	sdk "github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -26,9 +24,11 @@ var (
 
 type service struct {
 	UnsafeServiceServer
-	config Config
-	lock   sync.Mutex
-	pids   map[string]int // map[node_ID]PID
+	config  Config
+	lock    sync.Mutex
+	lastId  int
+	pids    map[string]int         // map[node_ID]PID
+	clients map[string]*sdk.Client // map[node_ID]Client
 }
 
 func newService(config Config) (*service, error) {
@@ -37,9 +37,16 @@ func newService(config Config) (*service, error) {
 		return nil, err
 	}
 
+	lastId, err := utils.GetLastSuffix(config.NodesDir, nodeIdPrefix)
+	if err != nil {
+		return nil, err
+	}
+
 	return &service{
-		config: config,
-		pids:   pids,
+		config:  config,
+		lastId:  lastId,
+		pids:    pids,
+		clients: map[string]*sdk.Client{},
 	}, nil
 }
 
@@ -71,24 +78,16 @@ func (s *service) Create(_ context.Context, req *CreateRequest) (*emptypb.Empty,
 		return nil, errors.InvalidRequest
 	}
 
-	idx := time.Now().Unix()
-
-	getNext := func() (string, string) {
-		for {
-			id := fmt.Sprintf("%s%d", nodeIdPrefix, idx)
-			nodeDir := s.getNodeDir(id)
-			idx++
-
-			if exists, err := utils.PathExists(nodeDir); err != nil {
-				log.WithError(err).Error("Could not determine path status.", "path", nodeDir)
-			} else if !exists {
-				return id, nodeDir
-			}
-		}
-	}
-
 	for range req.Count {
-		id, nodeDir := getNext()
+		s.lastId++
+		id := fmt.Sprintf("%s%03d", nodeIdPrefix, s.lastId)
+		nodeDir := s.getNodeDir(id)
+
+		if exists, err := utils.PathExists(nodeDir); err != nil {
+			return nil, errors.Wrapf(err, "could not determine node dir %s status", nodeDir)
+		} else if exists {
+			return nil, errors.Wrapf(err, "node dir %s already exists", nodeDir)
+		}
 
 		if err := utils.MkdirAll(nodeDir); err != nil {
 			return nil, err
@@ -309,12 +308,9 @@ func (s *service) startNode(id string) error {
 	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	log := logrus.New()
-	log.SetLevel(logrus.ErrorLevel)
-
 	machine, err := sdk.NewMachine(context.Background(), cfg,
 		sdk.WithProcessRunner(cmd),
-		sdk.WithLogger(logrus.NewEntry(log)))
+		sdk.WithLogger(newLogger(id, false)))
 
 	if err != nil {
 		return errors.Wrap(err, "NewMachine call failed")
@@ -354,6 +350,7 @@ func (s *service) stopNode(id string) error {
 	}
 
 	delete(s.pids, id)
+	delete(s.clients, id)
 	return nil
 }
 
@@ -392,7 +389,7 @@ func (s *service) getVMState(id string) NodeState {
 		return NodeState_NotStarted
 	}
 
-	client := sdk.NewClient(socketPath, nil, false)
+	client := s.getClient(id, socketPath)
 
 	info, err := client.GetInstanceInfo(context.Background())
 	if err != nil {
@@ -420,10 +417,24 @@ func (s *service) getVMState(id string) NodeState {
 	}
 }
 
+func (s *service) getClient(id, socketPath string) *sdk.Client {
+	client, ok := s.clients[id]
+	if !ok {
+		logger := newLogger(id, true)
+		client = sdk.NewClient(socketPath, logger, false)
+		s.clients[id] = client
+	}
+
+	return client
+}
+
 func (s *service) readIP(id string) (string, error) {
 	ipFile := s.getNodeIPFile(id)
 	ip, err := os.ReadFile(ipFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.NotFound
+		}
 		return "", errors.Wrap(err, "failed to read IP file")
 	}
 
@@ -526,7 +537,7 @@ func (s *service) makeVMConfig(id string) (sdk.Config, error) {
 	}
 
 	ip, err := s.readIP(id)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return sdk.Config{}, err
 	}
 

@@ -18,7 +18,9 @@ var (
 		"positive":   positive,
 		"minItemLen": minItemLen,
 		"maxItemLen": maxItemLen,
-		"port":       port,
+		"port":       port,          // port number
+		"exists":     pathExists,    // path exists
+		"notExists":  pathNotExists, // path does not exist
 	}
 )
 
@@ -225,29 +227,4 @@ func positive(val reflect.Value, param string) string {
 		return "unexpectetd param value"
 	}
 	return min(val, "0")
-}
-
-func canIsNil(v reflect.Value) bool {
-	k := v.Kind()
-	return k == reflect.Chan || k == reflect.Func || k == reflect.Map || k == reflect.Ptr ||
-		k == reflect.UnsafePointer || k == reflect.Interface || k == reflect.Slice
-}
-
-func canLen(v reflect.Value) bool {
-	k := v.Kind()
-	return k == reflect.Array || k == reflect.Map || k == reflect.Slice || k == reflect.String
-}
-
-func canIndex(v reflect.Value) bool {
-	k := v.Kind()
-	return k == reflect.Array || k == reflect.Slice || k == reflect.String
-}
-
-func isNumeric(v reflect.Value) bool {
-	return v.CanUint() || v.CanInt() || v.CanFloat() || v.CanComplex()
-}
-
-func isZero(v reflect.Value) bool {
-	zero := reflect.Zero(v.Type()).Interface()
-	return reflect.DeepEqual(v.Interface(), zero)
 }

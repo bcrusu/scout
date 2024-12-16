@@ -68,8 +68,9 @@ func newNodeCmd() *cobra.Command {
 	}
 
 	createCmd := &cobra.Command{
-		Use:   "create COUNT",
-		Short: "Create nodes.",
+		Use:     "create COUNT",
+		Aliases: []string{"add"},
+		Short:   "Create nodes.",
 		RunE: func(c *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return errors.Error("expected a single count arg")

@@ -10,8 +10,8 @@ var (
 )
 
 type Discovery struct {
-	Servers []string `yaml:"servers"`
-	DNS     string   `yaml:"dns"`
+	Servers []string `yaml:"servers,omitempty"`
+	DNS     string   `yaml:"dns,omitempty"`
 }
 
 func DNS(target string) Discovery {

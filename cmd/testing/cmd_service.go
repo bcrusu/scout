@@ -54,6 +54,7 @@ func newServiceCmd() *cobra.Command {
 
 	c.AddCommand(
 		newServiceConfigCmd(),
+		newServiceLogsCmd(),
 		startCmd,
 		stopCmd,
 		resetCmd,

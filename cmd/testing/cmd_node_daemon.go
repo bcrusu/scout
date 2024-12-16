@@ -19,54 +19,28 @@ func newNodeDaemonCmd() *cobra.Command {
 		}
 
 		socketPath := joinSocketPath(workDir)
-		firecrackerPath := path.Join(workDir, "firecracker")
 		nodesDir := path.Join(workDir, "nodes")
 		netNSDir := path.Join(workDir, "netns")
-		cniBin := path.Join(workDir, "cni_bin")
 		cniCache := path.Join(workDir, "cni_cache")
-		cniConf := path.Join(workDir, "cni_conf")
-
-		kernelImage := path.Join(workDir, errors.Assert2(c.Flags().GetString("kernel-image")))
-		rootFS := path.Join(workDir, errors.Assert2(c.Flags().GetString("rootfs")))
-		scoutFS := path.Join(workDir, errors.Assert2(c.Flags().GetString("scoutfs")))
-		workFS := path.Join(workDir, errors.Assert2(c.Flags().GetString("workfs")))
-
-		nodeCPU := errors.Assert2(c.Flags().GetInt("node-cpu"))
-		if nodeCPU < 1 || nodeCPU > 32 {
-			return nodes.Config{}, errors.Error("invalid node-cpu value")
-		}
-
-		nodeMemory := errors.Assert2(c.Flags().GetInt("node-memory"))
-		if nodeMemory < 128 || nodeMemory > 10*1024 {
-			return nodes.Config{}, errors.Error("invalid node-memory value")
-		}
 
 		if err := utils.MkdirsAll(nodesDir, netNSDir, cniCache); err != nil {
 			return nodes.Config{}, err
 		}
 
-		if err := pathMustExist(true, cniBin, cniConf); err != nil {
-			return nodes.Config{}, err
-		}
-
-		if err := pathMustExist(false, firecrackerPath, kernelImage, rootFS, scoutFS, workFS); err != nil {
-			return nodes.Config{}, err
-		}
-
 		return nodes.Config{
 			SocketPath:      socketPath,
-			FirecrackerPath: firecrackerPath,
+			FirecrackerPath: path.Join(workDir, "firecracker"),
 			NodesDir:        nodesDir,
-			KernelImage:     kernelImage,
+			KernelImage:     path.Join(workDir, errors.Assert2(c.Flags().GetString("kernel-image"))),
 			KernelArgs:      errors.Assert2(c.Flags().GetString("kernel-args")),
-			RootFS:          rootFS,
-			ScoutFS:         scoutFS,
-			WorkFS:          workFS,
-			NodeCPU:         nodeCPU,
-			NodeMemory:      nodeMemory,
+			RootFS:          path.Join(workDir, errors.Assert2(c.Flags().GetString("rootfs"))),
+			ScoutFS:         path.Join(workDir, errors.Assert2(c.Flags().GetString("scoutfs"))),
+			WorkFS:          path.Join(workDir, errors.Assert2(c.Flags().GetString("workfs"))),
+			NodeCPU:         errors.Assert2(c.Flags().GetInt("node-cpu")),
+			NodeMemory:      errors.Assert2(c.Flags().GetInt("node-memory")),
 			NetNSDir:        netNSDir,
-			CNIBinDir:       cniBin,
-			CNIConfDir:      cniConf,
+			CNIBinDir:       path.Join(workDir, "cni_bin"),
+			CNIConfDir:      path.Join(workDir, "cni_conf"),
 			CNICacheDir:     cniCache,
 			CNINetworkName:  errors.Assert2(c.Flags().GetString("cni-network")),
 			LogLevel:        errors.Assert2(c.Flags().GetString("log-level")),
@@ -95,7 +69,7 @@ func newNodeDaemonCmd() *cobra.Command {
 	}
 
 	c.PersistentFlags().String("kernel-image", "downloads/vmlinux-6.1.102", "Kernel image.")
-	c.PersistentFlags().String("kernel-args", "reboot=k panic=1 pci=off", "Kernel args.")
+	c.PersistentFlags().String("kernel-args", "ro nomodule reboot=k panic=1 pci=off", "Kernel args.")
 	c.PersistentFlags().String("rootfs", "rootfs.ext4", "Root filesystem (read-only).")
 	c.PersistentFlags().String("scoutfs", "scoutfs.ext4", "Scout filesystem (read-only).")
 	c.PersistentFlags().String("workfs", "workfs.ext4", "Work filesystem (read-write).")

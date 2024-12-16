@@ -66,5 +66,6 @@ func extractId(cmdLine string) string {
 
 func unknownProc(err error) bool {
 	str := err.Error()
-	return strings.Contains(str, "no such file or directory")
+	return strings.Contains(str, "no such file or directory") ||
+		strings.Contains(str, "process does not exist")
 }

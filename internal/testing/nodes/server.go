@@ -9,6 +9,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/rpc/interceptors"
 	"github.com/bcrusu/scout/internal/utils"
+	"github.com/bcrusu/scout/internal/validation"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -19,20 +20,20 @@ var (
 
 type Config struct {
 	SocketPath      string
-	FirecrackerPath string
-	NodesDir        string
-	KernelImage     string
-	KernelArgs      string
-	RootFS          string
-	ScoutFS         string
-	WorkFS          string
-	NodeCPU         int
-	NodeMemory      int
-	NetNSDir        string
-	CNIBinDir       string
-	CNIConfDir      string
-	CNICacheDir     string
-	CNINetworkName  string
+	FirecrackerPath string `validate:"exists:file"`
+	NodesDir        string `validate:"exists:dir"`
+	KernelImage     string `validate:"exists:file"`
+	KernelArgs      string `validate:"required"`
+	RootFS          string `validate:"exists:file"`
+	ScoutFS         string `validate:"exists:file"`
+	WorkFS          string `validate:"exists:file"`
+	NodeCPU         int    `validate:"min:1,max:8"`
+	NodeMemory      int    `validate:"min:256,max:8192"`
+	NetNSDir        string `validate:"exists:dir"`
+	CNIBinDir       string `validate:"exists:dir"`
+	CNIConfDir      string `validate:"exists:dir"`
+	CNICacheDir     string `validate:"exists:dir"`
+	CNINetworkName  string `validate:"required"`
 	LogLevel        string
 }
 
@@ -66,6 +67,10 @@ func NewServer(config Config) *Server {
 }
 
 func (n *Server) Start(ctx context.Context) error {
+	if err := validation.Validate(n.config); err != nil {
+		return err
+	}
+
 	service, err := newService(n.config)
 	if err != nil {
 		return errors.Wrap(err, "failed to create service")

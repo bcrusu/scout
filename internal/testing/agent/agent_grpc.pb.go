@@ -25,6 +25,7 @@ const (
 	Service_Start_FullMethodName     = "/agent.Service/Start"
 	Service_Stop_FullMethodName      = "/agent.Service/Stop"
 	Service_Reset_FullMethodName     = "/agent.Service/Reset"
+	Service_GetLogs_FullMethodName   = "/agent.Service/GetLogs"
 )
 
 // ServiceClient is the client API for Service service.
@@ -38,6 +39,7 @@ type ServiceClient interface {
 	Start(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Stop(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Reset(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetLogs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Logs, error)
 }
 
 type serviceClient struct {
@@ -98,6 +100,16 @@ func (c *serviceClient) Reset(ctx context.Context, in *emptypb.Empty, opts ...gr
 	return out, nil
 }
 
+func (c *serviceClient) GetLogs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Logs, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Logs)
+	err := c.cc.Invoke(ctx, Service_GetLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
@@ -109,6 +121,7 @@ type ServiceServer interface {
 	Start(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Stop(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Reset(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	GetLogs(context.Context, *emptypb.Empty) (*Logs, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -133,6 +146,9 @@ func (UnimplementedServiceServer) Stop(context.Context, *emptypb.Empty) (*emptyp
 }
 func (UnimplementedServiceServer) Reset(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reset not implemented")
+}
+func (UnimplementedServiceServer) GetLogs(context.Context, *emptypb.Empty) (*Logs, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLogs not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -245,6 +261,24 @@ func _Service_Reset_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_GetLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_GetLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetLogs(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -271,6 +305,10 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Reset",
 			Handler:    _Service_Reset_Handler,
+		},
+		{
+			MethodName: "GetLogs",
+			Handler:    _Service_GetLogs_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

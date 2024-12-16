@@ -30,6 +30,7 @@ func newServiceConfigCmd() *cobra.Command {
 
 		return services.Config{
 			SocketPath:    socketPath,
+			ClusterName:   clusterName,
 			ControlNodes:  cNodes,
 			ControlConfig: cConfig,
 			DataNodes:     dNodes,

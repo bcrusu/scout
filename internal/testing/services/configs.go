@@ -1,9 +1,6 @@
 package services
 
 import (
-	"fmt"
-	"time"
-
 	aconfig "github.com/bcrusu/scout/internal/api/server/config"
 	cconfig "github.com/bcrusu/scout/internal/control/server/config"
 	dconfig "github.com/bcrusu/scout/internal/data/server/config"
@@ -16,6 +13,7 @@ import (
 
 type Config struct {
 	SocketPath    string
+	ClusterName   string
 	ControlNodes  int
 	ControlConfig cconfig.Config
 	DataNodes     int
@@ -48,7 +46,6 @@ func makeConfigRequests(config Config, nodes []*nodes.Node) (configMap, error) {
 	aNodes := nodes[idx1:idx2]
 	dNodes := nodes[idx2:idx3]
 
-	clusterName := fmt.Sprintf("scout%d", time.Now().Unix())
 	initialServers := makeInitialServers(cNodes)
 	discovery := makeDiscovery(cNodes)
 
@@ -56,7 +53,7 @@ func makeConfigRequests(config Config, nodes []*nodes.Node) (configMap, error) {
 
 	for _, node := range cNodes {
 		cfg := config.ControlConfig
-		cfg.ClusterName = clusterName
+		cfg.ClusterName = config.ClusterName
 		cfg.DataDir = agent.DataDir
 		cfg.Bootstrap.InitialServers = initialServers
 		cfg.Register = nil
@@ -71,13 +68,14 @@ func makeConfigRequests(config Config, nodes []*nodes.Node) (configMap, error) {
 
 	for _, node := range aNodes {
 		cfg := config.APIConfig
-		cfg.ClusterName = clusterName
+		cfg.ClusterName = config.ClusterName
 		cfg.DataDir = agent.DataDir
 		cfg.Discovery = discovery
 		cfg.Register.Token = ""
 		cfg.Register.Tags = []string{node.Id}
 		cfg.RPC.Address = node.Ip
 		cfg.HTTP.Address = node.Ip
+		cfg.ProxyMode = false
 
 		result[node.Id] = &agent.ConfigRequest{
 			ServiceType: agent.ServiceType_Api,
@@ -87,7 +85,7 @@ func makeConfigRequests(config Config, nodes []*nodes.Node) (configMap, error) {
 
 	for _, node := range dNodes {
 		cfg := config.DataConfig
-		cfg.ClusterName = clusterName
+		cfg.ClusterName = config.ClusterName
 		cfg.DataDir = agent.DataDir
 		cfg.Discovery = discovery
 		cfg.Register.Token = ""

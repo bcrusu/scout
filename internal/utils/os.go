@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/bcrusu/scout/internal/errors"
@@ -67,4 +68,31 @@ func EnsureEnvPath(targetPath string) error {
 	}
 
 	return nil
+}
+
+// GetLastSuffix finds the last/max suffix in the specified dir.
+func GetLastSuffix(dirPath, prefix string) (int, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to read dir %s", dirPath)
+	}
+
+	result := 0
+
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+
+		suffix := name[len(prefix):]
+		val, err := strconv.ParseInt(suffix, 10, 64)
+		if err != nil {
+			continue
+		}
+
+		result = max(result, int(val))
+	}
+
+	return result, nil
 }
