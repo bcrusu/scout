@@ -7,7 +7,6 @@ replace github.com/Jille/raft-grpc-transport => github.com/bcrusu/raft-grpc-tran
 replace github.com/linxGnu/grocksdb => github.com/bcrusu/grocksdb v0.0.0-20241115093056-fef3a46ad080
 
 require (
-	github.com/HdrHistogram/hdrhistogram-go v1.1.2
 	github.com/Jille/raft-grpc-transport v1.6.1
 	github.com/bcrusu/raft-rocksdb v0.0.0-20241028075717-ef2afb4585b2
 	github.com/cespare/xxhash/v2 v2.3.0

@@ -3,6 +3,7 @@ package sessions
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/errors"
@@ -103,8 +104,14 @@ func (t *Tracker) handleHeartbeat(sess *session, msg *control.Heartbeat) error {
 	return nil
 }
 
-func (t *Tracker) handleTimestampResponse(sess *session, msg *control.TimestampResponse) error {
-	return sess.timeOffset.recordAndCheck(msg)
+func (t *Tracker) handleTimestampResponse(_ *session, msg *control.TimestampResponse) error {
+	offset := t.computeTimeOffset(msg)
+
+	if offset > t.config.Sessions.MaxTimeOffset {
+		return errors.TimeOffsetOutOfRange
+	}
+
+	return nil
 }
 
 func (t *Tracker) handleGetDataServers(sess *session, msg *control.GetDataServers) error {
@@ -155,4 +162,21 @@ func (t *Tracker) handleApiServerStatus(sess *session, _ *control.ApiServerStatu
 	}
 
 	return nil
+}
+
+// The offset is computed using the NTP clock synchronization algorithm
+// formula: θ = 1/2 * [(t2 − t1) + (t3 − t4)], with the assumption that t2==t3.
+func (t *Tracker) computeTimeOffset(msg *control.TimestampResponse) time.Duration {
+	t1 := msg.RequestTimestamp.AsTime()
+	t2 := msg.ResponseTimestamp.AsTime()
+	t3 := t2
+	t4 := time.Now()
+
+	offset := (t2.Sub(t1) + t3.Sub(t4)) / 2
+
+	if offset < 0 {
+		offset = -offset
+	}
+
+	return offset
 }

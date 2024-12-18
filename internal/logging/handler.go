@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/bcrusu/scout/internal/tracing"
 )
@@ -49,13 +48,6 @@ func (h *handler) WithGroup(name string) slog.Handler {
 
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	switch a.Key {
-	case slog.TimeKey:
-		if timestampFormat != "" {
-			t, ok := a.Value.Any().(time.Time)
-			if ok {
-				a.Value = slog.StringValue(t.Format(timestampFormat))
-			}
-		}
 	case slog.LevelKey:
 		level := a.Value.Any().(slog.Level)
 

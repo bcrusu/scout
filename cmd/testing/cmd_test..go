@@ -17,6 +17,7 @@ func newTestCmd() *cobra.Command {
 
 	c.AddCommand(
 		newTestRunCmd(),
+		newTestCheckCmd(),
 	)
 
 	return c

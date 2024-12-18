@@ -2,6 +2,7 @@ package jepsen
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path"
 	"time"
@@ -22,6 +23,7 @@ var (
 )
 
 type Config struct {
+	RunId          int           `validate:"required"`
 	ClusterName    string        `validate:"required,maxLen:100"`
 	SocketPath     string        `validate:"exists:socket"`
 	OutputDir      string        `validate:"notExists"`
@@ -73,6 +75,13 @@ func (r *Runner) Start(ctx context.Context) error {
 
 	if err := os.Mkdir(r.config.OutputDir, 0755); err != nil {
 		return errors.Wrap(err, "failed to create output dir")
+	}
+
+	// write test run config to disk for future reference
+	if data, err := json.MarshalIndent(r.config, "", "    "); err != nil {
+		return errors.Wrap(err, "failed to marshal config json")
+	} else if err := os.WriteFile(path.Join(r.config.OutputDir, "config.json"), data, 0644); err != nil {
+		return errors.Wrap(err, "failed to write config json")
 	}
 
 	historyFile, err := os.Create(path.Join(r.config.OutputDir, "history.json"))
@@ -228,6 +237,8 @@ func (r *Runner) newWorker(id int) (*worker, error) {
 	}
 
 	return &worker{
+		runId:    r.config.RunId,
+		workerId: id,
 		client:   client,
 		limiter:  r.limiter,
 		workload: r.workload,

@@ -36,10 +36,13 @@ func newTestRunCmd() *cobra.Command {
 			return jepsen.Config{}, err
 		}
 
+		runId := lastRun + 1
+
 		return jepsen.Config{
+			RunId:          runId,
 			ClusterName:    clusterName,
 			SocketPath:     socketPath,
-			OutputDir:      path.Join(workDir, "runs", fmt.Sprintf("%s%05d", runPrefix, lastRun+1)),
+			OutputDir:      path.Join(workDir, "runs", fmt.Sprintf("%s%05d", runPrefix, runId)),
 			Concurrency:    errors.Assert2(c.Flags().GetInt("concurrency")),
 			Duration:       errors.Assert2(c.Flags().GetDuration("duration")),
 			ReadWriteRatio: errors.Assert2(c.Flags().GetFloat64("rw-ratio")),
@@ -69,10 +72,10 @@ func newTestRunCmd() *cobra.Command {
 
 	c.PersistentFlags().IntP("concurrency", "c", 1, "Number of workers to run.")
 	c.PersistentFlags().DurationP("duration", "d", time.Minute, "Total test runtime.")
-	c.PersistentFlags().IntP("request-rate", "r", 50, "Total request rate (per second).")
+	c.PersistentFlags().IntP("request-rate", "r", 10, "Total request rate (per second).")
 	c.PersistentFlags().Float64("rw-ratio", 1, "Read/Write request ratio.")
 	c.PersistentFlags().Int("min-keys", 1, "Request min key count.")
-	c.PersistentFlags().Int("max-keys", 10, "Request max key count.")
+	c.PersistentFlags().Int("max-keys", 3, "Request max key count.")
 	c.PersistentFlags().StringSliceP("nemesis", "n", nil, "Nemesis list to enable.")
 	c.PersistentFlags().Duration("nemesis-interval", 2*time.Second, "Duration between nemesis operations.")
 

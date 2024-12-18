@@ -74,7 +74,7 @@ func (n *Service) Autocommit(ctx context.Context, req *data.AutocommitRequest) (
 		return n.reader.AutocommitReadOnly(ctx, req.Txn, req.ReadTimestamp)
 	}
 
-	status, err := n.batcher.Apply(&data.Autocommit{Txn: req.Txn, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.Autocommit{Txn: req.Txn})
 	if err != nil {
 		return nil, err
 	} else if err := n.reader.AutocommitReadWrite(ctx, req.Txn, status); err != nil {
@@ -91,7 +91,7 @@ func (n *Service) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.
 		return n.reader.PrepareReadOnly(ctx, req.Txn)
 	}
 
-	status, err := n.batcher.Apply(&data.Prepare{Txn: req.Txn, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.Prepare{Txn: req.Txn})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -132,7 +132,7 @@ func (n *Service) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnS
 		return nil, errors.InvalidRequest
 	}
 
-	status, err := n.batcher.Apply(&data.Abort{Id: req.Id, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.Abort{Id: req.Id})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -150,7 +150,7 @@ func (n *Service) StoreDecision(ctx context.Context, dec *data.Decision) (*data.
 		return nil, errors.InvalidRequest
 	}
 
-	status, err := n.batcher.Apply(&data.StoreDecision{Decision: dec, Timestamp: hlc.Now()})
+	status, err := n.batcher.Apply(&data.StoreDecision{Decision: dec})
 	if err != nil {
 		return nil, err
 	} else if n.watchdog2PC != nil {
@@ -161,5 +161,5 @@ func (n *Service) StoreDecision(ctx context.Context, dec *data.Decision) (*data.
 }
 
 func (n *Service) markTimedout(id *data.TxnId, releaseLocks bool) (*data.TxnStatus, error) {
-	return n.batcher.Apply(&data.MarkTimedout{Id: id, Timestamp: hlc.Now(), ReleaseLocks: releaseLocks})
+	return n.batcher.Apply(&data.MarkTimedout{Id: id, ReleaseLocks: releaseLocks})
 }

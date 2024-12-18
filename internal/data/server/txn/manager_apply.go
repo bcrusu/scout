@@ -9,6 +9,10 @@ import (
 	"github.com/bcrusu/scout/internal/hlc"
 )
 
+// Applies a batch of txn operations. The order of operations is important for
+// performance reasons: first process the Abort/MarkTimedout/Commit ops which
+// will release held locks, then Autocommit ops which will not aquire new locks,
+// and finally Prepare ops where new locks are acquired.
 func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -24,6 +28,22 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 
 	allWrites := make([]mvcc.Record, 0, batch.ActionCount())
 
+	for i, cmd := range batch.Abort {
+		status, err := p.applyAbort(cmd)
+		result.Abort[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.MarkTimedout {
+		status, err := p.applyMarkTimedout(cmd)
+		result.MarkTimedout[i] = BatchResult{status, err}
+	}
+
+	for i, cmd := range batch.Commit {
+		status, writes, err := p.applyCommit(cmd)
+		allWrites = append(allWrites, writes...)
+		result.Commit[i] = BatchResult{status, err}
+	}
+
 	for i, cmd := range batch.Autocommit {
 		status, writes, err := p.applyAutocommit(cmd)
 		allWrites = append(allWrites, writes...)
@@ -35,25 +55,9 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 		result.Prepare[i] = BatchResult{status, err}
 	}
 
-	for i, cmd := range batch.Commit {
-		status, writes, err := p.applyCommit(cmd)
-		allWrites = append(allWrites, writes...)
-		result.Commit[i] = BatchResult{status, err}
-	}
-
-	for i, cmd := range batch.Abort {
-		status, err := p.applyAbort(cmd)
-		result.Abort[i] = BatchResult{status, err}
-	}
-
 	for i, cmd := range batch.StoreDecision {
 		status, err := p.applyStoreDecision(cmd)
 		result.StoreDecision[i] = BatchResult{status, err}
-	}
-
-	for i, cmd := range batch.MarkTimedout {
-		status, err := p.applyMarkTimedout(cmd)
-		result.MarkTimedout[i] = BatchResult{status, err}
 	}
 
 	// call Put even when allWrites is empty to update the stored Raft index.
@@ -86,7 +90,7 @@ func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc
 	}
 
 	locks := cmd.Txn.BuildLocks()
-	status = p.acquireLocks(id, cmd.Timestamp, locks)
+	status = p.checkLocks(id, cmd.Timestamp, locks)
 	if status != nil {
 		return status, nil, nil
 	}
@@ -118,7 +122,7 @@ func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
 	}
 
 	locks := cmd.Txn.BuildLocks()
-	status = p.acquireLocks(id, cmd.Timestamp, locks)
+	status = p.checkLocks(id, cmd.Timestamp, locks)
 	if status != nil {
 		return status, nil
 	}

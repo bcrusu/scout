@@ -34,6 +34,14 @@ func newServiceCmd() *cobra.Command {
 		},
 	}
 
+	restartCmd := &cobra.Command{
+		Use:   "restart",
+		Short: "Restart services.",
+		RunE: func(c *cobra.Command, args []string) error {
+			return run(c, services.Restart)
+		},
+	}
+
 	resetCmd := &cobra.Command{
 		Use:   "reset",
 		Short: "Stop services and remove the persisted state.",
@@ -57,6 +65,7 @@ func newServiceCmd() *cobra.Command {
 		newServiceLogsCmd(),
 		startCmd,
 		stopCmd,
+		restartCmd,
 		resetCmd,
 	)
 

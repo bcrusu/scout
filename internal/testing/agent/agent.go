@@ -34,7 +34,7 @@ func readServiceType() (ServiceType, error) {
 
 	value, ok := ServiceType_value[string(data)]
 
-	if !ok || value == int32(ServiceType_None) {
+	if x := ServiceType(value); !ok || !x.IsValid() {
 		return 0, errors.Error("found invalid service")
 	}
 
@@ -70,13 +70,13 @@ func (x *ConfigRequest) Validate() error {
 		return errors.Error("ConfigRequest is nil")
 	}
 
-	if x.ServiceType == ServiceType_None || len(x.ConfigFile) == 0 {
+	if !x.ServiceType.IsValid() || len(x.ConfigFile) == 0 {
 		return errors.Error("ConfigRequest has missing fields")
 	}
 
-	if _, ok := ServiceType_name[int32(x.ServiceType)]; !ok {
-		return errors.Error("ConfigRequest.ServiceType is invalid")
-	}
-
 	return nil
+}
+
+func (x ServiceType) IsValid() bool {
+	return x == ServiceType_Control || x == ServiceType_Data || x == ServiceType_Api
 }

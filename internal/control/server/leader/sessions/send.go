@@ -14,7 +14,7 @@ import (
 )
 
 func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
-	timestampTicker := time.NewTicker(utils.AddJitter(t.config.TimeOffset.CheckInterval))
+	timestampTicker := time.NewTicker(utils.AddJitter(t.config.Sessions.TimeOffsetCheckInterval))
 	defer timestampTicker.Stop()
 
 	// enqueue server hello and all the other things a new session might need to live long and prosper

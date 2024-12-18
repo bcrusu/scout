@@ -18,7 +18,7 @@ func Configure(ctx context.Context, config Config) error {
 		if status, err := getAgentStatus(ctx, node.Ip); err != nil {
 			return errors.Wrapf(err, "status check failed for node %s", node.Id)
 		} else if status.ServiceType != agent.ServiceType_None {
-			return errors.Errorf("node %s is already configured", node.Id)
+			return errors.Errorf("node %s cannot be configured", node.Id)
 		}
 	}
 
@@ -60,6 +60,13 @@ func Start(ctx context.Context, socketPath string) error {
 func Stop(ctx context.Context, socketPath string) error {
 	return doAllNodes(ctx, socketPath, func(client *agent.Client) error {
 		_, err := client.Stop(ctx, nil)
+		return err
+	})
+}
+
+func Restart(ctx context.Context, socketPath string) error {
+	return doAllNodes(ctx, socketPath, func(client *agent.Client) error {
+		_, err := client.Restart(ctx, nil)
 		return err
 	})
 }

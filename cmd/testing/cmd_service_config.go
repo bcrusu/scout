@@ -24,18 +24,14 @@ func newServiceConfigCmd() *cobra.Command {
 			return services.Config{}, err
 		}
 
-		cNodes := errors.Assert2(c.Flags().GetInt("nodes-control"))
-		dNodes := errors.Assert2(c.Flags().GetInt("nodes-data"))
-		aNodes := errors.Assert2(c.Flags().GetInt("nodes-api"))
-
 		return services.Config{
 			SocketPath:    socketPath,
 			ClusterName:   clusterName,
-			ControlNodes:  cNodes,
+			ControlNodes:  errors.Assert2(c.Flags().GetInt("nodes-control")),
 			ControlConfig: cConfig,
-			DataNodes:     dNodes,
+			DataNodes:     errors.Assert2(c.Flags().GetInt("nodes-data")),
 			DataConfig:    dConfig,
-			APINodes:      aNodes,
+			APINodes:      errors.Assert2(c.Flags().GetInt("nodes-api")),
 			APIConfig:     aConfig,
 		}, nil
 	}

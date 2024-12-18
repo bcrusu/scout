@@ -8,6 +8,7 @@ import (
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 )
@@ -73,6 +74,7 @@ func (s *batcher) mainLoop(ctx context.Context) {
 	batchSize := 0
 
 	nextBatch := func() {
+		s.prepareBatch(batch)
 		asyncCh := s.raftStore.ApplyBatch(batch)
 		go s.waitBatchResult(waiting, asyncCh)
 
@@ -180,5 +182,36 @@ func (s *batcher) sendBatchErr(waiting *batchWaiting, err error) {
 	}
 	for _, ch := range waiting.MarkTimedout {
 		ch <- result
+	}
+}
+
+// Sets only the HLC timestamps for new, but any other future optimizations
+// related to txn ordering, write dedup/merging, etc, could happen at this stage.
+//   - ordering is important with all Autocommit timestamps less than Prepare
+//     timestamps which efectively makes Autocommit writes come before in the
+//     MVCC than any future Commit writes corresponding to the Prepare.
+//   - Commit timestamp is not set here as it was already set by the upstream
+//     caller as determined by 2PC txn participants.
+//   - Abort/StoreDecision/MarkTimedout timestamps have only informative role
+//     and could have been set elsewhere.
+func (s *batcher) prepareBatch(batch *data.TxnBatch) {
+	for _, x := range batch.Autocommit {
+		x.Timestamp = hlc.Now()
+	}
+
+	for _, x := range batch.Prepare {
+		x.Timestamp = hlc.Now()
+	}
+
+	for _, x := range batch.Abort {
+		x.Timestamp = hlc.Now()
+	}
+
+	for _, x := range batch.StoreDecision {
+		x.Timestamp = hlc.Now()
+	}
+
+	for _, x := range batch.MarkTimedout {
+		x.Timestamp = hlc.Now()
 	}
 }

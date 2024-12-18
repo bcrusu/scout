@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/tracing"
 )
 
 const (
@@ -26,6 +27,7 @@ type operation struct {
 	Time    int64  `json:"time"`            // time since the start of the test, in nanoseconds
 	Error   string `json:"error,omitempty"` // error information, helpful for debugging why an operation returned info or fail.
 	Value   any    `json:"value,omitempty"` // stores arguments to and/or return values from the operation with structure as expected by Func
+	Trace   string `json:"trace,omitempty"` // custom tracing value
 }
 
 type txn = []mop  // https://github.com/jepsen-io/jepsen/blob/main/txn/src/jepsen/txn.clj
@@ -61,12 +63,15 @@ func newHistory(writer io.WriteCloser) *history {
 	}
 }
 
-func (h *history) Write(op operation) error {
+func (h *history) Write(ctx context.Context, op operation) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
+	trace, _ := tracing.GetTraceID(ctx)
+
 	op.Index = h.index
 	op.Time = time.Since(h.startTime).Nanoseconds()
+	op.Trace = trace
 
 	data, err := json.Marshal(op)
 	if err != nil {
@@ -116,8 +121,8 @@ func (h *history) writeBytes(data []byte) error {
 	return nil
 }
 
-func (w *txnWriter) Invoke(value txn) error {
-	return w.history.Write(operation{
+func (w *txnWriter) Invoke(ctx context.Context, value txn) error {
+	return w.history.Write(ctx, operation{
 		Type:    typeInvoke,
 		Func:    funcTxn,
 		Process: w.process,
@@ -125,8 +130,8 @@ func (w *txnWriter) Invoke(value txn) error {
 	})
 }
 
-func (w *txnWriter) Success(value txn) error {
-	return w.history.Write(operation{
+func (w *txnWriter) Success(ctx context.Context, value txn) error {
+	return w.history.Write(ctx, operation{
 		Type:    typeOK,
 		Func:    funcTxn,
 		Process: w.process,
@@ -134,13 +139,13 @@ func (w *txnWriter) Success(value txn) error {
 	})
 }
 
-func (w *txnWriter) Failure(value txn, err error) error {
+func (w *txnWriter) Failure(ctx context.Context, value txn, err error) error {
 	typ := typeFail
 	if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
 		typ = typeInfo
 	}
 
-	return w.history.Write(operation{
+	return w.history.Write(ctx, operation{
 		Type:    typ,
 		Func:    funcTxn,
 		Process: w.process,

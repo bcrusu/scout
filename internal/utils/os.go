@@ -74,6 +74,9 @@ func EnsureEnvPath(targetPath string) error {
 func GetLastSuffix(dirPath, prefix string) (int, error) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
 		return 0, errors.Wrapf(err, "failed to read dir %s", dirPath)
 	}
 

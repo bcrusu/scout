@@ -21,8 +21,10 @@ $(WORK)/id_rsa:
 $(WORK)/configs:
 	ln -s $(TESTS)/configs $(WORK)/configs
 
-$(WORK)/sshx: $(TESTS)/sshx
-	@cp $(TESTS)/sshx $(WORK)/sshx
+.PHONY: tools
+tools:
+	ln -s $(TESTS)/sshx $(WORK)/sshx;
+	ln -s $(TESTS)/scpx $(WORK)/scpx;
 
 .PHONY: testing
 testing:
@@ -39,6 +41,10 @@ admin:
 	CONTAINER_ID=$$(docker create "scout/admin:latest"); \
 	docker cp "$$CONTAINER_ID:/scout/admin" "$(WORK)/admin"; \
 	docker rm "$$CONTAINER_ID";
+
+.PHONY: docker_image_elle_cli
+docker_image_elle_cli:
+	docker build --target elle_cli -t scout/elle_cli .
 
 ########################################################
 # Downloads

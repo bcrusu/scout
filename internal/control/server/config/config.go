@@ -53,7 +53,6 @@ type Config struct {
 	DataDir     string            `yaml:"dataDir"`
 	Raft        multiraft.Config  `yaml:"raft"`
 	Sessions    Sessions          `yaml:"sessions"`
-	TimeOffset  TimeOffset        `yaml:"timeOffset"`
 	Partitions  Partitions        `yaml:"partitions"`
 	Register    *Register         `yaml:"register"`
 	Bootstrap   *Bootstrap        `yaml:"bootstrap"`
@@ -86,19 +85,12 @@ type Service struct {
 }
 
 type Sessions struct {
-	ReceiveBurst        int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
-	ReceiveMaxOffenses  int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
-	WriteStatusInterval time.Duration `yaml:"writeStatusInterval" default:"5s" validate:"min:100ms"`
-	SendBufferSize      int           `yaml:"sendBufferSize" default:"16" validate:"min:5"`
-}
-
-type TimeOffset struct {
-	MaxTimeOffset        time.Duration `yaml:"maxTimeOffset" default:"1s" validate:"min:10ms"`
-	CheckInterval        time.Duration `yaml:"checkInterval" default:"5s" validate:"min:100ms"`
-	GlobalTruncationPct  float64       `yaml:"globalTruncationPct" default:"80" validate:"min:1"`
-	GlobalWarmupCount    int           `yaml:"globalWarmupCount" default:"100" validate:"min:1"`
-	SessionTruncationPct float64       `yaml:"sessionTruncationPct" default:"95" validate:"min:1"`
-	SessionWarmupCount   int           `yaml:"sessionWarmupCount" default:"10" validate:"min:1"`
+	MaxTimeOffset           time.Duration `yaml:"maxTimeOffset" default:"500ms" validate:"min:10ms"`
+	TimeOffsetCheckInterval time.Duration `yaml:"timeOffsetCheckInterval" default:"5s" validate:"min:100ms"`
+	ReceiveBurst            int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
+	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
+	WriteStatusInterval     time.Duration `yaml:"writeStatusInterval" default:"5s" validate:"min:100ms"`
+	SendBufferSize          int           `yaml:"sendBufferSize" default:"16" validate:"min:5"`
 }
 
 type Partitions struct {
@@ -168,7 +160,7 @@ func (c *Config) prepare() error {
 	c.RPC.ClusterName = c.ClusterName
 	c.RPC.EnableHlc = true
 
-	hlc.Set(hlc.New(c.TimeOffset.MaxTimeOffset))
+	hlc.Set(hlc.New(c.Sessions.MaxTimeOffset))
 	return c.prepareDirs()
 }
 

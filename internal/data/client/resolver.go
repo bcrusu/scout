@@ -34,6 +34,7 @@ func (b *resolverBuilder) Build(target resolver.Target, clientConn resolver.Clie
 		buildOptions:   opts,
 		resolveNowCh:   resolveNowCh,
 		resolveNowChTh: resolveNowChTh,
+		closeCh:        make(chan any),
 	}
 
 	go r.mainLoop()
@@ -51,6 +52,7 @@ type resolverImpl struct {
 	buildOptions   resolver.BuildOptions
 	resolveNowCh   chan<- resolver.ResolveNowOptions
 	resolveNowChTh <-chan resolver.ResolveNowOptions
+	closeCh        chan any
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -59,6 +61,7 @@ func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
 
 func (r *resolverImpl) Close() {
 	close(r.resolveNowCh)
+	close(r.closeCh)
 }
 
 func (r *resolverImpl) mainLoop() {
@@ -67,16 +70,15 @@ func (r *resolverImpl) mainLoop() {
 
 	for {
 		select {
-		case _, ok := <-r.resolveNowChTh:
-			if !ok {
-				return
-			}
+		case <-r.resolveNowChTh:
 			session.RefreshDataServers()
 		case ds := <-dataServersSub.Items():
 			if err := r.updateState(ds); err != nil {
 				logR.WithError(err).Warn("Failed to update resolver state.")
 				r.clientConn.ReportError(err)
 			}
+		case <-r.closeCh:
+			return
 		}
 	}
 }

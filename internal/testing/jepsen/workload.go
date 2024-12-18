@@ -26,7 +26,7 @@ func newWorkload(config Config) *workload {
 	keys := make([][]byte, config.RequestMaxKeys)
 	index := make([]int, config.RequestMaxKeys)
 	for i := range keys {
-		keys[i] = encodeKey(fmt.Sprintf("k%d", i+1))
+		keys[i] = encodeKey(fmt.Sprintf("r%dk%d", config.RunId, i+1))
 		index[i] = i
 	}
 

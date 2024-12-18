@@ -34,7 +34,6 @@ type Tracker struct {
 	store                 storage.Store
 	startSessionCh        chan startSession
 	sessionCh             chan sessionMessage
-	globalTimeOffset      *globalTimeOffset
 	cancelFunc            context.CancelFunc
 	dataServiceConfigJson string
 	apiServiceConfigJson  string
@@ -54,7 +53,6 @@ type session struct {
 	sendBufferCh  chan *control.SessionOut
 	log           logging.Logger
 	waitCh        chan error
-	timeOffset    *sessionTimeOffset
 	dsConfig      *control.DataServerConfig // only for data servers
 	asConfig      *control.ApiServerConfig  // only for api servers
 	recvLimiter   *rate.Limiter             // dedicated for recv loop
@@ -74,7 +72,6 @@ func NewTracker(store storage.Store) *Tracker {
 		store:                 store,
 		startSessionCh:        make(chan startSession),
 		sessionCh:             make(chan sessionMessage, 1),
-		globalTimeOffset:      newGlobalTimeOffset(c.TimeOffset),
 		dataServiceConfigJson: c.Service.Data.GetServiceConfigJson(serviceconfig.LBNameScoutData, data.Service_ServiceDesc),
 		apiServiceConfigJson:  c.Service.Api.GetServiceConfigJson(serviceconfig.LBNameScoutApi, api.Service_ServiceDesc, keyvalue.Service_ServiceDesc, graph.Service_ServiceDesc),
 		meters:                newTrackerMeters(),
@@ -186,7 +183,6 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 				createdAt:     now,
 				sendBufferCh:  make(chan *control.SessionOut, t.config.Sessions.SendBufferSize),
 				waitCh:        x.waitCh,
-				timeOffset:    newSessionTimeOffset(t.config.TimeOffset, t.globalTimeOffset),
 				dsConfig:      dsConfigs[x.serverID],
 				asConfig:      asConfigs[x.serverID],
 				recvLimiter:   utils.NewRateLimiter(t.config.Sessions.ReceiveBurst, time.Second),

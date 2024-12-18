@@ -44,11 +44,7 @@ func NewServer() *Server {
 }
 
 func (n *Server) Start(ctx context.Context) error {
-	service, err := newService()
-	if err != nil {
-		return err
-	}
-
+	service := newService()
 	RegisterServiceServer(n.server, service)
 
 	bindAddress, err := utils.GetBindAddress()

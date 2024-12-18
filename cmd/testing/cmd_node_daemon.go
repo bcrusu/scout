@@ -49,6 +49,7 @@ func newNodeDaemonCmd() *cobra.Command {
 
 	c := &cobra.Command{
 		Use:           "daemon",
+		Aliases:       []string{"d"},
 		Short:         "Firecracker microVM node manager daemon.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -69,7 +70,7 @@ func newNodeDaemonCmd() *cobra.Command {
 	}
 
 	c.PersistentFlags().String("kernel-image", "downloads/vmlinux-6.1.102", "Kernel image.")
-	c.PersistentFlags().String("kernel-args", "ro nomodule reboot=k panic=1 pci=off", "Kernel args.")
+	c.PersistentFlags().String("kernel-args", "ro nomodule reboot=k panic=1 pci=off clocksource=kvm-clock", "Kernel args.")
 	c.PersistentFlags().String("rootfs", "rootfs.ext4", "Root filesystem (read-only).")
 	c.PersistentFlags().String("scoutfs", "scoutfs.ext4", "Scout filesystem (read-only).")
 	c.PersistentFlags().String("workfs", "workfs.ext4", "Work filesystem (read-write).")

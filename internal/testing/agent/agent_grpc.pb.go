@@ -24,6 +24,7 @@ const (
 	Service_Config_FullMethodName    = "/agent.Service/Config"
 	Service_Start_FullMethodName     = "/agent.Service/Start"
 	Service_Stop_FullMethodName      = "/agent.Service/Stop"
+	Service_Restart_FullMethodName   = "/agent.Service/Restart"
 	Service_Reset_FullMethodName     = "/agent.Service/Reset"
 	Service_GetLogs_FullMethodName   = "/agent.Service/GetLogs"
 )
@@ -38,6 +39,7 @@ type ServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Start(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Stop(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Restart(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Reset(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetLogs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Logs, error)
 }
@@ -90,6 +92,16 @@ func (c *serviceClient) Stop(ctx context.Context, in *emptypb.Empty, opts ...grp
 	return out, nil
 }
 
+func (c *serviceClient) Restart(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Service_Restart_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *serviceClient) Reset(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -120,6 +132,7 @@ type ServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*emptypb.Empty, error)
 	Start(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Stop(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Restart(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	Reset(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetLogs(context.Context, *emptypb.Empty) (*Logs, error)
 	mustEmbedUnimplementedServiceServer()
@@ -143,6 +156,9 @@ func (UnimplementedServiceServer) Start(context.Context, *emptypb.Empty) (*empty
 }
 func (UnimplementedServiceServer) Stop(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+}
+func (UnimplementedServiceServer) Restart(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Restart not implemented")
 }
 func (UnimplementedServiceServer) Reset(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Reset not implemented")
@@ -243,6 +259,24 @@ func _Service_Stop_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_Restart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).Restart(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_Restart_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).Restart(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Service_Reset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -301,6 +335,10 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Stop",
 			Handler:    _Service_Stop_Handler,
+		},
+		{
+			MethodName: "Restart",
+			Handler:    _Service_Restart_Handler,
 		},
 		{
 			MethodName: "Reset",

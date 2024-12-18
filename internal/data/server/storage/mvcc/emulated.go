@@ -2,10 +2,10 @@ package mvcc
 
 import (
 	"bytes"
-	"fmt"
 	"math"
 
 	"github.com/bcrusu/scout/internal/data/server/storage/kv"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
 // Emulated implements the MVCC features for a backing KV store.
@@ -116,7 +116,7 @@ func (d *Emulated) Put(pid uint32, index uint64, records ...Record) error {
 
 	for i, e := range records {
 		if e.Timestamp == 0 {
-			panic(fmt.Sprintf("trying to put record with missing timestamp at %s", e.Address))
+			return errors.Errorf("trying to put record with missing timestamp at %s", e.Address)
 		}
 
 		addr := kv.NewAddress(e.Address.Keyspace, e.Address.Key, e.Timestamp)

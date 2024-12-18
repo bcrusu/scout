@@ -146,6 +146,5 @@ func (f *FSM) notifyStore() {
 	select {
 	case f.notifyCh <- true:
 	default:
-		logF.Warn("Failed to notify store with latest FSM versions.")
 	}
 }

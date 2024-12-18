@@ -7,11 +7,11 @@ import (
 	"github.com/bcrusu/scout/internal/hlc"
 )
 
-// acquireLocks implementation is not that clever as it simply iterates the input locks to compare
+// checkLocks implementation is not that clever as it simply iterates the input locks to compare
 // each with all currently held locks; the quadratic runtime complexity can be avoided by using
 // an interval tree data structure with logarithmic runtime.
 // https://en.wikipedia.org/wiki/Interval_tree
-func (p *Manager) acquireLocks(id id, timestamp uint64, locks []*data.Lock) *data.TxnStatus {
+func (p *Manager) checkLocks(id id, timestamp uint64, locks []*data.Lock) *data.TxnStatus {
 	for _, lock := range locks {
 		if !p.acquireLock(lock) {
 			p.meters.LocksFailed.Add(1)

@@ -8,25 +8,26 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/testing/agent"
 	"github.com/bcrusu/scout/internal/testing/nodes"
+	"github.com/bcrusu/scout/internal/validation"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	SocketPath    string
-	ClusterName   string
-	ControlNodes  int
-	ControlConfig cconfig.Config
-	DataNodes     int
-	DataConfig    dconfig.Config
-	APINodes      int
-	APIConfig     aconfig.Config
+	SocketPath    string         `validate:"exists:socket"`
+	ClusterName   string         `validate:"required,maxLen:100"`
+	ControlNodes  int            `validate:"min:1"`
+	ControlConfig cconfig.Config `validate:"skip"`
+	DataNodes     int            `validate:"positive"`
+	DataConfig    dconfig.Config `validate:"skip"`
+	APINodes      int            `validate:"min:1"`
+	APIConfig     aconfig.Config `validate:"skip"`
 }
 
 type configMap map[string]*agent.ConfigRequest
 
 func makeConfigRequests(config Config, nodes []*nodes.Node) (configMap, error) {
-	if config.ControlNodes <= 0 || config.DataNodes < 0 || config.APINodes <= 0 {
-		return nil, errors.Error("invalid node count config")
+	if err := validation.Validate(config); err != nil {
+		return nil, err
 	} else if config.ControlConfig.Bootstrap == nil {
 		return nil, errors.Error("missing bootstrap config section")
 	}

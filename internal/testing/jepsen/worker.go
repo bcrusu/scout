@@ -2,15 +2,19 @@ package jepsen
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/bcrusu/scout/internal/tracing"
 	"github.com/bcrusu/scout/pkg/client"
 	"github.com/bcrusu/scout/pkg/keyvalue"
 	"golang.org/x/time/rate"
 )
 
 type worker struct {
+	runId    int
+	workerId int
 	client   client.Client
 	limiter  *rate.Limiter
 	workload *workload
@@ -18,9 +22,10 @@ type worker struct {
 }
 
 func (w *worker) Run(stopCh chan any) error {
+	counter := 0
 	for {
 		if !w.limiter.Allow() {
-			time.After(10 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
@@ -30,15 +35,17 @@ func (w *worker) Run(stopCh chan any) error {
 		default:
 		}
 
+		counter++
+		trace := fmt.Sprintf("r%dw%dc%d", w.runId, w.workerId, counter)
+		ctx := tracing.WithTraceID(context.Background(), trace)
+
 		switch req := w.workload.Next().(type) {
-		case nil:
-			return nil
 		case *keyvalue.GetRequest:
-			if err := w.handleGetRequest(req); err != nil {
+			if err := w.handleGetRequest(ctx, req); err != nil {
 				return err
 			}
 		case *keyvalue.SetRequest:
-			if err := w.handleSetRequest(req); err != nil {
+			if err := w.handleSetRequest(ctx, req); err != nil {
 				return err
 			}
 		default:
@@ -47,34 +54,36 @@ func (w *worker) Run(stopCh chan any) error {
 	}
 }
 
-func (w *worker) handleGetRequest(req *keyvalue.GetRequest) error {
+func (w *worker) handleGetRequest(ctx context.Context, req *keyvalue.GetRequest) error {
 	txn := w.readTxn(req.Keys)
 
-	if err := w.history.Invoke(txn); err != nil {
+	if err := w.history.Invoke(ctx, txn); err != nil {
 		return err
 	}
 
-	resp, err := w.client.KeyValue().Get(context.Background(), req)
+	resp, err := w.client.KeyValue().Get(ctx, req)
 	if err != nil {
-		return w.history.Failure(txn, err)
+		herr := w.history.Failure(ctx, txn, err)
+		return errors.Join(err, herr)
 	}
 
-	return w.history.Success(w.readResultTxn(req.Keys, resp.Values))
+	return w.history.Success(ctx, w.readResultTxn(req.Keys, resp.Values))
 }
 
-func (w *worker) handleSetRequest(req *keyvalue.SetRequest) error {
+func (w *worker) handleSetRequest(ctx context.Context, req *keyvalue.SetRequest) error {
 	txn := w.writeTxn(req.Items)
 
-	if err := w.history.Invoke(txn); err != nil {
+	if err := w.history.Invoke(ctx, txn); err != nil {
 		return err
 	}
 
-	_, err := w.client.KeyValue().Set(context.Background(), req)
+	_, err := w.client.KeyValue().Set(ctx, req)
 	if err != nil {
-		return w.history.Failure(txn, err)
+		herr := w.history.Failure(ctx, txn, err)
+		return errors.Join(err, herr)
 	}
 
-	return w.history.Success(txn)
+	return w.history.Success(ctx, txn)
 }
 
 func (w *worker) readTxn(keys [][]byte) txn {

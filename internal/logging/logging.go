@@ -8,10 +8,6 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 )
 
-const (
-	timestampFormat = "15:04:05.000"
-)
-
 var (
 	lock         sync.Mutex
 	levels       = map[string]*slog.LevelVar{}

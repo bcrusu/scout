@@ -2,7 +2,6 @@ package inmem
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -112,7 +111,7 @@ func (d *DB) Put(pid uint32, index uint64, records ...kv.Record) error {
 
 	for _, p := range records {
 		if p.Address.Timestamp == 0 {
-			panic(fmt.Sprintf("trying to put key with missing timestamp at %s", p.Address))
+			return errors.Errorf("trying to put key with missing timestamp at %s", p.Address)
 		}
 
 		if err := d.putOne(part, p); err != nil {
@@ -142,7 +141,7 @@ func (d *DB) putOne(part *partition, record kv.Record) error {
 	if found {
 		// allow only idempotent operations to keep the MVCC records immutable.
 		if !bytes.Equal(record.Data, part.records[i].Data) {
-			panic("key overwrite detected")
+			return errors.Errorf("key overwrite detected at address %s", record.Address)
 		}
 		return nil
 	}

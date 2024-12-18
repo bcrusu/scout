@@ -497,6 +497,7 @@ func (s *service) makeVMConfig(id string) (sdk.Config, error) {
 			VcpuCount:       utils.PointerOf(int64(s.config.NodeCPU)),
 			MemSizeMib:      utils.PointerOf(int64(s.config.NodeMemory)),
 			TrackDirtyPages: utils.PointerOf(false),
+			Smt:             utils.PointerOf(true),
 		},
 		Drives: []models.Drive{
 			{

@@ -2,6 +2,9 @@
 
 ARG DEBIAN_IMAGE=debian:bookworm-slim
 
+###################################################################
+# RootFS builder
+###################################################################
 FROM ${DEBIAN_IMAGE} AS rootfs_builder
 ARG SCOUT_UID="888"
 ARG SCOUT_GID="888"
@@ -29,9 +32,33 @@ RUN set -eux; \
     addgroup --system --gid ${SCOUT_GID} scout; \
     adduser --system --uid ${SCOUT_UID} --ingroup scout scout;
 
+###################################################################
+# ScoutFS builder
+###################################################################
 FROM scratch AS scoutfs_builder
 
 COPY --from=scout/control:latest /scout/control /control
 COPY --from=scout/data:latest /scout/data /data
 COPY --from=scout/api:latest /scout/api /api
 COPY --from=scout/testing:latest /scout/testing /testing
+
+###################################################################
+# Elle CLI tool
+###################################################################
+FROM clojure:lein-bookworm-slim AS elle_cli
+WORKDIR /elle
+
+RUN set -eux; \
+    apt-get update && apt-get upgrade -y; \
+    apt-get install -y --no-install-recommends git graphviz; \
+    git clone --depth=1 https://github.com/ligurio/elle-cli; \
+    cd elle-cli; \
+    lein deps; \
+    mv "$(lein uberjar | sed -n 's/^Created \(.*standalone\.jar\)/\1/p')" /elle/elle-cli.jar;
+
+COPY --chmod=755 <<EOF /elle/entrypoint.sh
+#!/bin/sh
+exec java -jar /elle/elle-cli.jar \$@
+EOF
+
+ENTRYPOINT [ "/elle/entrypoint.sh" ]

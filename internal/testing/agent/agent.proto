@@ -13,6 +13,7 @@ service Service {
     rpc Config(ConfigRequest) returns (google.protobuf.Empty);
     rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Restart(google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty);
     rpc GetLogs(google.protobuf.Empty) returns (Logs);
 }
@@ -22,6 +23,7 @@ enum ServiceType {
     Control = 1;
     Data = 2;
     Api = 3;
+    Unknown = 4;
 }
 
 message Status {

@@ -21,15 +21,16 @@ type service struct {
 	serviceType ServiceType
 }
 
-func newService() (*service, error) {
+func newService() *service {
 	serviceType, err := readServiceType()
 	if err != nil {
-		return nil, err
+		log.WithError(err).Error("Failed to read service type. ")
+		serviceType = ServiceType_Unknown
 	}
 
 	return &service{
 		serviceType: serviceType,
-	}, nil
+	}
 }
 
 func (s *service) GetStatus(ctx context.Context, _ *emptypb.Empty) (*Status, error) {
@@ -42,8 +43,8 @@ func (s *service) GetStatus(ctx context.Context, _ *emptypb.Empty) (*Status, err
 
 	active := false
 	var err error
-	if s.serviceType != ServiceType_None {
-		active, err = isServiceActive(ctx, s.serviceType)
+	if s.serviceType.IsValid() {
+		active, err = isServiceActive(s.serviceType)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +61,7 @@ func (s *service) Config(ctx context.Context, req *ConfigRequest) (*emptypb.Empt
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.serviceType != ServiceType_None {
+	if s.serviceType.IsValid() {
 		return nil, errors.FailedPrecondition
 	}
 
@@ -97,11 +98,11 @@ func (s *service) Start(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, 
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.serviceType == ServiceType_None {
+	if !s.serviceType.IsValid() {
 		return nil, errors.FailedPrecondition
 	}
 
-	if err := startService(ctx, s.serviceType); err != nil {
+	if err := startService(s.serviceType); err != nil {
 		return nil, err
 	}
 
@@ -112,11 +113,26 @@ func (s *service) Stop(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, e
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.serviceType == ServiceType_None {
+	if !s.serviceType.IsValid() {
 		return nil, errors.FailedPrecondition
 	}
 
-	if err := stopService(ctx, s.serviceType); err != nil {
+	if err := stopService(s.serviceType); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (s *service) Restart(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if !s.serviceType.IsValid() {
+		return nil, errors.FailedPrecondition
+	}
+
+	if err := restartService(s.serviceType); err != nil {
 		return nil, err
 	}
 
@@ -129,9 +145,11 @@ func (s *service) Reset(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, 
 
 	if s.serviceType == ServiceType_None {
 		return nil, nil
-	}
-
-	if err := stopService(ctx, s.serviceType); err != nil {
+	} else if s.serviceType == ServiceType_Unknown {
+		if err := stopAllServices(); err != nil {
+			return nil, err
+		}
+	} else if err := stopService(s.serviceType); err != nil {
 		return nil, err
 	}
 
@@ -147,7 +165,7 @@ func (s *service) GetLogs(ctx context.Context, _ *emptypb.Empty) (*Logs, error) 
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.serviceType == ServiceType_None {
+	if !s.serviceType.IsValid() {
 		return &Logs{}, nil
 	}
 

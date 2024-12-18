@@ -46,6 +46,7 @@ func (b *resolverBuilder) Build(t resolver.Target, clientConn resolver.ClientCon
 		discoveryTarget: discoveryTarget,
 		resolveNowCh:    resolveNowCh,
 		resolveNowChTh:  resolveNowChTh,
+		closeCh:         make(chan any),
 	}
 
 	go r.mainLoop()
@@ -63,6 +64,7 @@ type resolverImpl struct {
 	discoveryTarget string
 	resolveNowCh    chan<- resolver.ResolveNowOptions
 	resolveNowChTh  <-chan resolver.ResolveNowOptions
+	closeCh         chan any
 }
 
 func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
@@ -71,6 +73,7 @@ func (r *resolverImpl) ResolveNow(opt resolver.ResolveNowOptions) {
 
 func (r *resolverImpl) Close() {
 	close(r.resolveNowCh)
+	close(r.closeCh)
 }
 
 func (r *resolverImpl) mainLoop() {
@@ -96,14 +99,7 @@ func (r *resolverImpl) mainLoop() {
 
 	for {
 		select {
-		case _, ok := <-r.resolveNowChTh:
-			if !ok {
-				close(reqCh)
-				<-resCh
-				close(resCh)
-				return
-			}
-
+		case <-r.resolveNowChTh:
 			resolve()
 		case ok := <-resCh:
 			resolving = false
@@ -112,6 +108,11 @@ func (r *resolverImpl) mainLoop() {
 			}
 		case <-ticker.C:
 			resolve()
+		case <-r.closeCh:
+			close(reqCh)
+			<-resCh
+			close(resCh)
+			return
 		}
 	}
 }

@@ -98,7 +98,7 @@ func (h *Hlc) Now() uint64 {
 				utils.ShutdownNow("Wall clock jumped backward more than allowed.")
 			}
 
-			time.Sleep(time.Duration(diff / 2))
+			time.Sleep(time.Duration(diff))
 			continue
 		}
 
