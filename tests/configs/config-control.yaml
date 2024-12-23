@@ -14,3 +14,10 @@ bootstrap:
 partitions:
   replicationFactor: 3
 logLevels: "*:info,hraft:error,rpc_logger:error"
+services:
+  control:
+    callTimeout: 1s
+  data:
+    callTimeout: 2s
+  api:
+    callTimeout: 5s

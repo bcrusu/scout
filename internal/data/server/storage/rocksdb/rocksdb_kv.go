@@ -58,7 +58,7 @@ func (r *rocksKV) DropPartition(pid uint32) error {
 	r.rdb.cfs.Store(&new)
 
 	if err := r.rdb.db.DropColumnFamily(cf); err != nil {
-		return errors.Wrapf(err, "failed to drop column family for partition=%d", pid)
+		return errors.Wrapf(err, "failed to drop column family for partition %d", pid)
 	}
 
 	cf.Destroy()

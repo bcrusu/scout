@@ -77,9 +77,6 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 	log.Tracef("Applying command %T...", cmd.Payload)
 
 	switch x := cmd.Payload.(type) {
-	case *Command_Barrier:
-		// best effort store last index
-		result = f.db.Put(f.partitionID, index)
 	case *Command_TxnBatch:
 		result = f.txn.ApplyBatch(index, x.TxnBatch)
 	default:
@@ -99,9 +96,9 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	// taking the snapshot. The backing key-value store is configured to run in a WAL-disabled
 	// mode which relies on Raft log to provide the safety guarantees to avoid data loss.
 	if err := f.db.SyncPartition(f.partitionID); err != nil {
-		return nil, errors.Wrapf(err, "failed to sync partition=%d", f.partitionID)
+		return nil, errors.Wrapf(err, "failed to sync partition %d", f.partitionID)
 	} else if index, err := f.db.GetIndex(f.partitionID, true); err != nil {
-		return nil, errors.Wrapf(err, "failed to read persisted index=%d", f.partitionID)
+		return nil, errors.Wrapf(err, "failed to read persisted index %d", f.partitionID)
 	} else if index != expectedIndex {
 		f.log.Warn("FSM Snapshot failed. Partition sync returned unexpected index.", "expected", expectedIndex, "actual", index)
 		return nil, raft.ErrNothingNewToSnapshot // retry later

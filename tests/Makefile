@@ -29,7 +29,6 @@ tools:
 .PHONY: testing
 testing:
 	@set -eux; \
-	$(MAKE) -C ../ docker_image_testing; \
 	CONTAINER_ID=$$(docker create "scout/testing:latest"); \
 	docker cp "$$CONTAINER_ID:/scout/testing" "$(WORK)/testing"; \
 	docker rm "$$CONTAINER_ID";
@@ -37,7 +36,6 @@ testing:
 .PHONY: admin
 admin:
 	@set -eux; \
-	$(MAKE) -C ../ docker_image_admin; \
 	CONTAINER_ID=$$(docker create "scout/admin:latest"); \
 	docker cp "$$CONTAINER_ID:/scout/admin" "$(WORK)/admin"; \
 	docker rm "$$CONTAINER_ID";
@@ -84,7 +82,6 @@ $(WORK)/rootfs.ext4: $(WORK)/id_rsa
 $(WORK)/scoutfs.ext4:
 	@set -eux; \
     truncate -s 200M $(WORK)/scoutfs.ext4; \
-	$(MAKE) -C ../ docker_images; \
 	docker build --target scoutfs_builder --output type=tar,dest=- . | mkfs.ext4 -F $(WORK)/scoutfs.ext4 -d -;
 
 $(WORK)/workfs.ext4:

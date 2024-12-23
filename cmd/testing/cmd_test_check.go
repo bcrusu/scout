@@ -32,6 +32,9 @@ func newTestCheckCmd() *cobra.Command {
 			"-d", outputDir,
 			"-p", "svg",
 			"-v",
+			"-c", "strict-serializable",
+			"-a", "G1,G1c-realtime,G2-realtime", // https://github.com/jepsen-io/elle/blob/main/src/elle/consistency_model.clj#L483
+			"-s", "10000",
 			"/scout/history.json",
 		}
 

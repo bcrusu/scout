@@ -31,7 +31,7 @@ func (h *handler) Enabled(ctx context.Context, level Level) bool {
 func (h *handler) Handle(ctx context.Context, record slog.Record) error {
 	record.Add("com", h.name)
 
-	if traceID, ok := tracing.GetTraceID(ctx); ok {
+	if traceID := tracing.GetTraceID(ctx); traceID != "" {
 		record.Add("trace", traceID)
 	}
 

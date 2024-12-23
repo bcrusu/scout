@@ -21,7 +21,7 @@ func loadProcs(firecrackerPath string) (map[string]int, error) {
 			if unknownProc(err) {
 				continue
 			}
-			return nil, errors.Wrapf(err, "NewProcess call failed for pid=%d", pid)
+			return nil, errors.Wrapf(err, "NewProcess call failed for pid %d", pid)
 		}
 
 		exePath, err := proc.Exe()
@@ -29,7 +29,7 @@ func loadProcs(firecrackerPath string) (map[string]int, error) {
 			if unknownProc(err) {
 				continue
 			}
-			return nil, errors.Wrapf(err, "Pocess.Exe call failed for pid=%d", pid)
+			return nil, errors.Wrapf(err, "Pocess.Exe call failed for pid %d", pid)
 		} else if exePath != firecrackerPath {
 			continue
 		}
@@ -39,7 +39,7 @@ func loadProcs(firecrackerPath string) (map[string]int, error) {
 			if unknownProc(err) {
 				continue
 			}
-			return nil, errors.Wrapf(err, "Pocess.Cmdline call failed for pid=%d", pid)
+			return nil, errors.Wrapf(err, "Pocess.Cmdline call failed for pid %d", pid)
 		}
 
 		id := extractId(cmdLine)

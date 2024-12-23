@@ -88,7 +88,7 @@ type Sessions struct {
 	MaxTimeOffset           time.Duration `yaml:"maxTimeOffset" default:"500ms" validate:"min:10ms"`
 	TimeOffsetCheckInterval time.Duration `yaml:"timeOffsetCheckInterval" default:"5s" validate:"min:100ms"`
 	ReceiveBurst            int           `yaml:"receiveBurst" default:"5" validate:"min:1"`
-	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"` // After this the session will be closed
+	ReceiveMaxOffenses      int           `yaml:"receiveMaxOffenses" default:"16" validate:"min:1"`
 	WriteStatusInterval     time.Duration `yaml:"writeStatusInterval" default:"5s" validate:"min:100ms"`
 	SendBufferSize          int           `yaml:"sendBufferSize" default:"16" validate:"min:5"`
 }
@@ -158,7 +158,7 @@ func (c *Config) prepare() error {
 	}
 
 	c.RPC.ClusterName = c.ClusterName
-	c.RPC.EnableHlc = true
+	c.RPC.EnableHLC = true
 
 	hlc.Set(hlc.New(c.Sessions.MaxTimeOffset))
 	return c.prepareDirs()

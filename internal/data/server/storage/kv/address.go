@@ -91,6 +91,6 @@ func (a Address) After(other Address) bool {
 }
 
 func (a Address) String() string {
-	return fmt.Sprintf("keyspace=%d key=%s timestamp=%d",
+	return fmt.Sprintf("ks:%d,key:%s,ts:%d",
 		a.Keyspace, base64.RawURLEncoding.EncodeToString(a.Key), a.Timestamp)
 }

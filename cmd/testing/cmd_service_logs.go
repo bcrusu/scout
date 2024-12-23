@@ -54,7 +54,7 @@ func newServiceLogsCmd() *cobra.Command {
 
 		logs, err := getLogs(ctx, node.Ip)
 		if err != nil {
-			printErr(node, "Get logs failed. Error=%s", err)
+			printErr(node, "Get logs failed. Error %s", err)
 			return
 		}
 

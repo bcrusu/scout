@@ -36,6 +36,22 @@ func NewRateLimiter(limit int, interval time.Duration) *rate.Limiter {
 	return rate.NewLimiter(perSecond, limit)
 }
 
+func NewTimer(d time.Duration, stopped bool) *time.Timer {
+	timer := time.NewTimer(d)
+	if stopped {
+		timer.Stop()
+	}
+	return timer
+}
+
+func NewTicker(d time.Duration, stopped bool) *time.Ticker {
+	timer := time.NewTicker(d)
+	if stopped {
+		timer.Stop()
+	}
+	return timer
+}
+
 func GetTimerChan(timer *time.Timer) <-chan time.Time {
 	if timer != nil {
 		return timer.C

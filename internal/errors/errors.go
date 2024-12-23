@@ -1,18 +1,19 @@
 package errors
 
 import (
+	"context"
 	"errors"
 	"fmt"
 )
 
 // Wrap wraps the error with a message
 func Wrap(err error, message string) error {
-	return fmt.Errorf("%s error=%w", message, err)
+	return fmt.Errorf("%s error %w", message, err)
 }
 
 // Wrapf wraps the error with a formatted message
 func Wrapf(err error, format string, args ...any) error {
-	return fmt.Errorf("%s error=%w", fmt.Sprintf(format, args...), err)
+	return fmt.Errorf("%s error %w", fmt.Sprintf(format, args...), err)
 }
 
 // Error returns a new error
@@ -49,6 +50,15 @@ func IsAny(err error, others ...error) bool {
 		}
 	}
 	return false
+}
+
+// IsContextError returns true if the err is Canceled or DeadlineExceeded.
+func IsContextError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // As finds the first error in err's tree that matches target.

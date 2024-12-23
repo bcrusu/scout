@@ -20,7 +20,7 @@ var (
 // The reader executes all read actions on the backing MVCC store and tracks the read-only
 // transactions involving multiple partitions which are executed in two phases:
 //   - a first prepare/negotiate phase where all partitions are queried to discover
-//     the latest possible commit timestamp computed as the min timstamp returned
+//     the latest possible commit timestamp computed as the max timstamp returned
 //     from all partitions. This commit timestamp ensures that all reads are performed
 //     from a globally-consistent and causality-preserving snapshot.
 //   - a second commit/fetch phase where results are fetched using the commit timestamp
@@ -34,6 +34,7 @@ type reader struct {
 	config       config.Transactions
 	pid          uint32
 	manager      *Manager
+	writer       *writer
 	db           mvcc.DB
 	meters       readerMeters
 	log          logging.Logger
@@ -43,11 +44,12 @@ type reader struct {
 	preparedTime map[id]time.Time
 }
 
-func newReader(pid uint32, manager *Manager, db mvcc.DB) *reader {
+func newReader(pid uint32, manager *Manager, writer *writer, db mvcc.DB) *reader {
 	return &reader{
 		config:       config.Get().Transactions,
 		pid:          pid,
 		manager:      manager,
+		writer:       writer,
 		db:           db,
 		meters:       newReaderMeters(pid),
 		log:          logging.New("txn").With("partition", pid),
@@ -100,19 +102,29 @@ func (s *reader) mainLoop(ctx context.Context) {
 	}
 }
 
-func (p *reader) AutocommitReadOnly(ctx context.Context, txn *data.Txn, timestamp uint64) (*data.TxnStatus, error) {
-	latestTimestamp := p.manager.getLatestReadTimestamp(txn)
+func (p *reader) AutocommitSnapshotRead(ctx context.Context, txn *data.Txn, timestamp uint64) (*data.TxnStatus, error) {
+	log := p.log.WithContext(ctx).With("cmd", "AutocommitSnapshotRead", "id", txn.Id.LogString(), "req_ts", timestamp)
 
-	if timestamp == 0 {
-		timestamp = latestTimestamp
-	} else if timestamp > latestTimestamp {
-		// snapshot read trying to read past latest 'safe' timestamp.
-		return nil, errors.FailedPrecondition
+	if err := p.checkSafeTimestamp(log, txn, timestamp); err != nil {
+		return nil, err
 	}
 
 	status := newEmptyStatus(txn, timestamp, data.TxnStatus_Committed)
 
-	if err := p.fetchResults(ctx, txn, status); err != nil {
+	if err := p.fetchResults(log, txn, status); err != nil {
+		return nil, err
+	}
+
+	return status, nil
+}
+
+func (p *reader) AutocommitReadOnly(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
+	safeTimestamp, _ := p.manager.getSafeTimestamp(txn)
+	log := p.log.WithContext(ctx).With("cmd", "AutocommitReadOnly", "id", txn.Id.LogString(), "safe_ts", safeTimestamp)
+
+	status := newEmptyStatus(txn, safeTimestamp, data.TxnStatus_Committed)
+
+	if err := p.fetchResults(log, txn, status); err != nil {
 		return nil, err
 	}
 
@@ -120,12 +132,15 @@ func (p *reader) AutocommitReadOnly(ctx context.Context, txn *data.Txn, timestam
 }
 
 func (p *reader) AutocommitReadWrite(ctx context.Context, txn *data.Txn, status *data.TxnStatus) error {
-	return p.fetchResults(ctx, txn, status)
+	log := p.log.WithContext(ctx).With("cmd", "AutocommitReadWrite", "id", txn.Id.LogString())
+	return p.fetchResults(log, txn, status)
 }
 
 func (p *reader) PrepareReadOnly(ctx context.Context, txn *data.Txn) (*data.TxnStatus, error) {
 	id := newId(txn.Id)
-	timestamp := p.manager.getLatestReadTimestamp(txn)
+	safeTimestamp, _ := p.manager.getSafeTimestamp(txn)
+
+	log := p.log.WithContext(ctx).With("cmd", "PrepareReadOnly", "id", id, "safe_ts", safeTimestamp)
 
 	p.lock.Lock()
 	p.prepared[id] = txn
@@ -133,23 +148,30 @@ func (p *reader) PrepareReadOnly(ctx context.Context, txn *data.Txn) (*data.TxnS
 	p.lock.Unlock()
 
 	p.meters.Prepared.Add(1)
-	return newStatus(id, timestamp, data.TxnStatus_Prepared), nil
+	log.Trace("Prepared.")
+	return newStatus(id, safeTimestamp, data.TxnStatus_Prepared), nil
 }
 
-func (p *reader) CommitReadOnly(ctx context.Context, id *data.TxnId, timestamp uint64) (*data.TxnStatus, error) {
+func (p *reader) CommitReadOnly(ctx context.Context, txnId *data.TxnId, timestamp uint64) (*data.TxnStatus, error) {
+	id := newId(txnId)
+	log := p.log.WithContext(ctx).With("cmd", "CommitReadOnly", "id", id, "req_ts", timestamp)
+
 	p.lock.RLock()
-	txn, ok := p.prepared[newId(id)]
+	txn, ok := p.prepared[id]
 	p.lock.RUnlock()
 
 	if !ok {
+		log.Error("Prepared not found.")
 		return nil, errors.NotFound
-	} else if timestamp > p.manager.getLatestReadTimestamp(txn) {
-		return nil, errors.FailedPrecondition
+	}
+
+	if err := p.checkSafeTimestamp(log, txn, timestamp); err != nil {
+		return nil, err
 	}
 
 	status := newEmptyStatus(txn, timestamp, data.TxnStatus_Committed)
 
-	if err := p.fetchResults(ctx, txn, status); err != nil {
+	if err := p.fetchResults(log, txn, status); err != nil {
 		return nil, err
 	}
 
@@ -158,19 +180,20 @@ func (p *reader) CommitReadOnly(ctx context.Context, id *data.TxnId, timestamp u
 
 func (p *reader) CommitReadWrite(ctx context.Context, status *data.TxnStatus) error {
 	id := newId(status.Id)
+	log := p.log.WithContext(ctx).With("cmd", "CommitReadWrite", "id", id)
 	txn := p.manager.getPreparedTxn(id, false)
 
 	if txn == nil {
 		// Txn should be returned by the manager unless CleanAfterReadWrite
 		// config is set to a very low value.
-		p.log.WithContext(ctx).Error("CommitReadWrite: expected prepared txn was not found.", "id", id)
+		log.Error("Prepared not found.")
 		return errors.NotFound
 	}
 
-	return p.fetchResults(ctx, txn, status)
+	return p.fetchResults(log, txn, status)
 }
 
-func (p *reader) fetchResults(ctx context.Context, txn *data.Txn, status *data.TxnStatus) error {
+func (p *reader) fetchResults(log logging.Logger, txn *data.Txn, status *data.TxnStatus) error {
 	// Point reads first, executed using a single Get/MultiGet call:
 	ids, addrs := p.getPointReadAddrs(txn)
 
@@ -179,11 +202,13 @@ func (p *reader) fetchResults(ctx context.Context, txn *data.Txn, status *data.T
 		return err
 	}
 
+	p.logRecords(log, addrs, records)
+
 	for i, id := range ids {
 		if record := records[i]; record == nil {
 			status.ActionStatus[id] = newActionStatus(id, data.ActionStatus_KeyNotFound)
 		} else if value, err := decodeValue(record.Value); err != nil {
-			p.log.WithContext(ctx).WithError(err).Error("Failed to decode value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
+			log.WithError(err).Error("Failed to decode value.", "rec_addr", record.Address, "rec_ts", record.Timestamp)
 			status.ActionStatus[id] = newActionStatus(id, data.ActionStatus_CorruptedData)
 		} else {
 			status.ActionStatus[id] = newActionStatus(id, data.ActionStatus_Success, value)
@@ -197,7 +222,7 @@ func (p *reader) fetchResults(ctx context.Context, txn *data.Txn, status *data.T
 			continue
 		}
 
-		code, results, err := p.readRange(ctx, status.Timestamp, readRange.ReadRange)
+		code, results, err := p.readRange(log, status.Timestamp, readRange.ReadRange)
 		if err != nil {
 			return err
 		}
@@ -223,7 +248,7 @@ func (p *reader) getPointReadAddrs(txn *data.Txn) ([]uint32, []mvcc.Address) {
 	return ids, addrs
 }
 
-func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *data.ReadRange) (data.ActionStatus_Code, []*data.Value, error) {
+func (p *reader) readRange(log logging.Logger, timestamp uint64, rr *data.ReadRange) (data.ActionStatus_Code, []*data.Value, error) {
 	start := mvcc.NewAddress(rr.Keyspace, rr.StartKey)
 	end := mvcc.NewAddress(rr.Keyspace, rr.EndKey)
 
@@ -242,7 +267,7 @@ func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *data.ReadR
 
 		value, err := decodeValue(record.Value)
 		if err != nil {
-			p.log.WithContext(ctx).WithError(err).Error("Failed to decode iterator value.", "partition", p.pid, "address", record.Address, "timestamp", record.Timestamp)
+			log.WithError(err).Error("Failed to decode iterator value.", "rec_addr", record.Address, "rec_ts", record.Timestamp)
 
 			if !p.config.SkipCorruptedData {
 				return data.ActionStatus_CorruptedData, nil, nil
@@ -258,4 +283,54 @@ func (p *reader) readRange(ctx context.Context, timestamp uint64, rr *data.ReadR
 	}
 
 	return data.ActionStatus_Success, results, nil
+}
+
+func (p *reader) logRecords(log logging.Logger, addrs []mvcc.Address, records []*mvcc.Record) {
+	if !log.Enabled(logging.LevelTrace) {
+		return
+	}
+
+	for i, addr := range addrs {
+		r := records[i]
+
+		if r == nil {
+			log.Trace("Read record not found.", "addr", addr)
+			continue
+		}
+
+		value := decodeValueForLog(r.Value)
+		log.Trace("Read record.", "addr", addr, "rec_addr", r.Address, "rec_ts", r.Timestamp, "rec_value", value, "rec_flags", r.Flags)
+	}
+}
+
+func (p *reader) checkSafeTimestamp(log logging.Logger, txn *data.Txn, timestamp uint64) error {
+	safeTimestamp, conflicting := p.manager.getSafeTimestamp(txn)
+	if timestamp <= safeTimestamp {
+		return nil
+	}
+
+	// If there are conflicting txns just return early and let the caller retry.
+	// As a future optimization, could also try sleeping for a configured duration
+	// and check again the safe ts in the hope that the conflicting txns completed,
+	// but it needs more thought to decide the cases where sleep is beneficial
+	// compared to caller retry. Also, it only makes sense for the leader to update
+	// the timestamp (i.e. when writer is not nil).
+	if conflicting || p.writer == nil {
+		log.Trace("Tried to read above safe timestamp.", "safe_ts", safeTimestamp)
+		return errors.TimeOutOfRange
+	}
+
+	// if there are no conflicting pending txns, bump max timestamp...
+	if err := p.writer.UpdateTimestamp(timestamp); err != nil {
+		return err
+	}
+
+	// ...and check again
+	safeTimestamp, _ = p.manager.getSafeTimestamp(txn)
+	if timestamp <= safeTimestamp {
+		return nil
+	}
+
+	log.Trace("Tried to read above safe timestamp.", "safe_ts", safeTimestamp)
+	return errors.TimeOutOfRange
 }

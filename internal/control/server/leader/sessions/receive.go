@@ -1,7 +1,6 @@
 package sessions
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -17,7 +16,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 	for {
 		in, err := stream.Recv()
 		if err != nil {
-			if errors.IsAny(err, io.EOF, context.Canceled, context.DeadlineExceeded) {
+			if errors.IsContextError(err) || errors.Is(err, io.EOF) {
 				sess.log.WithError(err).Debug("Session receive loop done.")
 				endSession(nil)
 			} else {
@@ -108,7 +107,7 @@ func (t *Tracker) handleTimestampResponse(_ *session, msg *control.TimestampResp
 	offset := t.computeTimeOffset(msg)
 
 	if offset > t.config.Sessions.MaxTimeOffset {
-		return errors.TimeOffsetOutOfRange
+		return errors.TimeOutOfRange
 	}
 
 	return nil

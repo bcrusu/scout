@@ -31,7 +31,7 @@ type ServerConfig struct {
 	MaxConcurrentStreams uint32        `yaml:"maxConcurrentStreams" default:"10000" validate:"min:1000"`
 	MaxMessageSize       utils.Bytes   `yaml:"maxMessageSize" default:"5MB" validate:"min:1KB"`
 	ClusterName          string        `yaml:"-"`
-	EnableHlc            bool          `yaml:"-"` // API servers do not require HLC checks
+	EnableHLC            bool          `yaml:"-"` // API servers do not require HLC checks
 }
 
 // Server represents the gRPC server.
@@ -60,7 +60,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 			interceptors.UnaryMetadataServerInterceptor(),
 			interceptors.UnaryLoggerServerInterceptor(),
 			interceptors.UnaryErrorsServerInterceptor(),
-			interceptors.UnaryHlcServerInterceptor(config.EnableHlc),
+			interceptors.UnaryHlcServerInterceptor(config.EnableHLC),
 			interceptors.UnaryValidatorServerInterceptor(),
 			interceptors.UnaryRecoveryServerInterceptor(),
 		),
@@ -69,7 +69,7 @@ func NewServer(config ServerConfig, services ...Service) *Server {
 			interceptors.StreamMetadataServerInterceptor(),
 			interceptors.StreamLoggerServerInterceptor(),
 			interceptors.StreamErrorsServerInterceptor(),
-			interceptors.StreamHlcServerInterceptor(config.EnableHlc),
+			interceptors.StreamHlcServerInterceptor(config.EnableHLC),
 			interceptors.StreamValidatorServerInterceptor(),
 			interceptors.StreamRecoveryServerInterceptor(),
 		),

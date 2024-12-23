@@ -3,24 +3,25 @@ package txn
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/server/config"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/multiraft"
 	"github.com/bcrusu/scout/internal/utils"
 )
 
 var (
-	_ utils.Lifecycle = (*batcher)(nil)
+	_ utils.Lifecycle = (*writer)(nil)
 )
 
-type batcher struct {
+type writer struct {
 	config     config.Transactions
 	raftStore  RaftStore
 	applyCh    chan applyCmd
+	log        logging.Logger
 	cancelFunc context.CancelFunc
 }
 
@@ -29,33 +30,40 @@ type applyCmd struct {
 	resultCh chan BatchResult
 }
 
-type batchWaiting struct {
-	Autocommit    []chan BatchResult
-	Prepare       []chan BatchResult
-	Commit        []chan BatchResult
-	Abort         []chan BatchResult
-	StoreDecision []chan BatchResult
-	MarkTimedout  []chan BatchResult
+type updateTimestamp struct {
+	Timestamp uint64
 }
 
-func newBatcher(raftStore RaftStore) *batcher {
-	return &batcher{
+type batchWaiting struct {
+	Autocommit      []chan BatchResult
+	Prepare         []chan BatchResult
+	Commit          []chan BatchResult
+	Abort           []chan BatchResult
+	StoreDecision   []chan BatchResult
+	MarkTimedout    []chan BatchResult
+	UpdateTimestamp []chan BatchResult
+}
+
+func newWriter(raftStore RaftStore, log logging.Logger) *writer {
+	return &writer{
 		config:    config.Get().Transactions,
 		raftStore: raftStore,
+		log:       log,
 		applyCh:   make(chan applyCmd),
 	}
 }
 
-func (s *batcher) Start(ctx context.Context) error {
+func (s *writer) Start(ctx context.Context) error {
 	s.cancelFunc = utils.RunAsync(ctx, s.mainLoop)
 	return nil
 }
 
-func (s *batcher) Stop() {
+func (s *writer) Stop() {
 	s.cancelFunc()
 }
 
-func (s *batcher) Apply(payload any) (*data.TxnStatus, error) {
+// Apply sends the command payload to Raft.
+func (s *writer) Apply(payload any) (*data.TxnStatus, error) {
 	cmd := applyCmd{
 		payload:  payload,
 		resultCh: make(chan BatchResult, 1),
@@ -66,8 +74,27 @@ func (s *batcher) Apply(payload any) (*data.TxnStatus, error) {
 	return r.Status, r.Error
 }
 
-func (s *batcher) mainLoop(ctx context.Context) {
-	var timer *time.Timer
+// UpdateTimestamp bumps the max timestamp to the provided value.
+// It assumes that the value is inside the max allowed time offset and
+// already validated by a hlc.Update() call by the uspream caller.
+// It is used to solve the similar problem described in Spanner, Section
+// 4.2.4 "Refinements", where the 'safe' timestamp cannot advance in the
+// absence of writes, and thus reads cannot happen at timestamps above the
+// last written timestamp.
+func (s *writer) UpdateTimestamp(timestamp uint64) error {
+	cmd := applyCmd{
+		payload:  updateTimestamp{Timestamp: timestamp},
+		resultCh: make(chan BatchResult, 1),
+	}
+
+	s.applyCh <- cmd
+	r := <-cmd.resultCh
+	return r.Error
+}
+
+func (s *writer) mainLoop(ctx context.Context) {
+	timer := utils.NewTimer(s.config.MaxBatchDelay, true)
+	defer timer.Stop()
 
 	batch := &data.TxnBatch{}
 	waiting := &batchWaiting{}
@@ -75,8 +102,8 @@ func (s *batcher) mainLoop(ctx context.Context) {
 
 	nextBatch := func() {
 		s.prepareBatch(batch)
-		asyncCh := s.raftStore.ApplyBatch(batch)
-		go s.waitBatchResult(waiting, asyncCh)
+		resultCh := s.raftStore.ApplyBatch(batch)
+		go s.waitBatchResult(waiting, resultCh)
 
 		batch = &data.TxnBatch{}
 		waiting = &batchWaiting{}
@@ -86,7 +113,7 @@ func (s *batcher) mainLoop(ctx context.Context) {
 
 	for {
 		select {
-		case <-utils.GetTimerChan(timer):
+		case <-timer.C:
 			nextBatch()
 		case cmd := <-s.applyCh:
 			switch x := cmd.payload.(type) {
@@ -108,23 +135,21 @@ func (s *batcher) mainLoop(ctx context.Context) {
 			case *data.MarkTimedout:
 				batch.MarkTimedout = append(batch.MarkTimedout, x)
 				waiting.MarkTimedout = append(waiting.MarkTimedout, cmd.resultCh)
+			case updateTimestamp:
+				batch.MaxTimestamp = max(batch.MaxTimestamp, x.Timestamp)
+				waiting.UpdateTimestamp = append(waiting.UpdateTimestamp, cmd.resultCh)
 			default:
 				panic(fmt.Sprintf("unhandled command payload type %T", cmd.payload))
 			}
 
 			batchSize++
 			if batchSize == 1 {
-				if timer == nil {
-					timer = time.NewTimer(s.config.MaxBatchDelay)
-				} else {
-					timer.Reset(s.config.MaxBatchDelay)
-				}
+				timer.Reset(s.config.MaxBatchDelay)
 			} else if batchSize == s.config.MaxBatchSize {
 				nextBatch()
 			}
 		case <-ctx.Done():
 			if batchSize != 0 {
-				timer.Stop()
 				s.sendBatchErr(waiting, errors.Unavailable)
 			}
 
@@ -133,11 +158,15 @@ func (s *batcher) mainLoop(ctx context.Context) {
 	}
 }
 
-func (s *batcher) waitBatchResult(waiting *batchWaiting, resultCh <-chan multiraft.AsyncResult) {
+func (s *writer) waitBatchResult(waiting *batchWaiting, resultCh <-chan multiraft.AsyncResult) {
 	asyncResult := <-resultCh
 	if asyncResult.Error != nil {
 		s.sendBatchErr(waiting, asyncResult.Error)
 		return
+	}
+
+	for _, waiting := range waiting.UpdateTimestamp {
+		waiting <- BatchResult{Error: nil}
 	}
 
 	results := asyncResult.Result.(*BatchResults)
@@ -162,9 +191,12 @@ func (s *batcher) waitBatchResult(waiting *batchWaiting, resultCh <-chan multira
 	}
 }
 
-func (s *batcher) sendBatchErr(waiting *batchWaiting, err error) {
+func (s *writer) sendBatchErr(waiting *batchWaiting, err error) {
 	result := BatchResult{Error: err}
 
+	for _, ch := range waiting.UpdateTimestamp {
+		ch <- result
+	}
 	for _, ch := range waiting.Autocommit {
 		ch <- result
 	}
@@ -192,26 +224,37 @@ func (s *batcher) sendBatchErr(waiting *batchWaiting, err error) {
 //     MVCC than any future Commit writes corresponding to the Prepare.
 //   - Commit timestamp is not set here as it was already set by the upstream
 //     caller as determined by 2PC txn participants.
-//   - Abort/StoreDecision/MarkTimedout timestamps have only informative role
-//     and could have been set elsewhere.
-func (s *batcher) prepareBatch(batch *data.TxnBatch) {
+func (s *writer) prepareBatch(batch *data.TxnBatch) {
+	maxTS := uint64(0)
+
+	hlcNow := func() uint64 {
+		maxTS = hlc.Now()
+		return maxTS
+	}
+
 	for _, x := range batch.Autocommit {
-		x.Timestamp = hlc.Now()
+		x.Timestamp = hlcNow()
 	}
 
 	for _, x := range batch.Prepare {
-		x.Timestamp = hlc.Now()
+		x.Timestamp = hlcNow()
 	}
 
 	for _, x := range batch.Abort {
-		x.Timestamp = hlc.Now()
+		x.Timestamp = hlcNow()
 	}
 
 	for _, x := range batch.StoreDecision {
-		x.Timestamp = hlc.Now()
+		x.Timestamp = hlcNow()
 	}
 
 	for _, x := range batch.MarkTimedout {
-		x.Timestamp = hlc.Now()
+		x.Timestamp = hlcNow()
 	}
+
+	for _, x := range batch.Commit {
+		maxTS = max(maxTS, x.Timestamp)
+	}
+
+	batch.MaxTimestamp = max(batch.MaxTimestamp, maxTS)
 }

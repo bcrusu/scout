@@ -2,7 +2,6 @@ package txn
 
 import (
 	"context"
-	"math"
 
 	"github.com/bcrusu/scout/internal/data"
 	"github.com/bcrusu/scout/internal/data/client"
@@ -12,7 +11,7 @@ import (
 
 // Read-only transactions involving multiple partitions are executed in two phases:
 //   - a first prepare/negotiate phase where the partitions are queried to discover
-//     the latest possible commit timestamp computed as the min timstamp returned
+//     the latest possible commit timestamp computed as the max timstamp returned
 //     from all partitions. This commit timestamp ensures that all reads are performed
 //     from a globally-consistent and causality-preserving snapshot.
 //   - a second commit/fetch phase where results are fetched using the commit timestamp
@@ -24,7 +23,7 @@ type processorReadOnly struct {
 func (p *processorReadOnly) Process(ctx context.Context, t *Txn) (*TxnResult, error) {
 	status, err := p.prepare(ctx, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "read-only txn=%s failed to prepare.", t.id)
+		return nil, errors.Wrapf(err, "read-only txn %s failed to prepare.", t.id)
 	}
 
 	commitTimestamp, commit := p.decide(status)
@@ -34,7 +33,7 @@ func (p *processorReadOnly) Process(ctx context.Context, t *Txn) (*TxnResult, er
 
 	status, err = p.commit(ctx, commitTimestamp, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "read-only txn=%s commit failed.", t.id)
+		return nil, errors.Wrapf(err, "read-only txn %s commit failed.", t.id)
 	}
 
 	return p.aggregateResults(t, commit, commitTimestamp, status), nil
@@ -47,13 +46,14 @@ func (p *processorReadOnly) prepare(ctx context.Context, t *Txn) (statusMap, err
 		err    error
 	}
 
+	txnId := t.id.ToProto()
 	resultCh := make(chan prepareResult, 1)
 	invokePrepare := func(pid uint32) {
 		req := &data.PrepareRequest{
 			ParticipantPid: pid,
 			ReadOnly:       true,
 			Txn: &data.Txn{
-				Id:      t.id,
+				Id:      txnId,
 				Actions: t.participantActions[pid],
 			}}
 
@@ -80,24 +80,24 @@ func (p *processorReadOnly) prepare(ctx context.Context, t *Txn) (statusMap, err
 		r := <-resultCh
 		status[r.pid] = r.status
 		if r.err != nil {
-			errs = append(errs, r.err)
+			errs = append(errs, errors.Wrapf(r.err, "participant %d failed.", r.pid))
 		}
 	}
 
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
+	if len(errs) > 0 {
+		logErrors(ctx, "read-only txn prepare failed.", t.id, errs)
+		return nil, errors.Errorf("participants failed")
 	}
 
 	return status, nil
 }
 
 func (p *processorReadOnly) decide(status statusMap) (uint64, bool) {
-	commitTimestamp := uint64(math.MaxUint64)
+	commitTimestamp := uint64(0)
 
 	for _, s := range status {
 		if s.State == data.TxnStatus_Prepared {
-			// commit hlc timestamp is min of participant timestamps
-			commitTimestamp = min(commitTimestamp, s.Timestamp)
+			commitTimestamp = max(commitTimestamp, s.Timestamp)
 			continue
 		}
 
@@ -114,11 +114,12 @@ func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, 
 		err    error
 	}
 
+	txnId := t.id.ToProto()
 	resultCh := make(chan commitResult, 1)
 	invokeCommit := func(pid uint32) {
 		req := &data.CommitRequest{
 			ParticipantPid:  pid,
-			Id:              t.id,
+			Id:              txnId,
 			CommitTimestamp: commitTimestamp,
 			FetchResults:    true,
 			ReadOnly:        true,
@@ -143,16 +144,17 @@ func (p *processorReadOnly) commit(ctx context.Context, commitTimestamp uint64, 
 		r := <-resultCh
 
 		if r.err != nil {
-			errs = append(errs, errors.Wrapf(r.err, "read-only txn=%s commit failed at participant %d.", t.id, r.pid))
+			errs = append(errs, errors.Wrapf(r.err, "participant %d failed.", r.pid))
 		} else if r.status.State != data.TxnStatus_Committed {
-			errs = append(errs, errors.Errorf("read-only txn=%s commit failed with state %s at participant %d.", t.id, r.status.State, r.pid))
+			errs = append(errs, errors.Errorf("participant %d failed with state %s.", r.pid, r.status.State))
 		} else {
 			status[r.pid] = r.status
 		}
 	}
 
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
+	if len(errs) > 0 {
+		logErrors(ctx, "read-only txn commit failed.", t.id, errs)
+		return nil, errors.Errorf("participants failed")
 	}
 
 	return status, nil
@@ -165,7 +167,7 @@ func (p *processorReadOnly) aggregateResults(t *Txn, commit bool, commitTimestam
 	}
 
 	result := &TxnResult{
-		Id:           t.id,
+		Id:           t.id.ToProto(),
 		Success:      commit,
 		ActionStatus: actionStatus,
 	}

@@ -21,7 +21,6 @@ const (
 
 var (
 	retryableStatusCodes = []uint32{
-		uint32(codes.Canceled),
 		uint32(codes.Internal),
 		uint32(codes.Unavailable),
 	}

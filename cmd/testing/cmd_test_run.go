@@ -73,7 +73,7 @@ func newTestRunCmd() *cobra.Command {
 	c.PersistentFlags().IntP("concurrency", "c", 1, "Number of workers to run.")
 	c.PersistentFlags().DurationP("duration", "d", time.Minute, "Total test runtime.")
 	c.PersistentFlags().IntP("request-rate", "r", 10, "Total request rate (per second).")
-	c.PersistentFlags().Float64("rw-ratio", 1, "Read/Write request ratio.")
+	c.PersistentFlags().Float64("rw-ratio", 5, "Read/Write request ratio.")
 	c.PersistentFlags().Int("min-keys", 1, "Request min key count.")
 	c.PersistentFlags().Int("max-keys", 3, "Request max key count.")
 	c.PersistentFlags().StringSliceP("nemesis", "n", nil, "Nemesis list to enable.")

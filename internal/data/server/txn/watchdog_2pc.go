@@ -11,6 +11,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/logging"
+	"github.com/bcrusu/scout/internal/tracing"
 	"github.com/bcrusu/scout/internal/utils"
 	"golang.org/x/time/rate"
 )
@@ -45,8 +46,8 @@ var (
 type watchdog2PC struct {
 	config     config.Transactions
 	pid        uint32
-	service    *Service
 	manager    *Manager
+	writer     *writer
 	client     data.ServiceClient
 	log        logging.Logger
 	requestCh  chan running
@@ -57,14 +58,14 @@ type watchdog2PC struct {
 type dogQueue = *utils.Queue[running]
 type dogResolve func(context.Context, running)
 
-func newWatchdog2PC(pid uint32, service *Service, manager *Manager, client data.ServiceClient) *watchdog2PC {
+func newWatchdog2PC(pid uint32, writer *writer, manager *Manager, client data.ServiceClient) *watchdog2PC {
 	config := config.Get().Transactions
 
 	return &watchdog2PC{
 		config:    config,
 		pid:       pid,
-		service:   service,
 		manager:   manager,
+		writer:    writer,
 		client:    client,
 		log:       logging.New("2pc_watchdog").With("partition", pid),
 		requestCh: make(chan running, 1),
@@ -89,7 +90,7 @@ func (w *watchdog2PC) mainLoop(ctx context.Context) {
 
 	all, prepared, decided := w.loadRunning()
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	doneCh := make(chan bool, 1)
 	inFlight := 0
 
@@ -177,6 +178,10 @@ func (w *watchdog2PC) loadRunning() (map[id]bool, dogQueue, dogQueue) {
 	decided := make([]running, 0, len(trunning))
 
 	for _, p := range trunning {
+		if p.Id.PrincipalPid != w.pid {
+			continue
+		}
+
 		all[p.Id] = true
 
 		switch p.State {
@@ -223,7 +228,7 @@ func (w *watchdog2PC) abort(ctx context.Context, txn running) {
 				}
 				return err
 			case !status.State.IsFinal():
-				return errors.Errorf("2pc txn=%s abort failed with state %s at participant %d.", txn.Id, status.State, pid)
+				return errors.Errorf("participant %d failed with state %s.", pid, status.State)
 			default:
 				return nil
 			}
@@ -247,20 +252,26 @@ func (w *watchdog2PC) abort(ctx context.Context, txn running) {
 	// reaching here with errors means that either the ctx was canceled
 	// or the circuit breaker triggered.
 	if err := errors.Join(errs...); err != nil {
-		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s failed to abort.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn %s failed to abort.", txn.Id)
 		return
 	}
 
 	// lastly, release the locks for us which marks the end of the process.
 	if success, err := w.markTimedout(ctx, txn, true); err != nil || !success {
-		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s principal failed to release locks.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn %s principal failed to release locks.", txn.Id)
 	}
 }
 
 func (w *watchdog2PC) markTimedout(ctx context.Context, txn running, releaseLocks bool) (bool, error) {
+	cmd := &data.MarkTimedout{
+		Id:           txn.Id.ToProto(),
+		ReleaseLocks: releaseLocks,
+		Trace:        tracing.GetTraceID(ctx),
+	}
+
 	success := false
 	err := utils.RetryForeverE(ctx, &w.config.RetryPolicy.Backoff, w.withBreaker(func() error {
-		_, err := w.service.markTimedout(txn.Id.ToProto(), releaseLocks)
+		_, err := w.writer.Apply(cmd)
 
 		switch {
 		case err != nil:
@@ -283,7 +294,7 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 	if !txn.Decision.Commit {
 		// The 2pc implementation does not store abort decisions with the "presumed abort"
 		// optimization. This execution path should be unreachable.
-		panic(fmt.Sprintf("2pc txn=%s unexpected abort decision during commit.", txn.Id))
+		panic(fmt.Sprintf("2pc txn %s unexpected abort decision during commit.", txn.Id))
 	}
 
 	resultCh := make(chan error, 1)
@@ -301,9 +312,9 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 
 			switch {
 			case err != nil:
-				return errors.Wrapf(err, "2pc txn=%s commit failed at participant %d.", txn.Id, pid)
+				return errors.Wrapf(err, "participant %d failed.", pid)
 			case status.State != data.TxnStatus_Committed:
-				return errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", txn.Id, status.State, pid)
+				return errors.Errorf("participant %d failed with state %s.", pid, status.State)
 			default:
 				return nil
 			}
@@ -327,13 +338,13 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 	// reaching here with errors means that either the ctx was canceled
 	// or the circuit breaker triggered.
 	if err := errors.Join(errs...); err != nil {
-		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s failed to commit.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn %s failed to commit.", txn.Id)
 		return
 	}
 
 	invokeCommit(txn.Id.PrincipalPid)
 	if err := <-resultCh; err != nil {
-		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s principal failed to commit.", txn.Id)
+		w.log.WithContext(ctx).WithError(err).Errorf("2pc txn %s principal failed to commit.", txn.Id)
 	}
 }
 

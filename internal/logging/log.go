@@ -21,6 +21,7 @@ type Logger interface {
 	Errorf(format string, args ...any)
 	With(args ...any) Logger
 	WithError(err error) Logger
+	WithTrace(trace string) Logger
 	WithContext(ctx context.Context) Logger
 	Enabled(Level) bool
 	GetLevel() Level
@@ -105,6 +106,13 @@ func (l *slogLogger) WithError(err error) Logger {
 		return l
 	}
 	return l.With("error", err)
+}
+
+func (l *slogLogger) WithTrace(trace string) Logger {
+	if trace == "" {
+		return l
+	}
+	return l.With("trace", trace)
 }
 
 func (l *slogLogger) Enabled(level Level) bool {

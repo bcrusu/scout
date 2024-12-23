@@ -24,7 +24,7 @@ func (d *DBBreaker) InitPartition(pid uint32) {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.InitPartition %d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.InitPartition %d failed with error %s", pid, err)
 	}
 }
 
@@ -34,7 +34,7 @@ func (d *DBBreaker) DropPartition(pid uint32) {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.DropPartition %d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.DropPartition %d failed with error %s", pid, err)
 	}
 }
 
@@ -44,7 +44,7 @@ func (d *DBBreaker) SyncPartition(pid uint32) {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.SyncPartition %d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.SyncPartition %d failed with error %s", pid, err)
 	}
 }
 
@@ -54,7 +54,7 @@ func (d *DBBreaker) GetIndex(pid uint32, persistedOnDisk bool) uint64 {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.GetIndex in partition=%d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.GetIndex in partition %d failed with error %s", pid, err)
 	}
 
 	return index
@@ -66,7 +66,7 @@ func (d *DBBreaker) Put(pid uint32, index uint64, records ...Record) {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.Put in partition=%d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.Put in partition %d failed with error %s", pid, err)
 	}
 }
 
@@ -76,7 +76,7 @@ func (d *DBBreaker) Get(pid uint32, address Address) *Record {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.Get in partition=%d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.Get in partition %d failed with error %s", pid, err)
 	}
 
 	return record
@@ -88,7 +88,7 @@ func (d *DBBreaker) GetFrom(pid uint32, start Address, end *Address) Iterator {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.GetFrom in partition=%d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.GetFrom in partition %d failed with error %s", pid, err)
 	}
 
 	return iter
@@ -100,7 +100,7 @@ func (d *DBBreaker) GetStream(pid uint32, start Address) Iterator {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.GetStream in partition=%d failed with error=%s", pid, err)
+		utils.ShutdownNowf("DBBreaker.GetStream in partition %d failed with error %s", pid, err)
 	}
 
 	return iter

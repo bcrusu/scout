@@ -8,29 +8,8 @@ import (
 	"github.com/bcrusu/scout/internal/keyspace"
 )
 
-func (b *TxnBatch) MaxTimestamp() uint64 {
-	ts := uint64(0)
-
-	for _, a := range b.Autocommit {
-		ts = max(ts, a.Timestamp)
-	}
-	for _, a := range b.Prepare {
-		ts = max(ts, a.Timestamp)
-	}
-	for _, a := range b.Commit {
-		ts = max(ts, a.Timestamp)
-	}
-	for _, a := range b.Abort {
-		ts = max(ts, a.Timestamp)
-	}
-	for _, a := range b.StoreDecision {
-		ts = max(ts, a.Timestamp)
-	}
-	for _, a := range b.MarkTimedout {
-		ts = max(ts, a.Timestamp)
-	}
-
-	return ts
+func (i *TxnId) LogString() string {
+	return fmt.Sprintf("%d:%d:%d", i.PrincipalPid, i.ServerId, i.Timestamp)
 }
 
 func (b *TxnBatch) ActionCount() int {

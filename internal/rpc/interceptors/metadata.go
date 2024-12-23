@@ -45,13 +45,13 @@ func StreamMetadataClientInterceptor() grpc.StreamClientInterceptor {
 }
 
 func appendMetadata(ctx context.Context) context.Context {
-	if _, ok := tracing.GetTraceID(ctx); !ok {
+	if tracing.GetTraceID(ctx) == "" {
 		ctx = tracing.WithNewTraceID(ctx)
 	}
 
 	var kv []string
 
-	if value, ok := tracing.GetTraceID(ctx); ok {
+	if value := tracing.GetTraceID(ctx); value != "" {
 		kv = append(kv, "scout-trace-id", value)
 	}
 

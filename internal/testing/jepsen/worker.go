@@ -2,6 +2,7 @@ package jepsen
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
@@ -67,7 +68,8 @@ func (w *worker) handleGetRequest(ctx context.Context, req *keyvalue.GetRequest)
 		return errors.Join(err, herr)
 	}
 
-	return w.history.Success(ctx, w.readResultTxn(req.Keys, resp.Values))
+	txn = w.readResultTxn(req.Keys, resp.Values)
+	return w.history.Success(ctx, txn, resp.Timestamp)
 }
 
 func (w *worker) handleSetRequest(ctx context.Context, req *keyvalue.SetRequest) error {
@@ -77,19 +79,19 @@ func (w *worker) handleSetRequest(ctx context.Context, req *keyvalue.SetRequest)
 		return err
 	}
 
-	_, err := w.client.KeyValue().Set(ctx, req)
+	resp, err := w.client.KeyValue().Set(ctx, req)
 	if err != nil {
 		herr := w.history.Failure(ctx, txn, err)
 		return errors.Join(err, herr)
 	}
 
-	return w.history.Success(ctx, txn)
+	return w.history.Success(ctx, txn, resp.Timestamp)
 }
 
 func (w *worker) readTxn(keys [][]byte) txn {
 	txn := make(txn, len(keys))
 	for i, key := range keys {
-		k := decodeKey(key)
+		k := w.fmtBytes(key)
 		txn[i] = mopRead(k, nil)
 	}
 	return txn
@@ -98,10 +100,10 @@ func (w *worker) readTxn(keys [][]byte) txn {
 func (w *worker) readResultTxn(keys [][]byte, values [][]byte) txn {
 	txn := make(txn, len(keys))
 	for i, key := range keys {
-		k := decodeKey(key)
+		k := w.fmtBytes(key)
 
 		if value := values[i]; len(value) > 0 {
-			v := decodeValue(values[i])
+			v := w.fmtBytes(values[i])
 			txn[i] = mopRead(k, v)
 		} else {
 			txn[i] = mopRead(k, nil)
@@ -113,9 +115,15 @@ func (w *worker) readResultTxn(keys [][]byte, values [][]byte) txn {
 func (w *worker) writeTxn(kvs []*keyvalue.KeyValue) txn {
 	txn := make(txn, len(kvs))
 	for i, kv := range kvs {
-		k := decodeKey(kv.Key)
-		v := decodeValue(kv.Value)
+		k := w.fmtBytes(kv.Key)
+		v := w.fmtBytes(kv.Value)
 		txn[i] = mopWrite(k, v)
 	}
 	return txn
+}
+
+// formats the value using the same base64 encoding as in data service logs
+// to make it easy to correlate the test run history and logs entries.
+func (w *worker) fmtBytes(bytes []byte) string {
+	return base64.RawURLEncoding.EncodeToString(bytes)
 }

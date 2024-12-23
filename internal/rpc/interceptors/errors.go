@@ -101,8 +101,8 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.Aborted, "Transaction Aborted")
 	case errors.CorruptedData:
 		return status.Error(codes.DataLoss, "Corrupted Data")
-	case errors.TimeOffsetOutOfRange:
-		return status.Error(codes.OutOfRange, "Time offset out of range")
+	case errors.TimeOutOfRange:
+		return status.Error(codes.OutOfRange, "Time out of range")
 	case errors.FailedPrecondition:
 		return status.Error(codes.FailedPrecondition, "Failed Precondition")
 	case errInternal:
@@ -163,8 +163,8 @@ func getGoError(err error) error {
 			return errors.CorruptedData
 		}
 	case codes.OutOfRange:
-		if s.Message() == "Time offset out of range" {
-			return errors.TimeOffsetOutOfRange
+		if s.Message() == "Time out of range" {
+			return errors.TimeOutOfRange
 		}
 	case codes.FailedPrecondition:
 		return errors.FailedPrecondition

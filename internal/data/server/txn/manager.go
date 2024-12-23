@@ -29,7 +29,7 @@ type Manager struct {
 	lock         sync.RWMutex // guards all below
 	status       map[id]*data.TxnStatus
 	prepared     map[id]*data.Prepared
-	maxTimestamp uint64 // max HLC timestamp
+	maxTimestamp uint64 // max observed HLC timestamp
 }
 
 func NewManager(pid uint32, db mvcc.DB) *Manager {
@@ -45,7 +45,7 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
 		meters:     newManagerMeters(pid),
-		log:        logging.New("txn_manager").With("partition", pid),
+		log:        logging.New("txn").With("partition", pid),
 		status:     map[id]*data.TxnStatus{},
 		prepared:   map[id]*data.Prepared{},
 	}
@@ -141,10 +141,18 @@ func (p *Manager) getRunning() []running {
 	return result
 }
 
-func (p *Manager) getLatestReadTimestamp(txn *data.Txn) uint64 {
+func (p *Manager) getMaxTimestamp() uint64 {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
-	return p.latestReadTimestampForLocks(txn.BuildLocks())
+	return p.maxTimestamp
+}
+
+// Returns the max timestamp the txn can read and if there are
+// conflicting locks held by other prepared txns.
+func (p *Manager) getSafeTimestamp(txn *data.Txn) (uint64, bool) {
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+	return p.safeTimestampForLocks(txn.BuildLocks())
 }
 
 func (p *Manager) getPreparedTxn(id id, clone bool) *data.Txn {

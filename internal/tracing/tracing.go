@@ -37,13 +37,13 @@ func WithNewTraceID(ctx context.Context) context.Context {
 }
 
 // GetTraceID extracts the trace identifier from context
-func GetTraceID(ctx context.Context) (string, bool) {
+func GetTraceID(ctx context.Context) string {
 	v := ctx.Value(ctxKeyTraceID{})
 	if v == nil {
-		return "", false
+		return ""
 	}
 
-	return v.(string), true
+	return v.(string)
 }
 
 // SetServerName sets, only once, the current server name.

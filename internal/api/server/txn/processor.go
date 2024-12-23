@@ -31,10 +31,7 @@ type Processor struct {
 type statusMap map[uint32]*data.TxnStatus
 
 func NewProcessor(id identity.Identity, client client.DataClient) *Processor {
-	client = &clientRetrier{
-		DataClient: client,
-		policy:     config.Get().Transactions.RetryPolicy,
-	}
+	client = newClientRetrier(client, config.Get().RetryPolicy)
 
 	return &Processor{
 		identity:              id,
@@ -65,7 +62,7 @@ func (p *Processor) Stop() {}
 func (p *Processor) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
 	readOnly := txn.IsReadOnly()
 	if !readOnly && txn.readTimestamp != 0 {
-		return nil, errors.Errorf("snapshot read timestamp invalid for read-write txn=%s.", txn.id)
+		return nil, errors.Errorf("snapshot read timestamp invalid for read-write txn %s.", txn.id)
 	}
 
 	switch txn.ParticipantCount() {
@@ -88,24 +85,25 @@ func (p *Processor) Process(ctx context.Context, txn *Txn) (*TxnResult, error) {
 }
 
 func (p *Processor) autocommit(ctx context.Context, t *Txn) (*TxnResult, error) {
+	txnId := t.id.ToProto()
 	_, actions, _ := utils.GetSingleMapKey(t.participantActions)
 
 	req := &data.AutocommitRequest{
 		PartitionId:   t.id.PrincipalPid,
 		ReadTimestamp: t.readTimestamp,
 		Txn: &data.Txn{
-			Id:      t.id,
+			Id:      txnId,
 			Actions: actions,
 		},
 	}
 
 	status, err := p.client.Autocommit(ctx, req)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "autocommit txn %s commit failed.", t.id)
 	}
 
 	return &TxnResult{
-		Id:           t.id,
+		Id:           txnId,
 		Timestamp:    status.Timestamp,
 		Success:      status.State == data.TxnStatus_Committed,
 		ActionStatus: status.ActionStatus,

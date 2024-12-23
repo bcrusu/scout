@@ -80,10 +80,10 @@ func (m *Session) mainLoop(ctx context.Context) {
 		switch {
 		case errors.Is(err, io.EOF):
 			log.Debug("Session stream ended. Reconnecting...")
-		case errors.Is(err, errors.TimeOffsetOutOfRange):
-			utils.GracefulShutdown("Time offset is out of allowed range.")
+		case errors.Is(err, errors.TimeOutOfRange):
+			utils.GracefulShutdown("Time is out of allowed range.")
 			return
-		case errors.IsAny(err, context.Canceled, context.DeadlineExceeded):
+		case errors.IsContextError(err):
 			// pass
 		case err != nil:
 			log.WithError(err).Warn("Session stream ended abruptly. Reconnecting...")

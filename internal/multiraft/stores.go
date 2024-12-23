@@ -57,7 +57,7 @@ func (s *persistent) New(id uint32) (raft.LogStore, raft.StableStore, raft.Snaps
 	logger := newLogAdapter(fmt.Sprintf("snapshot_%d", id))
 	snapshot, err := raft.NewFileSnapshotStoreWithLogger(s.snapshotDir(id), s.snapshotRetainMax, logger)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create snapshot store, error=%w", err)
+		return nil, nil, nil, errors.Wrap(err, "failed to create snapshot store")
 	}
 
 	s.lock.Lock()

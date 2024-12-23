@@ -45,6 +45,6 @@ func (r Record) ToKVRecord() kv.Record {
 }
 
 func (a Address) String() string {
-	return fmt.Sprintf("keyspace=%d key=%s",
+	return fmt.Sprintf("ks:%d,key:%s",
 		a.Keyspace, base64.RawURLEncoding.EncodeToString(a.Key))
 }

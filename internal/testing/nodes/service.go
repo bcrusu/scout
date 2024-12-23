@@ -284,6 +284,10 @@ func (s *service) startNode(id string) error {
 		return nil
 	}
 
+	if err := os.Remove(s.getNetNSFile(id)); err != nil && !os.IsNotExist(err) {
+		log.WithError(err).Debug("Failed to remove old net namespace file.")
+	}
+
 	cfg, err := s.makeVMConfig(id)
 	if err != nil {
 		return errors.Wrap(err, "failed to make VM config")
@@ -485,6 +489,10 @@ func (s *service) getNodeLogFile(id string) string {
 	return path.Join(s.config.NodesDir, id, logFileName)
 }
 
+func (s *service) getNetNSFile(id string) string {
+	return path.Join(s.config.NetNSDir, id)
+}
+
 func (s *service) makeVMConfig(id string) (sdk.Config, error) {
 	cfg := sdk.Config{
 		VMID:            id,
@@ -522,7 +530,7 @@ func (s *service) makeVMConfig(id string) (sdk.Config, error) {
 				IoEngine:     utils.PointerOf("Async"),
 			},
 		},
-		NetNS: path.Join(s.config.NetNSDir, id),
+		NetNS: s.getNetNSFile(id),
 		NetworkInterfaces: sdk.NetworkInterfaces{
 			{
 				CNIConfiguration: &sdk.CNIConfiguration{

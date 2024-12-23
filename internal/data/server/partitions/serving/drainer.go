@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	_ utils.Lifecycle    = (*partitionDrainer)(nil)
-	_ data.ServiceServer = (*partitionDrainer)(nil)
+	_ utils.Lifecycle    = (*drainer)(nil)
+	_ data.ServiceServer = (*drainer)(nil)
 )
 
-type partitionDrainer struct {
+type drainer struct {
 	data.UnsafeServiceServer
 	inner   service
 	log     logging.Logger
@@ -27,14 +27,14 @@ type service interface {
 	utils.Lifecycle
 }
 
-func newPartitionDrainer(inner service, log logging.Logger) *partitionDrainer {
-	return &partitionDrainer{
+func newDrainer(inner service, log logging.Logger) *drainer {
+	return &drainer{
 		inner: inner,
 		log:   log,
 	}
 }
 
-func (d *partitionDrainer) Start(ctx context.Context) error {
+func (d *drainer) Start(ctx context.Context) error {
 	if err := d.inner.Start(ctx); err != nil {
 		return err
 	}
@@ -43,46 +43,46 @@ func (d *partitionDrainer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (d *partitionDrainer) Stop() {
+func (d *drainer) Stop() {
 	d.drainer.Stop()
 	d.inner.Stop()
 }
 
-func (d *partitionDrainer) IsLeader() bool {
+func (d *drainer) IsLeader() bool {
 	return d.inner.IsLeader()
 }
 
-func (d *partitionDrainer) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
+func (d *drainer) Autocommit(ctx context.Context, req *data.AutocommitRequest) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
 	return d.inner.Autocommit(cctx, req)
 }
 
-func (d *partitionDrainer) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
+func (d *drainer) Prepare(ctx context.Context, req *data.PrepareRequest) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
 	return d.inner.Prepare(cctx, req)
 }
 
-func (d *partitionDrainer) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
+func (d *drainer) Commit(ctx context.Context, req *data.CommitRequest) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
 	return d.inner.Commit(cctx, req)
 }
 
-func (d *partitionDrainer) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
+func (d *drainer) Abort(ctx context.Context, req *data.AbortRequest) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
 	return d.inner.Abort(cctx, req)
 }
 
-func (d *partitionDrainer) StoreDecision(ctx context.Context, dec *data.Decision) (*data.TxnStatus, error) {
+func (d *drainer) StoreDecision(ctx context.Context, dec *data.Decision) (*data.TxnStatus, error) {
 	cctx, cancel := d.drainer.WithDrain(ctx)
 	defer cancel()
 	return d.inner.StoreDecision(cctx, dec)
 }
 
-func (d *partitionDrainer) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
+func (d *drainer) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
 	cctx, cancel := d.drainer.WithDrain(stream.Context())
 	defer cancel()
 

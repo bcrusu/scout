@@ -24,7 +24,7 @@ func (d *DBBreaker) Get(pid uint32, timestamp uint64, addrs ...Address) []*Recor
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.Get failed with error=%s", err)
+		utils.ShutdownNowf("DBBreaker.Get failed with error %s", err)
 	}
 
 	return value
@@ -36,7 +36,7 @@ func (d *DBBreaker) GetRange(pid uint32, timestamp uint64, start, end Address) I
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.GetRange failed with error=%s", err)
+		utils.ShutdownNowf("DBBreaker.GetRange failed with error %s", err)
 	}
 
 	return iter
@@ -48,7 +48,7 @@ func (d *DBBreaker) Exists(pid uint32, timestamp uint64, addr Address) bool {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.Exists failed with error=%s", err)
+		utils.ShutdownNowf("DBBreaker.Exists failed with error %s", err)
 	}
 
 	return result
@@ -60,7 +60,7 @@ func (d *DBBreaker) ExistsInRange(pid uint32, timestamp uint64, start, end Addre
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.ExistsInRange failed with error=%s", err)
+		utils.ShutdownNowf("DBBreaker.ExistsInRange failed with error %s", err)
 	}
 
 	return result
@@ -72,6 +72,6 @@ func (d *DBBreaker) Put(pid uint32, index uint64, records ...Record) {
 	})
 
 	if err != nil {
-		utils.ShutdownNowf("DBBreaker.Put failed with error=%s", err)
+		utils.ShutdownNowf("DBBreaker.Put failed with error %s", err)
 	}
 }

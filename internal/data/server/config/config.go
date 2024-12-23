@@ -73,12 +73,12 @@ type Transactions struct {
 	Phase2Timeout       time.Duration     `yaml:"phase2Timeout" default:"2s" validate:"min:100ms"`
 	RetryPolicy         utils.RetryPolicy `yaml:"retryPolicy"`
 	RetryBreakerLimit   int               `yaml:"retryBreakerLimit" default:"32" validate:"min:1"`
-	MaxBatchSize        int               `yaml:"maxBatchSize" default:"128" validate:"min:1"`
-	MaxBatchDelay       time.Duration     `yaml:"maxBatchDelay" default:"100ms" validate:"min:1ms"`
+	MaxBatchSize        int               `yaml:"maxBatchSize" default:"100" validate:"min:1"`
+	MaxBatchDelay       time.Duration     `yaml:"maxBatchDelay" default:"10ms" validate:"min:1ms"`
 	MaxIteratorResults  int               `yaml:"maxIteratorResults" default:"1000" validate:"min:100"`
 	SkipCorruptedData   bool              `yaml:"skipCorruptedData" default:"true"`
-	CleanAfterReadWrite time.Duration     `yaml:"cleanAfterReadWrite" default:"20s" validate:"min:1s"`
-	CleanAfterReadOnly  time.Duration     `yaml:"cleanAfterReadOnly" default:"10s" validate:"min:1s"`
+	CleanAfterReadWrite time.Duration     `yaml:"cleanAfterReadWrite" default:"10s" validate:"min:1s"`
+	CleanAfterReadOnly  time.Duration     `yaml:"cleanAfterReadOnly" default:"5s" validate:"min:1s"`
 }
 
 type DB struct {
@@ -133,7 +133,7 @@ func (c *Config) prepare() error {
 	}
 
 	c.RPC.ClusterName = c.ClusterName
-	c.RPC.EnableHlc = true
+	c.RPC.EnableHLC = true
 	c.Session.Address = c.RPC.Address
 
 	for i, server := range c.Discovery.Servers {

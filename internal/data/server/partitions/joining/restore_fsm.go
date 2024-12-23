@@ -39,7 +39,8 @@ var (
 // the FSM will be forever stuck waiting for the first write. This scenario is bound
 // to happen early during cluster setup phase when new servers are added which trigger
 // replica rebalance/s resulting in the newly joining replicas getting stuck.
-// To overcome, partition leaders will issue a Barrier write to kickstart the log.
+// The fix relies on the fact that the partition leader will issue the UpdateTimestamp
+// command in the absence of write transactions.
 type restoreFsm struct {
 	ctx        context.Context
 	pid        uint32

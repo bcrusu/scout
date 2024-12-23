@@ -15,69 +15,94 @@ import (
 // handled by the rpc connection layer.
 type clientRetrier struct {
 	client.DataClient
-	policy utils.RetryPolicy
+	policy    utils.RetryPolicy
+	markerErr error
+}
+
+func newClientRetrier(client client.DataClient, policy utils.RetryPolicy) clientRetrier {
+	return clientRetrier{
+		DataClient: client,
+		policy:     policy,
+		markerErr:  errors.Error("marker retry err"),
+	}
 }
 
 func (c clientRetrier) Autocommit(ctx context.Context, req *data.AutocommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
-	var last *data.TxnStatus
-	var lastErr error
+	var status *data.TxnStatus
+	var err error
 
-	err := utils.RetryContextE(ctx, c.policy, func() error {
-		last, lastErr = c.DataClient.Autocommit(ctx, req, opts...)
+	retryErr := utils.RetryContextE(ctx, c.policy, func() error {
+		status, err = c.DataClient.Autocommit(ctx, req, opts...)
 
-		// only retry txn status error
-		if lastErr != nil || !c.needsRetry(last) {
+		if !c.isLockFailed(status) {
 			return nil
 		}
 
-		log.WithContext(ctx).Warn("Autocommit failed. Retrying...")
-		return errors.Error("Autocommit failed")
+		log.WithContext(ctx).WithError(err).Debug("Autocommit failed. Retrying...", "id", req.Txn.Id.LogString())
+		return c.markerErr
 	})
 
-	if err != nil {
-		return nil, err
+	if retryErr == nil || retryErr == c.markerErr {
+		return status, err
 	}
 
-	return last, lastErr
+	return nil, retryErr
 }
 
 func (c clientRetrier) Prepare(ctx context.Context, req *data.PrepareRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
-	var last *data.TxnStatus
-	var lastErr error
+	var status *data.TxnStatus
+	var err error
 
-	err := utils.RetryContextE(ctx, c.policy, func() error {
-		last, lastErr = c.DataClient.Prepare(ctx, req, opts...)
+	retryErr := utils.RetryContextE(ctx, c.policy, func() error {
+		status, err = c.DataClient.Prepare(ctx, req, opts...)
 
-		// only retry txn status error
-		if lastErr != nil || !c.needsRetry(last) {
+		if !c.isLockFailed(status) {
 			return nil
 		}
 
-		log.WithContext(ctx).Warn("Prepare failed. Retrying...")
-		return errors.Error("Prepare failed")
+		log.WithContext(ctx).WithError(err).Debug("Prepare failed. Retrying...", "id", req.Txn.Id.LogString())
+		return c.markerErr
 	})
 
-	if err != nil {
-		return nil, err
+	if retryErr == nil || retryErr == c.markerErr {
+		return status, err
 	}
 
-	return last, lastErr
+	return nil, retryErr
 }
 
-func (c clientRetrier) needsRetry(status *data.TxnStatus) bool {
-	if status.State != data.TxnStatus_Failed {
+func (c clientRetrier) Commit(ctx context.Context, req *data.CommitRequest, opts ...grpc.CallOption) (*data.TxnStatus, error) {
+	var status *data.TxnStatus
+	var err error
+
+	retryErr := utils.RetryContextE(ctx, c.policy, func() error {
+		status, err = c.DataClient.Commit(ctx, req, opts...)
+
+		if !errors.Is(err, errors.TimeOutOfRange) {
+			return nil
+		}
+
+		log.WithContext(ctx).WithError(err).Debug("Commit failed. Retrying...", "id", req.Id.LogString())
+		return c.markerErr
+	})
+
+	if retryErr == nil || retryErr == c.markerErr {
+		return status, err
+	}
+
+	return nil, retryErr
+}
+
+func (c clientRetrier) isLockFailed(status *data.TxnStatus) bool {
+	if status == nil || status.State != data.TxnStatus_Failed {
 		return false
 	}
 
 	for _, r := range status.ActionStatus {
-		if !c.shouldRetryCode(r.Code) {
+		if r.Code != data.ActionStatus_LockFailed {
 			return false
 		}
 	}
 
 	return true
-}
-
-func (c clientRetrier) shouldRetryCode(code data.ActionStatus_Code) bool {
-	return code == data.ActionStatus_LockFailed
 }

@@ -92,6 +92,7 @@ func (d *demo) runOnce(ctx context.Context) {
 }
 
 func (d *demo) setKeys(ctx context.Context, kvs []*keyvalue.KeyValue) bool {
+	start := time.Now()
 	req := &keyvalue.SetRequest{Items: kvs}
 
 	_, err := d.client.KeyValue().Set(ctx, req)
@@ -102,11 +103,12 @@ func (d *demo) setKeys(ctx context.Context, kvs []*keyvalue.KeyValue) bool {
 		return false
 	}
 
-	log.Infof("Set request for %d key was successful.", len(kvs))
+	log.Info("Set request was successful.", "keys", len(kvs), "duration", time.Since(start))
 	return true
 }
 
 func (d *demo) getAndCheckKeys(ctx context.Context, kvs []*keyvalue.KeyValue) {
+	start := time.Now()
 	req := &keyvalue.GetRequest{
 		Keys: make([][]byte, len(kvs)),
 	}
@@ -135,5 +137,5 @@ func (d *demo) getAndCheckKeys(ctx context.Context, kvs []*keyvalue.KeyValue) {
 		}
 	}
 
-	log.Infof("Get request for %d keys returned the expected values.", len(kvs))
+	log.Info("Get request was successful.", "keys", len(kvs), "duration", time.Since(start))
 }

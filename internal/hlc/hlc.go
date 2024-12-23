@@ -1,6 +1,7 @@
 package hlc
 
 import (
+	"context"
 	"math"
 	"sync"
 	"time"
@@ -55,6 +56,7 @@ type StatsUpdate struct {
 	HitLogicalMax int
 }
 
+// Get returns the global Hlc instance.
 func Get() *Hlc {
 	if global == nil {
 		panic("HLC was not set")
@@ -62,6 +64,7 @@ func Get() *Hlc {
 	return global
 }
 
+// Set sets the global Hlc instance.
 func Set(hlc *Hlc) {
 	if global != nil {
 		panic("HLC already set")
@@ -69,13 +72,15 @@ func Set(hlc *Hlc) {
 	global = hlc
 }
 
+// New returns a new Hlc instance.
 func New(maxOffset time.Duration) *Hlc {
 	return &Hlc{
-		maxOffset: uint64(maxOffset) & physicalMask,
+		maxOffset: physical(uint64(maxOffset)),
 		physical:  physicalNow(),
 	}
 }
 
+// Now returns the current HLC timestamp.
 func (h *Hlc) Now() uint64 {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -120,6 +125,8 @@ func (h *Hlc) Now() uint64 {
 	panic("unreachable")
 }
 
+// Update sets the current HLC timestamp using the incoming timestamp.
+// It returns TimeOutOfRange error if the value is too far in the future.
 func (h *Hlc) Update(incoming uint64) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -170,34 +177,34 @@ func (h *Hlc) Stats() (StatsNow, StatsUpdate) {
 
 func (h *Hlc) checkUpdateTimeOffset(inPhysical uint64) error {
 	now := physicalNow()
-	var diff uint64
-	allowed := h.maxOffset
-
-	if inPhysical > now {
-		// keep rushers correct
-		diff = inPhysical - now
-	} else {
-		// more lenient with stragglers as they do not
-		// change our h.physical value
-		allowed = 10 * h.maxOffset
-		diff = now - inPhysical
+	if inPhysical <= now {
+		return nil
 	}
 
-	if diff > allowed {
+	diff := inPhysical - now
+
+	if diff > h.maxOffset {
 		h.statsUpdate.OutOfRange++
-		return errors.TimeOffsetOutOfRange
+		return errors.TimeOutOfRange
 	}
+
 	return nil
 }
 
+// Now returns the current HLC timestamp.
 func Now() uint64 {
 	return Get().Now()
 }
 
+// Update sets the current HLC timestamp using the incoming timestamp.
+// It returns TimeOutOfRange error if the value is too far in the future.
 func Update(incoming uint64) error {
 	return Get().Update(incoming)
 }
 
+// AsTime converts a HLC timestamp to the equivalent Time. It does not
+// trim the logical HLC part to avoid data loss and make the operation
+// reversible using FromTime method.
 func AsTime(timestamp uint64) time.Time {
 	x := int64(timestamp)
 	sec := int64(x / 1e9)
@@ -205,20 +212,63 @@ func AsTime(timestamp uint64) time.Time {
 	return time.Unix(sec, nsec).UTC()
 }
 
+// AsTimestamp converts a HLC timestamp to the equivalent Timestamp proto.
+// It does not trim the logical HLC part to avoid data loss and make the
+// operation reversible using FromTimestamp method.
 func AsTimestamp(timestamp uint64) *timestamppb.Timestamp {
 	return timestamppb.New(AsTime(timestamp))
 }
 
+// FromTime converts the Time to the equivalent HLC timestamp. It assumes
+// that the value was previously constructed using AsTime and does not
+// trim the logical part.
 func FromTime(time time.Time) uint64 {
 	return uint64(time.UnixNano())
 }
 
+// FromTimestamp converts a Timestamp proto to the equivalent HLC timestamp.
+// It assumes that the proto was previously constructed using AsTimestamp and
+// does not trim the logical part.
 func FromTimestamp(ts *timestamppb.Timestamp) uint64 {
 	return FromTime(ts.AsTime())
 }
 
+// Sleep returns when the deadline passed or the ctx is canceled.
+func Sleep(ctx context.Context, deadline uint64) error {
+	for {
+		now := Now()
+		if now > deadline {
+			return nil
+		}
+
+		diff := Subtract(deadline, now)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(diff):
+		}
+	}
+}
+
+// Subtracts returns the physical time difference (a-b) between two timestamps.
+func Subtract(a, b uint64) time.Duration {
+	ap := physical(a)
+	bp := physical(b)
+
+	if ap >= bp {
+		return time.Duration(ap - bp)
+	}
+
+	return -time.Duration(bp - ap)
+}
+
 func physicalNow() uint64 {
-	return uint64(time.Now().UnixNano()) & physicalMask
+	return physical(uint64(time.Now().UnixNano()))
+}
+
+func physical(timestamp uint64) uint64 {
+	return timestamp & physicalMask
 }
 
 func split(timestamp uint64) (uint64, uint64) {

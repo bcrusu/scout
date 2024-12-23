@@ -51,7 +51,7 @@ type Config struct {
 	Discovery    discovery.Discovery `yaml:"discovery"`
 	Register     Register            `yaml:"register"`
 	Session      session.Config      `yaml:"session"`
-	Transactions Transactions        `yaml:"transactions"`
+	RetryPolicy  utils.RetryPolicy   `yaml:"retryPolicy"`
 	ProxyMode    bool                `yaml:"proxyMode" default:"true"`
 	LogLevels    string              `yaml:"logLevels" default:"*:info"`
 	Metrics      metrics.Config      `yaml:"metrics"`
@@ -62,10 +62,6 @@ type Register struct {
 	Token        string        `yaml:"token,omitempty" validate:"maxLen:1024"`
 	Tags         []string      `yaml:"tags,flow" validate:"maxLen:10,maxItemLen:128"`
 	RetryBackoff utils.Backoff `yaml:"retryBackoff"`
-}
-
-type Transactions struct {
-	RetryPolicy utils.RetryPolicy `yaml:"retryPolicy"`
 }
 
 func (c Config) Validate() error {
@@ -103,7 +99,7 @@ func (c *Config) prepare() error {
 	}
 
 	c.RPC.ClusterName = c.ClusterName
-	c.RPC.EnableHlc = false
+	c.RPC.EnableHLC = false
 	c.Session.Address = c.RPC.Address
 
 	for i, server := range c.Discovery.Servers {

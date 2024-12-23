@@ -1,6 +1,8 @@
 package txn
 
-import "github.com/bcrusu/scout/internal/data"
+import (
+	"github.com/bcrusu/scout/internal/data"
+)
 
 func newStatus(id id, timestamp uint64, state data.TxnStatus_State) *data.TxnStatus {
 	return &data.TxnStatus{

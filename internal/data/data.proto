@@ -55,26 +55,31 @@ message TxnSnapshot {
 message Autocommit {
     uint64 timestamp = 1;
     Txn txn = 2;
+    string trace = 3;
 }
 
 message Prepare {
     uint64 timestamp = 1;
     Txn txn = 2;
+    string trace = 3;
 }
 
 message Commit {
     uint64 timestamp = 1;
     TxnId id = 2;
+    string trace = 3;
 }
 
 message Abort {
     uint64 timestamp = 1;
     TxnId id = 2;
+    string trace = 3;
 }
 
 message StoreDecision {
     uint64 timestamp = 1;
     Decision decision = 2;
+    string trace = 3;
 }
 
 // The watchdog will apply the command twice for each timedout txn
@@ -83,6 +88,7 @@ message MarkTimedout {
     uint64 timestamp = 1;
     TxnId id = 2;
     bool release_locks = 3;
+    string trace = 4;
 }
 
 message TxnBatch {
@@ -92,6 +98,7 @@ message TxnBatch {
     repeated Abort abort = 4;
     repeated StoreDecision store_decision = 5;
     repeated MarkTimedout mark_timedout = 6;
+    uint64 max_timestamp = 7;
 }
 
 // Id uniquely identifies a transaction in the cluster.
@@ -261,9 +268,10 @@ message Decision {
 
 message Prepared {
 	Txn txn = 1;
-	repeated Lock locks = 2;
-	bool locks_released = 3;
-    Decision decision = 4;
+    uint64 timestamp = 2;
+	repeated Lock locks = 3;
+	bool locks_released = 4;
+    Decision decision = 5;
 }
 
 // ====================================================================

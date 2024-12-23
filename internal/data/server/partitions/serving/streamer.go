@@ -1,4 +1,4 @@
-package shared
+package serving
 
 import (
 	"github.com/bcrusu/scout/internal/data"
@@ -10,24 +10,24 @@ import (
 	"google.golang.org/grpc"
 )
 
-// PartitionStreamer is the less-performant way to replicate a partition. It simply iterates
+// Streamer is the less-performant way to replicate a partition. It simply iterates
 // over all keys and sends them in batches to the new replica. A better way is to use
 // the backup/restore or checkpointing approach to copy the SST files directly.
-type PartitionStreamer struct {
+type streamer struct {
 	config config.DB
 	db     kv.DB
 	log    logging.Logger
 }
 
-func NewPartitionStreamer(db kv.DB) *PartitionStreamer {
-	return &PartitionStreamer{
+func newStreamer(db kv.DB) *streamer {
+	return &streamer{
 		config: config.Get().DB,
 		db:     db,
 		log:    logging.New("streamer"),
 	}
 }
 
-func (s *PartitionStreamer) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
+func (s *streamer) StreamPartition(req *data.StreamRequest, stream grpc.ServerStreamingServer[data.StreamResponse]) error {
 	if index, err := s.db.GetIndex(req.PartitionId, false); err != nil {
 		return err
 	} else if index < req.MinIndex {

@@ -18,7 +18,7 @@ type processorReadSnapshot struct {
 func (p *processorReadSnapshot) Process(ctx context.Context, t *Txn) (*TxnResult, error) {
 	status, err := p.autocommit(ctx, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "snapshot read txn=%s failed.", t.id)
+		return nil, errors.Wrapf(err, "snapshot read txn %s failed.", t.id)
 	}
 
 	return p.aggregateResults(t, status), nil
@@ -31,13 +31,14 @@ func (p *processorReadSnapshot) autocommit(ctx context.Context, t *Txn) (statusM
 		err    error
 	}
 
+	txnId := t.id.ToProto()
 	resultCh := make(chan prepareResult, 1)
 	invokeAutocommit := func(pid uint32) {
 		req := &data.AutocommitRequest{
 			PartitionId:   pid,
 			ReadTimestamp: t.readTimestamp,
 			Txn: &data.Txn{
-				Id:      t.id,
+				Id:      txnId,
 				Actions: t.participantActions[pid],
 			}}
 
@@ -64,8 +65,9 @@ func (p *processorReadSnapshot) autocommit(ctx context.Context, t *Txn) (statusM
 		}
 	}
 
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
+	if len(errs) > 0 {
+		logErrors(ctx, "snapshot read txn commit failed.", t.id, errs)
+		return nil, errors.Errorf("participants failed")
 	}
 
 	return status, nil
@@ -78,7 +80,7 @@ func (p *processorReadSnapshot) aggregateResults(t *Txn, status statusMap) *TxnR
 	}
 
 	return &TxnResult{
-		Id:           t.id,
+		Id:           t.id.ToProto(),
 		Timestamp:    t.readTimestamp,
 		Success:      true,
 		ActionStatus: actionStatus,

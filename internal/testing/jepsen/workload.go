@@ -1,6 +1,7 @@
 package jepsen
 
 import (
+	"encoding/binary"
 	"fmt"
 	"math/rand/v2"
 	"sync"
@@ -26,7 +27,7 @@ func newWorkload(config Config) *workload {
 	keys := make([][]byte, config.RequestMaxKeys)
 	index := make([]int, config.RequestMaxKeys)
 	for i := range keys {
-		keys[i] = encodeKey(fmt.Sprintf("r%dk%d", config.RunId, i+1))
+		keys[i] = []byte(fmt.Sprintf("r%dk%d", config.RunId, i+1))
 		index[i] = i
 	}
 
@@ -65,9 +66,12 @@ func (r *workload) newSetRequest() *keyvalue.SetRequest {
 	for i, idx := range index {
 		r.unique[idx]++
 
+		value := make([]byte, 4)
+		binary.BigEndian.PutUint32(value, r.unique[idx])
+
 		items[i] = &keyvalue.KeyValue{
 			Key:   r.keys[idx],
-			Value: encodeValue(r.unique[idx]),
+			Value: value,
 		}
 	}
 

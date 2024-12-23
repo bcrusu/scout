@@ -10,6 +10,6 @@ bootstrap:
   partitionCount: 100
 partitions:
   replicationFactor: 3
-logLevels: "*:info"
+logLevels: "*:info,hraft:error,rpc_logger:error"
 metrics:
   exportEndpoint: otelcol:4317

@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/bcrusu/scout/internal/data"
-	"github.com/bcrusu/scout/internal/hlc"
 )
 
 // checkLocks implementation is not that clever as it simply iterates the input locks to compare
@@ -13,17 +12,16 @@ import (
 // https://en.wikipedia.org/wiki/Interval_tree
 func (p *Manager) checkLocks(id id, timestamp uint64, locks []*data.Lock) *data.TxnStatus {
 	for _, lock := range locks {
-		if !p.acquireLock(lock) {
+		if !p.checkLock(lock) {
 			p.meters.LocksFailed.Add(1)
 			return newFailedStatus(id, timestamp, lock.ActionId, data.ActionStatus_LockFailed)
 		}
 	}
 
-	p.meters.LocksHeld.Add(len(locks))
 	return nil
 }
 
-func (p *Manager) acquireLock(lock *data.Lock) bool {
+func (p *Manager) checkLock(lock *data.Lock) bool {
 	for _, prepared := range p.prepared {
 		if prepared.LocksReleased {
 			continue
@@ -53,30 +51,28 @@ func (p *Manager) countLocksHeld() int {
 	return count
 }
 
-// Essentially, the latest read timestamp is computed in a similar fashion
-// as the Spanner 'safe time' timestamp, and taken as the min of the timestamp
-// of the highest applied write txn and the min of all conflicting prepared
-// txn timestamps minus 1.
+// Essentially, the 'safe' read timestamp is computed in a similar fashion
+// as the Spanner 'safe time' timestamp, and taken as the min of the highest
+// applied write timestamp and the min of all conflicting prepared txn
+// timestamps minus 1.
 // More details in the paper "Spanner: Google’s Globally-Distributed Database"
-// in section 4.1.3 "Serving Reads at a Timestamp".
-func (p *Manager) latestReadTimestampForLocks(locks []*data.Lock) uint64 {
+// in Section 4.1.3 "Serving Reads at a Timestamp" for calculation formula and
+// in Section 4.2.4 "Refinements" for false conflict handling.
+func (p *Manager) safeTimestampForLocks(locks []*data.Lock) (uint64, bool) {
 	conflicting := uint64(math.MaxUint64)
 
 	for _, lock := range locks {
-		conflicting = min(conflicting, p.latestReadTimestampForLock(lock))
+		conflicting = min(conflicting, p.safeTimestampForLock(lock))
 	}
 
-	maxTimestamp := p.maxTimestamp
-
-	// if the store is empty:
-	if maxTimestamp == 0 {
-		maxTimestamp = hlc.Now()
+	if conflicting == math.MaxUint64 {
+		return p.maxTimestamp, false
 	}
 
-	return min(maxTimestamp, conflicting-1)
+	return min(p.maxTimestamp, conflicting-1), true
 }
 
-func (p *Manager) latestReadTimestampForLock(lock *data.Lock) uint64 {
+func (p *Manager) safeTimestampForLock(lock *data.Lock) uint64 {
 	result := uint64(math.MaxUint64)
 
 	for id, prepared := range p.prepared {
@@ -84,10 +80,14 @@ func (p *Manager) latestReadTimestampForLock(lock *data.Lock) uint64 {
 			continue
 		}
 
+		status := p.status[id]
+		if status.State.IsFinal() {
+			continue
+		}
+
 		for _, other := range prepared.Locks {
 			if !lock.CompatibleWith(other) {
-				status := p.status[id]
-				result = min(result, status.Timestamp)
+				result = min(result, prepared.Timestamp)
 				break
 			}
 		}

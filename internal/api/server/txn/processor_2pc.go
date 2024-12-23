@@ -24,13 +24,13 @@ type processor2PC struct {
 func (p *processor2PC) Process(ctx context.Context, t *Txn) (*TxnResult, error) {
 	status, err := p.prepare(ctx, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "2pc txn=%s failed to prepare.", t.id)
+		return nil, errors.Wrapf(err, "2pc txn %s failed to prepare.", t.id)
 	} else if len(status) == 1 {
 		// status contains only the failed response from the principal
 		principalStatus := status[t.id.PrincipalPid]
 
 		return &TxnResult{
-			Id:           t.id,
+			Id:           t.id.ToProto(),
 			Timestamp:    principalStatus.Timestamp,
 			Success:      false,
 			ActionStatus: principalStatus.ActionStatus,
@@ -54,16 +54,16 @@ func (p *processor2PC) Process(ctx context.Context, t *Txn) (*TxnResult, error) 
 
 	if s, err := p.client.StoreDecision(ctx, decision); err != nil {
 		p.abort(ctx, t, status)
-		return nil, errors.Wrapf(err, "2pc txn=%s failed to store decision.", t.id)
+		return nil, errors.Wrapf(err, "2pc txn %s failed to store decision.", t.id)
 	} else if s.State != data.TxnStatus_Decided {
 		// The principal partition watchdog was faster than us and timedout the txn.
 		// Nothing to do here as the second phase abort is already underway...
-		return nil, errors.Wrapf(err, "2pc txn=%s failed with state %s.", t.id, s.State)
+		return nil, errors.Wrapf(err, "2pc txn %s failed with state %s.", t.id, s.State)
 	}
 
 	status, err = p.commit(ctx, decision, t)
 	if err != nil {
-		return nil, errors.Wrapf(err, "2pc txn=%s commit failed.", t.id)
+		return nil, errors.Wrapf(err, "2pc txn %s failed to commit.", t.id)
 	}
 
 	return p.aggregateResults(decision, status), nil
@@ -76,13 +76,14 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 		err    error
 	}
 
+	txnId := t.id.ToProto()
 	resultCh := make(chan prepareResult, 1)
 	invokePrepare := func(pid uint32) {
 		req := &data.PrepareRequest{
 			ParticipantPid: pid,
 			ReadOnly:       false,
 			Txn: &data.Txn{
-				Id:      t.id,
+				Id:      txnId,
 				Actions: t.participantActions[pid],
 			}}
 
@@ -104,7 +105,7 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	handleResult := func(r prepareResult) {
 		status[r.pid] = r.status
 		if r.err != nil {
-			errs = append(errs, r.err)
+			errs = append(errs, errors.Wrapf(r.err, "participant %d failed.", r.pid))
 		}
 	}
 
@@ -114,7 +115,7 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 
 	// Stop early if principal failed
 	if len(errs) > 0 {
-		return nil, errs[0]
+		return nil, errors.Wrap(errs[0], "principal failed")
 	} else if s := status[t.id.PrincipalPid]; s.State != data.TxnStatus_Prepared {
 		return status, nil
 	}
@@ -131,15 +132,17 @@ func (p *processor2PC) prepare(ctx context.Context, t *Txn) (statusMap, error) {
 	}
 
 	// Abort if any returned error
-	if err := errors.Join(errs...); err != nil {
+	if len(errs) > 0 {
 		p.abort(ctx, t, status)
-		return nil, err
+		logErrors(ctx, "2pc txn prepare failed.", t.id, errs)
+		return nil, errors.Errorf("participants failed")
 	}
 
 	return status, nil
 }
 
-func (p *processor2PC) decide(id *data.TxnId, status statusMap) *data.Decision {
+func (p *processor2PC) decide(id id, status statusMap) *data.Decision {
+	txnId := id.ToProto()
 	commitTimestamp := uint64(0)
 
 	for _, s := range status {
@@ -149,11 +152,11 @@ func (p *processor2PC) decide(id *data.TxnId, status statusMap) *data.Decision {
 			continue
 		}
 
-		return &data.Decision{Id: id, Commit: false}
+		return &data.Decision{Id: txnId, Commit: false}
 	}
 
 	return &data.Decision{
-		Id:              id,
+		Id:              txnId,
 		Commit:          true,
 		CommitTimestamp: commitTimestamp,
 	}
@@ -166,11 +169,12 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.Decision, t *T
 		err    error
 	}
 
+	txnId := t.id.ToProto()
 	resultCh := make(chan commitResult, 1)
 	invokeCommit := func(pid uint32) {
 		req := &data.CommitRequest{
 			ParticipantPid:  pid,
-			Id:              t.id,
+			Id:              txnId,
 			CommitTimestamp: decision.CommitTimestamp,
 			FetchResults:    true,
 			ReadOnly:        false,
@@ -196,9 +200,9 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.Decision, t *T
 
 	handleResult := func(r commitResult) {
 		if r.err != nil {
-			errs = append(errs, errors.Wrapf(r.err, "2pc txn=%s commit failed at participant %d.", t.id, r.pid))
+			errs = append(errs, errors.Wrapf(r.err, "participant %d failed.", r.pid))
 		} else if r.status.State != data.TxnStatus_Committed {
-			errs = append(errs, errors.Errorf("2pc txn=%s commit failed with state %s at participant %d.", t.id, r.status.State, r.pid))
+			errs = append(errs, errors.Errorf("participant %d failed with state %s.", r.pid, r.status.State))
 		} else {
 			status[r.pid] = r.status
 		}
@@ -216,8 +220,9 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.Decision, t *T
 	// If any participant failed to commit, return early without calling commit
 	// on principal partition. This allows the watchdog to trigger and restart
 	// the commit phase from scratch.
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
+	if len(errs) > 0 {
+		logErrors(ctx, "2pc txn commit failed.", t.id, errs)
+		return nil, errors.Errorf("participants failed")
 	}
 
 	invokeCommit(decision.Id.PrincipalPid)
@@ -225,19 +230,21 @@ func (p *processor2PC) commit(ctx context.Context, decision *data.Decision, t *T
 
 	// Similar to the above comment, we are missing the last piece of the puzzle
 	// to form a complete result for the client.
-	if err := errors.Join(errs...); err != nil {
-		return nil, err
+	if len(errs) > 0 {
+		logErrors(ctx, "2pc txn commit failed at principal.", t.id, errs)
+		return nil, errors.Errorf("principal failed")
 	}
 
 	return status, nil
 }
 
 func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
+	txnId := t.id.ToProto()
 	resultCh := make(chan error, 1)
 	invokeAbort := func(pid uint32) {
 		req := &data.AbortRequest{
 			ParticipantPid: pid,
-			Id:             t.id,
+			Id:             txnId,
 		}
 
 		status, err := p.client.Abort(ctx, req)
@@ -249,7 +256,7 @@ func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
 			}
 			resultCh <- nil
 		case !status.State.IsFinal():
-			resultCh <- errors.Errorf("2pc txn=%s abort failed with state %s at participant %d.", t.id, status.State, pid)
+			resultCh <- errors.Errorf("participant %d failed with state %s.", pid, status.State)
 		default:
 			resultCh <- nil
 		}
@@ -286,8 +293,8 @@ func (p *processor2PC) abort(ctx context.Context, t *Txn, status statusMap) {
 		handleResult(<-resultCh)
 	}
 
-	if err := errors.Join(errs...); err != nil {
-		log.WithContext(ctx).WithError(err).Errorf("2pc txn=%s abort failed.", t.id)
+	if len(errs) > 0 {
+		logErrors(ctx, "2pc txn abort failed.", t.id, errs)
 	}
 }
 

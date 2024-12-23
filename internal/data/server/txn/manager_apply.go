@@ -7,7 +7,10 @@ import (
 	"github.com/bcrusu/scout/internal/data/server/storage/mvcc"
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/logging"
 )
+
+type completion func()
 
 // Applies a batch of txn operations. The order of operations is important for
 // performance reasons: first process the Abort/MarkTimedout/Commit ops which
@@ -26,7 +29,14 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 		MarkTimedout:  make([]BatchResult, len(batch.MarkTimedout)),
 	}
 
+	var completions []completion
 	allWrites := make([]mvcc.Record, 0, batch.ActionCount())
+
+	appendCompletion := func(completion completion) {
+		if completion != nil {
+			completions = append(completions, completion)
+		}
+	}
 
 	for i, cmd := range batch.Abort {
 		status, err := p.applyAbort(cmd)
@@ -39,14 +49,20 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	}
 
 	for i, cmd := range batch.Commit {
-		status, writes, err := p.applyCommit(cmd)
-		allWrites = append(allWrites, writes...)
+		status, writes, completion, err := p.applyCommit(cmd)
+		if err == nil {
+			appendCompletion(completion)
+			allWrites = append(allWrites, writes...)
+		}
 		result.Commit[i] = BatchResult{status, err}
 	}
 
 	for i, cmd := range batch.Autocommit {
-		status, writes, err := p.applyAutocommit(cmd)
-		allWrites = append(allWrites, writes...)
+		status, writes, completion, err := p.applyAutocommit(cmd)
+		if err == nil {
+			appendCompletion(completion)
+			allWrites = append(allWrites, writes...)
+		}
 		result.Autocommit[i] = BatchResult{status, err}
 	}
 
@@ -63,60 +79,71 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	// call Put even when allWrites is empty to update the stored Raft index.
 	p.db.Put(p.pid, index, allWrites...)
 
-	p.maxTimestamp = max(p.maxTimestamp, batch.MaxTimestamp())
+	for _, completion := range completions {
+		completion()
+	}
 
-	// Ignores the HLC.Update error as log entries can be applied in various
-	// scenarios from lagging group members to new members joining that need
-	// to catch up with the leader, etc. The call here is mainly to ensure
-	// that the newly-elected leader adopts a HLC timestamp greater than any
-	// write timestamps issued by the previous leader/s.
-	hlc.Update(p.maxTimestamp)
+	p.maxTimestamp = batch.MaxTimestamp
 
 	p.cleanup()
 	return result
 }
 
-func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc.Record, error) {
+func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc.Record, completion, error) {
 	id := newId(cmd.Txn.Id)
+	log := p.log.WithTrace(cmd.Trace).With("cmd", "Autocommit", "id", id, "ts", cmd.Timestamp)
+
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
 		case data.TxnStatus_Committed, data.TxnStatus_Failed:
-			// idempotent calls
-			return status, nil, nil
+			log.Debug("Duplicate write.")
+			return status, nil, nil, nil
 		default:
-			return nil, nil, errors.FailedPrecondition
+			log.Error("Invalid status.", "state", status.State)
+			return nil, nil, nil, errors.FailedPrecondition
 		}
 	}
 
 	locks := cmd.Txn.BuildLocks()
 	status = p.checkLocks(id, cmd.Timestamp, locks)
 	if status != nil {
-		return status, nil, nil
+		log.Trace("Lock failed.")
+		return status, nil, nil, nil
 	}
 
 	status = p.validate(id, cmd.Timestamp, cmd.Txn)
 	if status != nil {
-		return status, nil, nil
+		log.Trace("Validation failed.")
+		return status, nil, nil, nil
 	}
 
-	writes := p.buildWriteEntries(cmd.Timestamp, cmd.Txn)
+	writes := p.buildWriteRecords(cmd.Timestamp, cmd.Txn)
 	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
 
 	p.status[id] = status
 	p.meters.Tracked.Add(1)
-	return status, writes, nil
+
+	completion := func() {
+		p.logRecords(log, writes)
+		log.Trace("Success.")
+	}
+
+	return status, writes, completion, nil
 }
 
 func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
 	id := newId(cmd.Txn.Id)
+	log := p.log.WithTrace(cmd.Trace).With("cmd", "Prepare", "id", id, "ts", cmd.Timestamp)
+
 	status, ok := p.status[id]
 	if ok {
 		switch status.State {
 		case data.TxnStatus_Prepared, data.TxnStatus_Failed:
-			// idempotent calls
+			log.Debug("Duplicate write.")
 			return status, nil
 		default:
+			log.Error("Invalid status.", "state", status.State)
 			return nil, errors.FailedPrecondition
 		}
 	}
@@ -124,62 +151,70 @@ func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
 	locks := cmd.Txn.BuildLocks()
 	status = p.checkLocks(id, cmd.Timestamp, locks)
 	if status != nil {
+		log.Trace("Lock failed.")
 		return status, nil
 	}
 
 	status = p.validate(id, cmd.Timestamp, cmd.Txn)
 	if status != nil {
+		log.Trace("Validation failed.")
 		return status, nil
 	}
 
 	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Prepared)
 
 	p.prepared[id] = &data.Prepared{
-		Txn:   cmd.Txn,
-		Locks: locks,
+		Txn:       cmd.Txn,
+		Timestamp: cmd.Timestamp,
+		Locks:     locks,
 	}
 
 	p.status[id] = status
 	p.meters.Running.Add(1)
 	p.meters.Tracked.Add(1)
+	p.meters.LocksHeld.Add(len(locks))
+	log.Trace("Success.")
 	return status, nil
 }
 
-func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record, error) {
+func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record, completion, error) {
 	id := newId(cmd.Id)
+	log := p.log.WithTrace(cmd.Trace).With("cmd", "Commit", "id", id, "ts", cmd.Timestamp)
+
 	status, ok := p.status[id]
 	if !ok {
-		return nil, nil, errors.NotFound
+		log.Error("Status not found.")
+		return nil, nil, nil, errors.NotFound
 	}
 
 	prepared, ok := p.prepared[id]
 	if !ok {
-		p.log.Warn("Commit: prepared txn not found.", "id", id)
-		return nil, nil, errors.NotFound
+		log.Error("Prepared not found.")
+		return nil, nil, nil, errors.NotFound
 	}
 
 	switch status.State {
 	case data.TxnStatus_Committed:
-		// idempotent calls
-		return status, nil, nil
+		log.Debug("Duplicate write.")
+		return status, nil, nil, nil
 	case data.TxnStatus_Decided:
 		// the principal partition stores the txn decision...
 		if cmd.Timestamp != prepared.Decision.CommitTimestamp {
-			p.log.Error("Detected commit timestamp different than decision timestamp.")
-			return nil, nil, errors.InvalidRequest
+			log.Error("Detected commit timestamp different than decision timestamp.")
+			return nil, nil, nil, errors.InvalidRequest
 		}
 	case data.TxnStatus_Prepared:
 		// ... while all other participant partitions follow the decision
 		if cmd.Timestamp < status.Timestamp {
-			p.log.Error("Detected commit timestamp before prepared timestamp.")
-			return nil, nil, errors.InvalidRequest
+			log.Error("Detected commit timestamp before prepared timestamp.")
+			return nil, nil, nil, errors.InvalidRequest
 		}
 	default:
-		return nil, nil, errors.FailedPrecondition
+		log.Error("Invalid status.", "state", status.State)
+		return nil, nil, nil, errors.FailedPrecondition
 	}
 
-	p.releaseLocks(prepared)
-	writes := p.buildWriteEntries(cmd.Timestamp, prepared.Txn)
+	writes := p.buildWriteRecords(cmd.Timestamp, prepared.Txn)
 
 	status = newStatus(id, cmd.Timestamp, data.TxnStatus_Committed)
 	// stores the list of participants to be able to recompose the txn results
@@ -187,29 +222,39 @@ func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record,
 	status.ParticipantPids = prepared.Txn.ParticipantPids
 
 	p.status[id] = status
-	p.meters.Running.Add(-1)
-	return status, writes, nil
+
+	completion := func() {
+		p.logRecords(log, writes)
+		p.releaseLocks(prepared)
+		p.meters.Running.Add(-1)
+		log.Trace("Success.")
+	}
+
+	return status, writes, completion, nil
 }
 
 func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
 	id := newId(cmd.Id)
+	log := p.log.WithTrace(cmd.Trace).With("cmd", "Abort", "id", id, "ts", cmd.Timestamp)
+
 	status, ok := p.status[id]
 	if !ok {
+		log.Error("Status not found.")
 		return nil, errors.NotFound
 	}
 
 	prepared, ok := p.prepared[id]
 	if !ok {
-		p.log.Warn("Abort: prepared txn not found.", "id", id)
+		log.Error("Prepared not found.")
 		return nil, errors.NotFound
 	}
 
 	switch status.State {
 	case data.TxnStatus_Aborted:
-		// idempotent calls
+		log.Debug("Duplicate write.")
 		return status, nil
 	case data.TxnStatus_Timedout:
-		// prepared txn was marked as timedout by the watchdog
+		log.Trace("Transaction was already marked as timedout.")
 		return status, nil
 	case data.TxnStatus_Prepared:
 		p.releaseLocks(prepared)
@@ -217,42 +262,48 @@ func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
 
 		p.status[id] = status
 		p.meters.Running.Add(-1)
+		log.Trace("Success.")
 		return status, nil
 	default:
+		log.Error("Invalid status.", "state", status.State)
 		return nil, errors.FailedPrecondition
 	}
 }
 
 func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, error) {
 	id := newId(cmd.Decision.Id)
+	log := p.log.WithTrace(cmd.Trace).With("cmd", "StoreDecision", "id", id, "ts", cmd.Timestamp, "commit_ts", cmd.Decision.CommitTimestamp)
+
 	status, ok := p.status[id]
 	if !ok {
+		log.Error("Status not found.")
 		return nil, errors.NotFound
 	} else if id.PrincipalPid != p.pid {
+		log.Error("Not principal partition.")
 		return nil, errors.PermissionDenied
 	}
 
 	prepared, ok := p.prepared[id]
 	if !ok {
-		p.log.Warn("StoreDecision: prepared txn not found.", "id", id)
+		log.Error("Prepared not found.")
 		return nil, errors.NotFound
 	}
 
 	switch status.State {
 	case data.TxnStatus_Decided:
-		// is it trying to change prev decision?
 		if prepared.Decision.Commit != cmd.Decision.Commit {
+			log.Error("Tried to change previous decision.")
 			return nil, errors.FailedPrecondition
 		}
 
-		// idempotent calls
+		log.Debug("Duplicate write.")
 		return status, nil
 	case data.TxnStatus_Timedout:
-		// prepared txn was marked as timedout by the watchdog
+		log.Trace("Transaction was already marked as timedout.")
 		return status, nil
 	case data.TxnStatus_Prepared:
 		if cmd.Decision.CommitTimestamp < status.Timestamp {
-			p.log.Error("Detected commit timestamp before prepared timestamp.")
+			log.Error("Detected commit timestamp before prepared timestamp.")
 			return nil, errors.InvalidRequest
 		}
 
@@ -260,24 +311,30 @@ func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, 
 		status := newStatus(id, cmd.Timestamp, data.TxnStatus_Decided)
 
 		p.status[id] = status
+		log.Trace("Success.")
 		return status, nil
 	default:
+		log.Error("Invalid status.", "state", status.State)
 		return nil, errors.FailedPrecondition
 	}
 }
 
 func (p *Manager) applyMarkTimedout(cmd *data.MarkTimedout) (*data.TxnStatus, error) {
 	id := newId(cmd.Id)
+	log := p.log.WithTrace(cmd.Trace).With("cmd", "MarkTimedout", "id", id, "ts", cmd.Timestamp, "release", cmd.ReleaseLocks)
+
 	status, ok := p.status[id]
 	if !ok {
+		log.Error("Status not found.")
 		return nil, errors.NotFound
 	} else if id.PrincipalPid != p.pid {
+		log.Error("Not principal partition.")
 		return nil, errors.PermissionDenied
 	}
 
 	prepared, ok := p.prepared[id]
 	if !ok {
-		p.log.Warn("MarkTimedout: prepared txn not found.", "id", id)
+		log.Error("Prepared not found.")
 		return nil, errors.NotFound
 	}
 
@@ -285,6 +342,7 @@ func (p *Manager) applyMarkTimedout(cmd *data.MarkTimedout) (*data.TxnStatus, er
 	case data.TxnStatus_Timedout:
 		if cmd.ReleaseLocks {
 			p.releaseLocks(prepared)
+			log.Trace("Released locks.")
 		}
 
 		return status, nil
@@ -294,13 +352,15 @@ func (p *Manager) applyMarkTimedout(cmd *data.MarkTimedout) (*data.TxnStatus, er
 		p.status[id] = status
 		p.meters.Running.Add(-1)
 		p.meters.Timedout.Add(1)
+		log.Trace("Marked.")
 		return status, nil
 	default:
+		log.Error("Invalid status.", "state", status.State)
 		return nil, errors.FailedPrecondition
 	}
 }
 
-// Note: all validation checks below substract 1 from the timestamp parameter. This is a
+// Note: all validation checks below subtract 1 from the timestamp parameter. This is a
 // quick hack to enable idempotent behavior for the txn and made possible by the fact that
 // HLC timestamps are strictly monotonic, synced with the control plane on session start,
 // and persisted in the partition raft log.
@@ -373,7 +433,7 @@ func (p *Manager) validate(id id, timestamp uint64, txn *data.Txn) *data.TxnStat
 	return nil
 }
 
-func (p *Manager) buildWriteEntries(timestamp uint64, txn *data.Txn) []mvcc.Record {
+func (p *Manager) buildWriteRecords(timestamp uint64, txn *data.Txn) []mvcc.Record {
 	writes := make([]mvcc.Record, 0, len(txn.Actions))
 
 	for _, action := range txn.Actions {
@@ -430,4 +490,15 @@ func (p *Manager) cleanup() {
 	}
 
 	p.meters.Tracked.Add(-len(toRemove))
+}
+
+func (p *Manager) logRecords(log logging.Logger, records []mvcc.Record) {
+	if !log.Enabled(logging.LevelTrace) {
+		return
+	}
+
+	for _, r := range records {
+		value := decodeValueForLog(r.Value)
+		log.Trace("Wrote record.", "rec_addr", r.Address, "rec_ts", r.Timestamp, "rec_value", value, "rec_flags", r.Flags)
+	}
 }

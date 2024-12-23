@@ -7,8 +7,6 @@ import (
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/bcrusu/scout/internal/data/client"
-	"github.com/bcrusu/scout/internal/data/server/partitions/follower"
-	"github.com/bcrusu/scout/internal/data/server/partitions/leader"
 	"github.com/bcrusu/scout/internal/data/server/partitions/shared"
 	"github.com/bcrusu/scout/internal/data/server/storage"
 	"github.com/bcrusu/scout/internal/data/server/txn"
@@ -36,7 +34,7 @@ type Serving struct {
 	log         logging.Logger
 	getStatusCh chan chan<- *control.DataServerStatus_Replica
 	setConfigCh chan *control.DataServerConfig_Partition
-	role        atomic.Pointer[partitionDrainer]
+	role        atomic.Pointer[drainer]
 	cancelFunc  context.CancelFunc
 }
 
@@ -175,33 +173,21 @@ func (p *Serving) updateRole(ctx context.Context, isLeader bool, store *raftStor
 		go old.Stop()
 	}
 
-	var new service
+	var txnService *txn.Service
 
 	if isLeader {
-		txnService := txn.NewService(p.pid, store, p.txnManager, p.db.MVCC(), p.dataClient)
-		new = leader.New(p.pid, p.db.KV(), txnService)
+		txnService = txn.NewServiceLeader(p.pid, p.txnManager, p.db.MVCC(), store, p.dataClient)
 	} else {
-		txnService := txn.NewServiceNoWatchdog(p.pid, store, p.txnManager, p.db.MVCC())
-		new = follower.New(p.pid, p.db.KV(), txnService)
+		txnService = txn.NewServiceFollower(p.pid, p.txnManager, p.db.MVCC())
 	}
 
-	drainer := newPartitionDrainer(new, p.log)
+	new := newRole(p.pid, isLeader, p.db.KV(), txnService)
+	drainer := newDrainer(new, p.log)
 
 	if err := drainer.Start(ctx); err != nil {
 		p.log.WithContext(ctx).WithError(err).Errorf("Failed to start role. Shutting down...", "is_leader", isLeader)
 		utils.GracefulShutdown("Failed to start partition.")
 		return
-	}
-
-	if isLeader {
-		// If this write fails, the leader must step down to ensure the safety requirements.
-		// For now, simply shutdown to trigger a soft container restart, but in the future it
-		// could use the leadership transfer raft functionlaity.
-		if err := store.NewLeader(); err != nil {
-			p.log.WithContext(ctx).WithError(err).Errorf("New leader write failed. Shutting down...")
-			utils.GracefulShutdown("New leader write failed.")
-			return
-		}
 	}
 
 	// switch to the new role only if all the above are successful:

@@ -12,7 +12,7 @@ import (
 type Txn struct {
 	processor          *Processor
 	participantActions map[uint32][]*data.Action
-	id                 *data.TxnId
+	id                 id
 	nextActionId       uint32
 	readTimestamp      uint64
 }
@@ -27,11 +27,11 @@ type TxnResult struct {
 func (t *Txn) Append(routingKey []byte, actions ...*data.Action) *Txn {
 	pid := t.processor.partitioner.getPartition(routingKey)
 
-	if t.id == nil {
+	if t.id.Timestamp == 0 {
 		// first partition is selected as the principal partition
-		t.id = &data.TxnId{
+		t.id = id{
 			PrincipalPid: pid,
-			ServerId:     t.processor.identity.ServerID,
+			ServerID:     t.processor.identity.ServerID,
 			Timestamp:    hlc.Now(),
 		}
 	}

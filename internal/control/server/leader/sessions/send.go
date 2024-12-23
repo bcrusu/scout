@@ -1,7 +1,6 @@
 package sessions
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"time"
@@ -41,7 +40,7 @@ func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
 			case err == nil:
 				t.meters.MsgSendSuccess.Add(1)
 				continue
-			case errors.IsAny(err, io.EOF, context.Canceled, context.DeadlineExceeded):
+			case errors.IsContextError(err) || errors.Is(err, io.EOF):
 				sess.log.WithError(err).Debug("Session send loop done.")
 			default:
 				t.meters.MsgSendError.Add(1)

@@ -7,6 +7,11 @@ discovery:
     - control1
     - control2
     - control3
-logLevels: "*:info"
+logLevels: "*:info,hraft:error,rpc_logger:error"
 metrics:
   exportEndpoint: otelcol:4317
+transactions:
+  retryPolicy:
+    backoff:
+      minDelay: 50ms
+      maxDelay: 200ms

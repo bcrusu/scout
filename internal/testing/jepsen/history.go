@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
+	"github.com/bcrusu/scout/internal/hlc"
 	"github.com/bcrusu/scout/internal/tracing"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -28,6 +30,7 @@ type operation struct {
 	Error   string `json:"error,omitempty"` // error information, helpful for debugging why an operation returned info or fail.
 	Value   any    `json:"value,omitempty"` // stores arguments to and/or return values from the operation with structure as expected by Func
 	Trace   string `json:"trace,omitempty"` // custom tracing value
+	HLC     uint64 `json:"hlc,omitempty"`   // commit timestamp
 }
 
 type txn = []mop  // https://github.com/jepsen-io/jepsen/blob/main/txn/src/jepsen/txn.clj
@@ -67,11 +70,9 @@ func (h *history) Write(ctx context.Context, op operation) error {
 	h.lock.Lock()
 	defer h.lock.Unlock()
 
-	trace, _ := tracing.GetTraceID(ctx)
-
 	op.Index = h.index
 	op.Time = time.Since(h.startTime).Nanoseconds()
-	op.Trace = trace
+	op.Trace = tracing.GetTraceID(ctx)
 
 	data, err := json.Marshal(op)
 	if err != nil {
@@ -130,18 +131,19 @@ func (w *txnWriter) Invoke(ctx context.Context, value txn) error {
 	})
 }
 
-func (w *txnWriter) Success(ctx context.Context, value txn) error {
+func (w *txnWriter) Success(ctx context.Context, value txn, timestamp *timestamppb.Timestamp) error {
 	return w.history.Write(ctx, operation{
 		Type:    typeOK,
 		Func:    funcTxn,
 		Process: w.process,
 		Value:   value,
+		HLC:     hlc.FromTimestamp(timestamp),
 	})
 }
 
 func (w *txnWriter) Failure(ctx context.Context, value txn, err error) error {
 	typ := typeFail
-	if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
+	if errors.IsContextError(err) {
 		typ = typeInfo
 	}
 

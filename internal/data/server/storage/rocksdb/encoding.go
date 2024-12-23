@@ -29,7 +29,7 @@ func encodeUint64(v uint64) []byte {
 
 func decodeUint32(data []byte) (uint32, error) {
 	if len(data) != 4 {
-		return 0, errors.Errorf("invalid uint32 data=%s", base64.RawURLEncoding.EncodeToString(data))
+		return 0, errors.Errorf("invalid uint32 data %s", base64.RawURLEncoding.EncodeToString(data))
 	}
 
 	return binary.BigEndian.Uint32(data), nil
@@ -37,7 +37,7 @@ func decodeUint32(data []byte) (uint32, error) {
 
 func decodeUint64(data []byte) (uint64, error) {
 	if len(data) != 8 {
-		return 0, errors.Errorf("invalid uint64 data=%s", base64.RawURLEncoding.EncodeToString(data))
+		return 0, errors.Errorf("invalid uint64 data %s", base64.RawURLEncoding.EncodeToString(data))
 	}
 
 	return binary.BigEndian.Uint64(data), nil
@@ -58,7 +58,7 @@ func encodeKey(keyspace uint32, key []byte) []byte {
 func decodeKey(key []byte) (uint32, []byte) {
 	l := len(key)
 	if l < 4 {
-		panic(fmt.Sprintf("invalid key length=%d. Key=%s", len(key), base64.RawURLEncoding.EncodeToString(key)))
+		panic(fmt.Sprintf("invalid key length %d. Key %s", len(key), base64.RawURLEncoding.EncodeToString(key)))
 	}
 
 	return binary.BigEndian.Uint32(key[0:4]), slices.Clone(key[4:])

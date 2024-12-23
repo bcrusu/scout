@@ -36,7 +36,7 @@ func GetBindAddress() (string, error) {
 		return "", errors.Error("GetBindAddress: could not determine bind address")
 	}
 
-	logNet.Debugf("Using bind address=%s", addr)
+	logNet.Debugf("Using bind address %s", addr)
 	bindAddres = addr
 	return addr, nil
 }

@@ -28,7 +28,6 @@ type FSM struct {
 	partitionCount uint32       // fixed number of data partitions
 	servers        *control.Servers
 	partitions     *control.Partitions
-	// TODO: store HLC timestamp
 }
 
 func NewFSM() *FSM {

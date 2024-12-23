@@ -83,7 +83,7 @@ func probeCFs(db *grocksdb.DB, cfHandles cfSlice) (cfMap, cfSlice, error) {
 		}
 
 		if x, ok := known[pid]; ok {
-			return nil, nil, errors.Errorf("Found multiple column families for partition=%d %s %s.", pid, x.Name(), name)
+			return nil, nil, errors.Errorf("Found multiple column families for partition %d %s %s.", pid, x.Name(), name)
 		}
 
 		known[pid] = cf
