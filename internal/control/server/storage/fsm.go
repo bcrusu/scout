@@ -93,7 +93,7 @@ func (f *FSM) applyCommand(appendedAt time.Time, cmd *Command, log logging.Logge
 	}
 
 	f.version++
-	log.Debugf("Applied command %T.", payload)
+	log.Tracef("Applied command %T.", payload)
 
 	f.meters.ApplySuccess.Add(1)
 	return result

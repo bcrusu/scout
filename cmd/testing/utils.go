@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"syscall"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/testing/nodes"
@@ -64,4 +65,12 @@ func loadConfigYaml[T any](c *cobra.Command, flagName string) (T, error) {
 	}
 
 	return cfg, nil
+}
+
+func checkRoot() error {
+	uid := syscall.Getuid()
+	if uid != 0 {
+		return errors.Error("not running as root")
+	}
+	return nil
 }

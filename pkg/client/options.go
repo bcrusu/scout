@@ -21,7 +21,7 @@ type options struct {
 
 func newOptions() *options {
 	return &options{
-		resolveInterval:   5 * time.Second,
+		resolveInterval:   10 * time.Second,
 		resolveThrottle:   time.Second,
 		reconnectInterval: time.Second,
 	}

@@ -22,7 +22,7 @@ type raftStore struct {
 func newRaftStore(pid uint32, replica string, raft *multiraft.Raft) *raftStore {
 	return &raftStore{
 		raft: raft,
-		log:  logging.New("raft_store").With("partition", pid, "replica", replica),
+		log:  logging.New("raft_store").With("pid", pid, "replica", replica),
 	}
 }
 

@@ -22,7 +22,7 @@ type worker struct {
 	history  *txnWriter
 }
 
-func (w *worker) Run(stopCh chan any) error {
+func (w *worker) Run(ctx context.Context) error {
 	counter := 0
 	for {
 		if !w.limiter.Allow() {
@@ -31,14 +31,14 @@ func (w *worker) Run(stopCh chan any) error {
 		}
 
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			return nil
 		default:
 		}
 
 		counter++
 		trace := fmt.Sprintf("r%dw%dc%d", w.runId, w.workerId, counter)
-		ctx := tracing.WithTraceID(context.Background(), trace)
+		ctx := tracing.WithTraceID(ctx, trace)
 
 		switch req := w.workload.Next().(type) {
 		case *keyvalue.GetRequest:

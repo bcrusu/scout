@@ -20,13 +20,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Service_GetStatus_FullMethodName = "/agent.Service/GetStatus"
-	Service_Config_FullMethodName    = "/agent.Service/Config"
-	Service_Start_FullMethodName     = "/agent.Service/Start"
-	Service_Stop_FullMethodName      = "/agent.Service/Stop"
-	Service_Restart_FullMethodName   = "/agent.Service/Restart"
-	Service_Reset_FullMethodName     = "/agent.Service/Reset"
-	Service_GetLogs_FullMethodName   = "/agent.Service/GetLogs"
+	Service_GetStatus_FullMethodName      = "/agent.Service/GetStatus"
+	Service_ConfigService_FullMethodName  = "/agent.Service/ConfigService"
+	Service_StartService_FullMethodName   = "/agent.Service/StartService"
+	Service_StopService_FullMethodName    = "/agent.Service/StopService"
+	Service_RestartService_FullMethodName = "/agent.Service/RestartService"
+	Service_ResetService_FullMethodName   = "/agent.Service/ResetService"
+	Service_GetLogs_FullMethodName        = "/agent.Service/GetLogs"
+	Service_RunNemesis_FullMethodName     = "/agent.Service/RunNemesis"
 )
 
 // ServiceClient is the client API for Service service.
@@ -36,12 +37,13 @@ const (
 // Service represents the agent service.
 type ServiceClient interface {
 	GetStatus(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Status, error)
-	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Start(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Stop(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Restart(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Reset(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ConfigService(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	StartService(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	StopService(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RestartService(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResetService(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetLogs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Logs, error)
+	RunNemesis(ctx context.Context, in *NemesisRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type serviceClient struct {
@@ -62,50 +64,50 @@ func (c *serviceClient) GetStatus(ctx context.Context, in *emptypb.Empty, opts .
 	return out, nil
 }
 
-func (c *serviceClient) Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *serviceClient) ConfigService(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Service_Config_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_ConfigService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Start(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *serviceClient) StartService(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Service_Start_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_StartService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Stop(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *serviceClient) StopService(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Service_Stop_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_StopService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Restart(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *serviceClient) RestartService(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Service_Restart_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_RestartService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Reset(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *serviceClient) ResetService(ctx context.Context, in *ResetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Service_Reset_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_ResetService_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -122,6 +124,16 @@ func (c *serviceClient) GetLogs(ctx context.Context, in *emptypb.Empty, opts ...
 	return out, nil
 }
 
+func (c *serviceClient) RunNemesis(ctx context.Context, in *NemesisRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Service_RunNemesis_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ServiceServer is the server API for Service service.
 // All implementations must embed UnimplementedServiceServer
 // for forward compatibility.
@@ -129,12 +141,13 @@ func (c *serviceClient) GetLogs(ctx context.Context, in *emptypb.Empty, opts ...
 // Service represents the agent service.
 type ServiceServer interface {
 	GetStatus(context.Context, *emptypb.Empty) (*Status, error)
-	Config(context.Context, *ConfigRequest) (*emptypb.Empty, error)
-	Start(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	Stop(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	Restart(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
-	Reset(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	ConfigService(context.Context, *ConfigRequest) (*emptypb.Empty, error)
+	StartService(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	StopService(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	RestartService(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	ResetService(context.Context, *ResetRequest) (*emptypb.Empty, error)
 	GetLogs(context.Context, *emptypb.Empty) (*Logs, error)
+	RunNemesis(context.Context, *NemesisRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -148,23 +161,26 @@ type UnimplementedServiceServer struct{}
 func (UnimplementedServiceServer) GetStatus(context.Context, *emptypb.Empty) (*Status, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
 }
-func (UnimplementedServiceServer) Config(context.Context, *ConfigRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Config not implemented")
+func (UnimplementedServiceServer) ConfigService(context.Context, *ConfigRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConfigService not implemented")
 }
-func (UnimplementedServiceServer) Start(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
+func (UnimplementedServiceServer) StartService(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartService not implemented")
 }
-func (UnimplementedServiceServer) Stop(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+func (UnimplementedServiceServer) StopService(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopService not implemented")
 }
-func (UnimplementedServiceServer) Restart(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Restart not implemented")
+func (UnimplementedServiceServer) RestartService(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestartService not implemented")
 }
-func (UnimplementedServiceServer) Reset(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Reset not implemented")
+func (UnimplementedServiceServer) ResetService(context.Context, *ResetRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetService not implemented")
 }
 func (UnimplementedServiceServer) GetLogs(context.Context, *emptypb.Empty) (*Logs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetLogs not implemented")
+}
+func (UnimplementedServiceServer) RunNemesis(context.Context, *NemesisRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RunNemesis not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -205,92 +221,92 @@ func _Service_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Config_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_ConfigService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ConfigRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Config(ctx, in)
+		return srv.(ServiceServer).ConfigService(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Config_FullMethodName,
+		FullMethod: Service_ConfigService_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Config(ctx, req.(*ConfigRequest))
+		return srv.(ServiceServer).ConfigService(ctx, req.(*ConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_StartService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Start(ctx, in)
+		return srv.(ServiceServer).StartService(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Start_FullMethodName,
+		FullMethod: Service_StartService_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Start(ctx, req.(*emptypb.Empty))
+		return srv.(ServiceServer).StartService(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_StopService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Stop(ctx, in)
+		return srv.(ServiceServer).StopService(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Stop_FullMethodName,
+		FullMethod: Service_StopService_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Stop(ctx, req.(*emptypb.Empty))
+		return srv.(ServiceServer).StopService(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Restart_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_RestartService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Restart(ctx, in)
+		return srv.(ServiceServer).RestartService(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Restart_FullMethodName,
+		FullMethod: Service_RestartService_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Restart(ctx, req.(*emptypb.Empty))
+		return srv.(ServiceServer).RestartService(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Reset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
+func _Service_ResetService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Reset(ctx, in)
+		return srv.(ServiceServer).ResetService(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Reset_FullMethodName,
+		FullMethod: Service_ResetService_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Reset(ctx, req.(*emptypb.Empty))
+		return srv.(ServiceServer).ResetService(ctx, req.(*ResetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -313,6 +329,24 @@ func _Service_GetLogs_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_RunNemesis_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NemesisRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).RunNemesis(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Service_RunNemesis_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).RunNemesis(ctx, req.(*NemesisRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Service_ServiceDesc is the grpc.ServiceDesc for Service service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -325,28 +359,32 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Service_GetStatus_Handler,
 		},
 		{
-			MethodName: "Config",
-			Handler:    _Service_Config_Handler,
+			MethodName: "ConfigService",
+			Handler:    _Service_ConfigService_Handler,
 		},
 		{
-			MethodName: "Start",
-			Handler:    _Service_Start_Handler,
+			MethodName: "StartService",
+			Handler:    _Service_StartService_Handler,
 		},
 		{
-			MethodName: "Stop",
-			Handler:    _Service_Stop_Handler,
+			MethodName: "StopService",
+			Handler:    _Service_StopService_Handler,
 		},
 		{
-			MethodName: "Restart",
-			Handler:    _Service_Restart_Handler,
+			MethodName: "RestartService",
+			Handler:    _Service_RestartService_Handler,
 		},
 		{
-			MethodName: "Reset",
-			Handler:    _Service_Reset_Handler,
+			MethodName: "ResetService",
+			Handler:    _Service_ResetService_Handler,
 		},
 		{
 			MethodName: "GetLogs",
 			Handler:    _Service_GetLogs_Handler,
+		},
+		{
+			MethodName: "RunNemesis",
+			Handler:    _Service_RunNemesis_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

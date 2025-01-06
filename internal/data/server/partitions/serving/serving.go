@@ -46,7 +46,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, dataClient clie
 		dataClient:  dataClient,
 		db:          db,
 		txnManager:  txn.NewManager(pid, db.MVCC()),
-		log:         logging.New("replica_serving").With("partition", pid, "replica", replica),
+		log:         logging.New("replica_serving").With("pid", pid, "replica", replica),
 		getStatusCh: make(chan chan<- *control.DataServerStatus_Replica),
 		setConfigCh: make(chan *control.DataServerConfig_Partition, 1),
 	}

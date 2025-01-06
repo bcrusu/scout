@@ -25,8 +25,8 @@ func newGetPartitionsCmd() *cobra.Command {
 					func(a, b *control.Partition) int {
 						return int(a.Id) - int(b.Id)
 					},
-					func(p *control.Partition) []string {
-						return []string{
+					func(_ int, p *control.Partition) row {
+						return row{
 							formatUint(p.Id),
 							fmt.Sprintf("%d/%d/%d/%d",
 								len(p.Replicas),
@@ -38,9 +38,7 @@ func newGetPartitionsCmd() *cobra.Command {
 							fmt.Sprintf("%d/%d", p.LeaderAppliedIndex, p.CommitedIndex),
 							formatUint(p.AssignmentsVersion),
 						}
-					},
-					false,
-				))
+					}))
 
 			fmt.Printf("Partition count: %d\n", info.Cluster.PartitionCount)
 			fmt.Printf("Max imbalance: %d\n", info.Cluster.Partitions.MaxImbalance)

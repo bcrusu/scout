@@ -1,25 +1,69 @@
 package utils
 
 import (
-	"fmt"
+	"reflect"
+	"strings"
 
-	"github.com/dustin/go-humanize"
+	"github.com/bcrusu/scout/internal/errors"
 )
 
-type Bytes string
-
-func (b Bytes) MustParse() uint64 {
-	v, err := b.Parse()
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse Bytes value %q", b))
+// SetValues sets struct field values as specified via the values map.
+func SetValues[T any](instance *T, values map[string]any) error {
+	val := reflect.ValueOf(instance).Elem()
+	typ := val.Type()
+	if typ.Kind() != reflect.Struct {
+		return errors.Error("input is not a struct")
 	}
-	return v
+
+	clone := CloneMap(values)
+	if err := setValuesRec(val, clone, ""); err != nil {
+		return err
+	}
+
+	if len(clone) != 0 {
+		unknown := strings.Join(MakeKeySlice(clone), ",")
+		return errors.Errorf("values contains unknown fields: %s", unknown)
+	}
+
+	return nil
 }
 
-func (b Bytes) Parse() (uint64, error) {
-	v, err := humanize.ParseBytes(string(b))
-	if err != nil {
-		return 0, err
+func setValuesRec(val reflect.Value, values map[string]any, parentName string) error {
+	typ := val.Type()
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+
+		name := field.Name
+		if parentName != "" {
+			name = parentName + "." + field.Name
+		}
+
+		if field.Type.Kind() == reflect.Struct {
+			if err := setValuesRec(val.Field(i), values, name); err != nil {
+				return err
+			}
+			continue
+		}
+
+		value, ok := values[name]
+		if !ok {
+			continue
+		}
+
+		fieldVal := val.Field(i)
+		if !fieldVal.CanSet() {
+			return errors.Errorf("field %s is read-only", name)
+		}
+
+		fieldType := field.Type
+		valueType := reflect.TypeOf(value)
+		if valueType != fieldType {
+			return errors.Errorf("field %s type %s does not match the provided value type %s", name, fieldType, valueType)
+		}
+
+		fieldVal.Set(reflect.ValueOf(value))
+		delete(values, name)
 	}
-	return uint64(v), nil
+
+	return nil
 }

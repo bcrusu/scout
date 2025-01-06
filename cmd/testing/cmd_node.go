@@ -38,7 +38,7 @@ func newNodeCmd() *cobra.Command {
 		Use:   "start [ID]...",
 		Short: "Start all or only the the specified nodes.",
 		RunE: func(c *cobra.Command, ids []string) error {
-			return run(c, ids, func(clt *nodes.Client) action { return clt.Start })
+			return run(c, ids, func(clt *nodes.Client) action { return clt.StartNode })
 		},
 	}
 
@@ -46,7 +46,7 @@ func newNodeCmd() *cobra.Command {
 		Use:   "stop [ID]...",
 		Short: "Stop all or only the the specified nodes.",
 		RunE: func(c *cobra.Command, ids []string) error {
-			return run(c, ids, func(clt *nodes.Client) action { return clt.Stop })
+			return run(c, ids, func(clt *nodes.Client) action { return clt.StopNode })
 		},
 	}
 
@@ -54,7 +54,7 @@ func newNodeCmd() *cobra.Command {
 		Use:   "reset [ID]...",
 		Short: "Reset state for all or only the specified nodes.",
 		RunE: func(c *cobra.Command, ids []string) error {
-			return run(c, ids, func(clt *nodes.Client) action { return clt.Reset })
+			return run(c, ids, func(clt *nodes.Client) action { return clt.ResetNode })
 		},
 	}
 
@@ -63,7 +63,7 @@ func newNodeCmd() *cobra.Command {
 		Aliases: []string{"rm"},
 		Short:   "Remove all or only the specified nodes.",
 		RunE: func(c *cobra.Command, ids []string) error {
-			return run(c, ids, func(clt *nodes.Client) action { return clt.Remove })
+			return run(c, ids, func(clt *nodes.Client) action { return clt.RemoveNode })
 		},
 	}
 
@@ -86,7 +86,7 @@ func newNodeCmd() *cobra.Command {
 			}
 			defer client.Close()
 
-			_, err = client.Create(c.Context(), &nodes.CreateRequest{Count: int32(count)})
+			_, err = client.CreateNode(c.Context(), &nodes.CreateRequest{Count: int32(count)})
 			return err
 		},
 	}

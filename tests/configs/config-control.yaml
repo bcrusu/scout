@@ -13,7 +13,7 @@ bootstrap:
   partitionCount: 10
 partitions:
   replicationFactor: 3
-logLevels: "*:info,hraft:error,rpc_logger:error"
+logLevels: "*:debug,hraft:error,rpc_logger:error"
 services:
   control:
     callTimeout: 1s

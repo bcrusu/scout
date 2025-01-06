@@ -6,6 +6,7 @@ import (
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/testing/agent"
 	"github.com/bcrusu/scout/internal/testing/nodes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Configure(ctx context.Context, config Config) error {
@@ -43,7 +44,7 @@ func configNode(ctx context.Context, node *nodes.Node, req *agent.ConfigRequest)
 	}
 	defer client.Close()
 
-	if _, err := client.Config(ctx, req); err != nil {
+	if _, err := client.ConfigService(ctx, req); err != nil {
 		return errors.Wrapf(err, "failed to configure node %s", node.Id)
 	}
 
@@ -52,28 +53,34 @@ func configNode(ctx context.Context, node *nodes.Node, req *agent.ConfigRequest)
 
 func Start(ctx context.Context, socketPath string) error {
 	return doAllNodes(ctx, socketPath, func(client *agent.Client) error {
-		_, err := client.Start(ctx, nil)
+		_, err := client.StartService(ctx, nil)
 		return err
 	})
 }
 
 func Stop(ctx context.Context, socketPath string) error {
 	return doAllNodes(ctx, socketPath, func(client *agent.Client) error {
-		_, err := client.Stop(ctx, nil)
+		_, err := client.StopService(ctx, nil)
 		return err
 	})
 }
 
 func Restart(ctx context.Context, socketPath string) error {
 	return doAllNodes(ctx, socketPath, func(client *agent.Client) error {
-		_, err := client.Restart(ctx, nil)
+		_, err := client.RestartService(ctx, nil)
 		return err
 	})
 }
 
 func Reset(ctx context.Context, socketPath string) error {
 	return doAllNodes(ctx, socketPath, func(client *agent.Client) error {
-		_, err := client.Reset(ctx, nil)
+		req := &agent.ResetRequest{
+			Time:    timestamppb.Now(),
+			Service: true,
+			Nemesis: true,
+		}
+
+		_, err := client.ResetService(ctx, req)
 		return err
 	})
 }

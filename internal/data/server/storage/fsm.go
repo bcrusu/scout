@@ -18,20 +18,20 @@ var (
 )
 
 type FSM struct {
-	partitionID uint32
-	db          kv.DB
-	txn         *txn.Manager
-	log         logging.Logger
-	lock        sync.RWMutex // guards all below
-	index       uint64       // last applied raft index
+	pid   uint32
+	db    kv.DB
+	txn   *txn.Manager
+	log   logging.Logger
+	lock  sync.RWMutex // guards all below
+	index uint64       // last applied raft index
 }
 
-func NewFSM(partitionID uint32, db kv.DB, txn *txn.Manager) *FSM {
+func NewFSM(pid uint32, db kv.DB, txn *txn.Manager) *FSM {
 	return &FSM{
-		partitionID: partitionID,
-		db:          db,
-		txn:         txn,
-		log:         logging.New("fsm").With("partition", partitionID),
+		pid: pid,
+		db:  db,
+		txn: txn,
+		log: logging.New("fsm").With("pid", pid),
 	}
 }
 
@@ -41,9 +41,9 @@ func (f *FSM) Apply(index uint64, appendedAt time.Time, data []byte) any {
 	if f.index == 0 {
 		log.Debug("Init partition.")
 
-		if err := f.db.InitPartition(f.partitionID); err != nil {
+		if err := f.db.InitPartition(f.pid); err != nil {
 			log.WithError(err).Error("Partition init failed.")
-			utils.ShutdownNowf("Partition %d init failed.", f.partitionID)
+			utils.ShutdownNowf("Partition %d init failed.", f.pid)
 		} else {
 			log.Debug("Partition init success.")
 		}
@@ -83,7 +83,7 @@ func (f *FSM) applyCommand(index uint64, _ time.Time, cmd *Command, log logging.
 		return errors.Errorf("apply: unhandled payload type %T", cmd.Payload)
 	}
 
-	log.Debugf("Applied command %T.", cmd.Payload)
+	log.Trace("Applied command %T.", cmd.Payload)
 	return result
 }
 
@@ -95,10 +95,10 @@ func (f *FSM) Snapshot() ([]byte, error) {
 	// Sync partition to disk first then read the persisted index and ensure it matches before
 	// taking the snapshot. The backing key-value store is configured to run in a WAL-disabled
 	// mode which relies on Raft log to provide the safety guarantees to avoid data loss.
-	if err := f.db.SyncPartition(f.partitionID); err != nil {
-		return nil, errors.Wrapf(err, "failed to sync partition %d", f.partitionID)
-	} else if index, err := f.db.GetIndex(f.partitionID, true); err != nil {
-		return nil, errors.Wrapf(err, "failed to read persisted index %d", f.partitionID)
+	if err := f.db.SyncPartition(f.pid); err != nil {
+		return nil, errors.Wrapf(err, "failed to sync partition %d", f.pid)
+	} else if index, err := f.db.GetIndex(f.pid, true); err != nil {
+		return nil, errors.Wrapf(err, "failed to read persisted index %d", f.pid)
 	} else if index != expectedIndex {
 		f.log.Warn("FSM Snapshot failed. Partition sync returned unexpected index.", "expected", expectedIndex, "actual", index)
 		return nil, raft.ErrNothingNewToSnapshot // retry later

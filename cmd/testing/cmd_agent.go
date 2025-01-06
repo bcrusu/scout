@@ -14,6 +14,11 @@ func newAgentCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			// the nemesis needs root as it makes system-wide changes
+			if err := checkRoot(); err != nil {
+				return err
+			}
+
 			log := logging.New("agent")
 			server := agent.NewServer()
 			return utils.LifecycleRun(c.Context(), log, server)

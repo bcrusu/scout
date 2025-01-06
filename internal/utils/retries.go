@@ -50,8 +50,6 @@ func RetryR[R any](policy RetryPolicy, work func() (R, error)) (R, error) {
 // Returns nil if the function returned with success.
 // If backoff is not provided will use the default values.
 func RetryContextE(ctx context.Context, policy RetryPolicy, work func() error) error {
-	SetDefaults(&policy)
-
 	if policy.Backoff.MinDelay > policy.Backoff.MaxDelay {
 		policy.Backoff.MinDelay, policy.Backoff.MaxDelay = policy.Backoff.MaxDelay, policy.Backoff.MinDelay
 	}

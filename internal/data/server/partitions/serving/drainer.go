@@ -39,7 +39,7 @@ func (d *drainer) Start(ctx context.Context) error {
 		return err
 	}
 
-	d.drainer = utils.NewDrainer(ctx, d.log)
+	d.drainer = utils.NewDrainer(d.log)
 	return nil
 }
 

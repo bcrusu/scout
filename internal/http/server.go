@@ -6,6 +6,7 @@ import (
 	"net/http/pprof"
 	"time"
 
+	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
 	"github.com/gorilla/mux"
@@ -65,7 +66,7 @@ func NewServer(config ServerConfig) *Server {
 // Start the server.
 func (s *Server) Start(ctx context.Context) error {
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil {
+		if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.WithContext(ctx).WithError(err).Error("Failed to serve.")
 		}
 	}()

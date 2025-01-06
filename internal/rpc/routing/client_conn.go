@@ -174,7 +174,7 @@ func (c *ClientConn) makeStateListener(address string, log logging.Logger) func(
 		case connectivity.Shutdown:
 			log.Trace("Connection was shutdown")
 		case connectivity.TransientFailure:
-			log.WithError(state.ConnectionError).Warn("Transient failure")
+			log.WithError(state.ConnectionError).Debug("Transient failure")
 		default:
 			log.Warnf("Unexpected connectivity state %d", state.ConnectivityState)
 		}
@@ -185,7 +185,7 @@ func (c *ClientConn) makeStateListener(address string, log logging.Logger) func(
 			return
 		}
 
-		if state.ConnectionError != nil {
+		if state.ConnectivityState == connectivity.Idle || state.ConnectionError != nil {
 			log.Debug("Retrying connection...")
 			conn.connect()
 		}

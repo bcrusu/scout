@@ -17,7 +17,8 @@ var (
 )
 
 type Server struct {
-	server *grpc.Server
+	service *service
+	server  *grpc.Server
 }
 
 func NewServer() *Server {
@@ -44,8 +45,12 @@ func NewServer() *Server {
 }
 
 func (n *Server) Start(ctx context.Context) error {
-	service := newService()
-	RegisterServiceServer(n.server, service)
+	n.service = newService()
+	if err := n.service.Start(ctx); err != nil {
+		return err
+	}
+
+	RegisterServiceServer(n.server, n.service)
 
 	bindAddress, err := utils.GetBindAddress()
 	if err != nil {
@@ -71,4 +76,5 @@ func (n *Server) Start(ctx context.Context) error {
 
 func (n *Server) Stop() {
 	n.server.Stop()
+	n.service.Stop()
 }

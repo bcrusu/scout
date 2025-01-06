@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -18,7 +20,7 @@ func newGetServersCmd() *cobra.Command {
 			}
 
 			renderTable(
-				[]string{"ID", "Name", "Type", "Registered", "Last seen", "Address", "Tags"},
+				[]string{"#", "ID", "Name", "Type", "Registered", "Last seen", "Address", "Tags"},
 				mapToTable(info.Cluster.Servers.Items,
 					func(a, b *control.Server) int {
 						if x := int(a.Type) - int(b.Type); x != 0 {
@@ -26,19 +28,19 @@ func newGetServersCmd() *cobra.Command {
 						}
 						return int(a.Id) - int(b.Id)
 					},
-					func(s *control.Server) []string {
-						return []string{
+					func(rowNo int, s *control.Server) row {
+						hl := time.Since(s.LastSeen.AsTime()) > 10*time.Second
+						return row{
+							formatInt(rowNo),
 							formatUint(s.Id),
-							s.Name,
+							highlight(s.Name, hl),
 							s.Type.String(),
 							formatTime(s.RegisteredAt),
-							formatTime(s.LastSeen),
+							highlight(formatTime(s.LastSeen), hl),
 							s.LastAddress,
-							formatTags(s.Tags...),
+							highlight(formatTags(s.Tags...), hl),
 						}
-					},
-					false,
-				))
+					}))
 
 			return nil
 		},

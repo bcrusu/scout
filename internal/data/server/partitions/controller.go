@@ -138,7 +138,7 @@ func (c *Controller) getLocalReplicaConfig(config *control.DataServerConfig_Part
 			return replica
 		}
 	}
-	logC.Warn("Partition replica not found.", "partition", config.Id, "server_id", c.id.ServerID)
+	logC.Warn("Partition replica not found.", "pid", config.Id, "server_id", c.id.ServerID)
 	return nil
 }
 

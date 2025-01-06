@@ -35,7 +35,7 @@ func New(pid uint32, replica string, multiraft *multiraft.Multi, db kv.DB) *Leav
 		replica:   replica,
 		multiraft: multiraft,
 		db:        kv.NewDBBreaker(db),
-		log:       logging.New("replica_leaving").With("partition", pid, "replica", replica),
+		log:       logging.New("replica_leaving").With("pid", pid, "replica", replica),
 	}
 }
 

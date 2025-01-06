@@ -101,11 +101,8 @@ func (r *resolverImpl) mainLoop() {
 		select {
 		case <-r.resolveNowChTh:
 			resolve()
-		case ok := <-resCh:
+		case <-resCh:
 			resolving = false
-			if ok {
-				ticker.Stop()
-			}
 		case <-ticker.C:
 			resolve()
 		case <-r.closeCh:
@@ -122,7 +119,7 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 
 	conn, client := r.createClient()
 	if err := conn.Start(ctx); err != nil {
-		log.WithError(err).Warnf("Failed to start control client for resolver")
+		log.WithError(err).Warnf("Failed to start control client for resolver.")
 		r.clientConn.ReportError(err)
 		return false
 	}
@@ -130,13 +127,13 @@ func (r *resolverImpl) resolveNow(ctx context.Context) bool {
 
 	resp, err := client.Discover(ctx, &emptypb.Empty{})
 	if err != nil {
-		log.WithError(err).Warnf("Discover call failed")
+		log.WithError(err).Warnf("Discover call failed.")
 		r.clientConn.ReportError(err)
 		return false
 	}
 
 	if err := r.updateState(ctx, resp); err != nil {
-		log.WithError(err).Warn("Failed to update resolver state")
+		log.WithError(err).Warn("Failed to update resolver state.")
 		r.clientConn.ReportError(err)
 		return false
 	}
@@ -170,6 +167,8 @@ func (r *resolverImpl) updateState(ctx context.Context, resp *control.DiscoverRe
 	if err != nil {
 		return err
 	}
+
+	logR.Trace("Updating state.", "leader", leaderAddress, "servers", allAddresses)
 
 	// update discovery target with latest cluster servers
 	r.discoveryTarget = routing.FormatTargetStatic(allAddresses...)

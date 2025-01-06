@@ -93,7 +93,7 @@ func (s *writer) UpdateTimestamp(timestamp uint64) error {
 }
 
 func (s *writer) mainLoop(ctx context.Context) {
-	timer := utils.NewTimer(s.config.MaxBatchDelay, true)
+	timer := utils.NewTimer(s.config.MaxBatchDelay)
 	defer timer.Stop()
 
 	batch := &data.TxnBatch{}

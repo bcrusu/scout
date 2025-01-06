@@ -53,3 +53,10 @@ func formatTags(tags ...string) string {
 	sort.Strings(tags)
 	return strings.Join(tags, ",")
 }
+
+func highlight(value string, enabled bool) string {
+	if !enabled {
+		return value
+	}
+	return fmt.Sprintf("\x1b[31m%s\x1b[0m", value)
+}

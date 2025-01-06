@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
@@ -33,10 +34,10 @@ func LifecycleStart[T Lifecycle](ctx context.Context, log logging.Logger, instan
 	log = log.WithContext(ctx)
 
 	for i, instance := range instances {
-		log.Tracef("Starting %T...", instance)
+		log.Debugf("Starting %T...", instance)
 
 		if err := instance.Start(ctx); err != nil {
-			log.Tracef("Start failed %T", instance)
+			log.Debugf("Start failed %T", instance)
 
 			// rollback started instances so far
 			LifecycleStop(log, instances[:i]...)
@@ -44,7 +45,7 @@ func LifecycleStart[T Lifecycle](ctx context.Context, log logging.Logger, instan
 			return errors.Wrapf(err, "failed to start %T", instance)
 		}
 
-		log.Tracef("Started %T", instance)
+		log.Debugf("Started %T", instance)
 	}
 
 	return nil
@@ -55,9 +56,9 @@ func LifecycleStop[T Lifecycle](log logging.Logger, instances ...T) {
 	for i := len(instances) - 1; i >= 0; i-- {
 		instance := instances[i]
 
-		log.Tracef("Stopping %T...", instance)
+		log.Debugf("Stopping %T...", instance)
 		instance.Stop()
-		log.Tracef("Stopped %T", instance)
+		log.Debugf("Stopped %T", instance)
 	}
 }
 
@@ -66,7 +67,7 @@ func LifecycleRun(ctx context.Context, log logging.Logger, instance Lifecycle) e
 	log = log.WithContext(ctx)
 	shutdownCh := make(chan any)
 	signalCh := make(chan os.Signal, 1)
-	signal.Notify(signalCh, os.Interrupt)
+	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
 
 	global.Store(&runInfo{
 		triggerShutdown: sync.OnceFunc(func() { close(shutdownCh) }),
@@ -107,9 +108,10 @@ func LifecycleRun(ctx context.Context, log logging.Logger, instance Lifecycle) e
 
 	log.Info("Running...")
 	<-cancelCh
-	log.Info("Stopping...")
+	log.Debug("Stopping...")
 
 	instance.Stop()
+	log.Info("Stopped.")
 	return nil
 }
 

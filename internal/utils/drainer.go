@@ -11,16 +11,14 @@ import (
 
 // Drainer will cancel all in-flight work when Stop is called or when the context is canceled.
 type Drainer struct {
-	ctx      context.Context
 	log      logging.Logger
 	drainCh  chan any
 	inFlight atomic.Int64
 }
 
-func NewDrainer(ctx context.Context, log logging.Logger) *Drainer {
+func NewDrainer(log logging.Logger) *Drainer {
 	return &Drainer{
-		ctx:     ctx,
-		log:     log.WithContext(ctx),
+		log:     log,
 		drainCh: make(chan any),
 	}
 }
@@ -33,7 +31,7 @@ func (d *Drainer) Stop() {
 		MaxDelay: 100 * time.Millisecond,
 	}
 
-	err := RetryForeverE(d.ctx, backoff, func() error {
+	err := RetryForeverE(context.Background(), backoff, func() error {
 		pending := d.inFlight.Load()
 		if pending == 0 {
 			return nil

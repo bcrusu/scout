@@ -20,6 +20,8 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
+	log := p.log.With("index", index)
+
 	result := &BatchResults{
 		Autocommit:    make([]BatchResult, len(batch.Autocommit)),
 		Prepare:       make([]BatchResult, len(batch.Prepare)),
@@ -39,17 +41,17 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	}
 
 	for i, cmd := range batch.Abort {
-		status, err := p.applyAbort(cmd)
+		status, err := p.applyAbort(log, cmd)
 		result.Abort[i] = BatchResult{status, err}
 	}
 
 	for i, cmd := range batch.MarkTimedout {
-		status, err := p.applyMarkTimedout(cmd)
+		status, err := p.applyMarkTimedout(log, cmd)
 		result.MarkTimedout[i] = BatchResult{status, err}
 	}
 
 	for i, cmd := range batch.Commit {
-		status, writes, completion, err := p.applyCommit(cmd)
+		status, writes, completion, err := p.applyCommit(log, cmd)
 		if err == nil {
 			appendCompletion(completion)
 			allWrites = append(allWrites, writes...)
@@ -58,7 +60,7 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	}
 
 	for i, cmd := range batch.Autocommit {
-		status, writes, completion, err := p.applyAutocommit(cmd)
+		status, writes, completion, err := p.applyAutocommit(log, cmd)
 		if err == nil {
 			appendCompletion(completion)
 			allWrites = append(allWrites, writes...)
@@ -67,12 +69,12 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	}
 
 	for i, cmd := range batch.Prepare {
-		status, err := p.applyPrepare(cmd)
+		status, err := p.applyPrepare(log, cmd)
 		result.Prepare[i] = BatchResult{status, err}
 	}
 
 	for i, cmd := range batch.StoreDecision {
-		status, err := p.applyStoreDecision(cmd)
+		status, err := p.applyStoreDecision(log, cmd)
 		result.StoreDecision[i] = BatchResult{status, err}
 	}
 
@@ -89,9 +91,9 @@ func (p *Manager) ApplyBatch(index uint64, batch *data.TxnBatch) *BatchResults {
 	return result
 }
 
-func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc.Record, completion, error) {
+func (p *Manager) applyAutocommit(log logging.Logger, cmd *data.Autocommit) (*data.TxnStatus, []mvcc.Record, completion, error) {
 	id := newId(cmd.Txn.Id)
-	log := p.log.WithTrace(cmd.Trace).With("cmd", "Autocommit", "id", id, "ts", cmd.Timestamp)
+	log = log.WithTrace(cmd.Trace).With("cmd", "Autocommit", "id", id, "ts", cmd.Timestamp)
 
 	status, ok := p.status[id]
 	if ok {
@@ -132,9 +134,9 @@ func (p *Manager) applyAutocommit(cmd *data.Autocommit) (*data.TxnStatus, []mvcc
 	return status, writes, completion, nil
 }
 
-func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
+func (p *Manager) applyPrepare(log logging.Logger, cmd *data.Prepare) (*data.TxnStatus, error) {
 	id := newId(cmd.Txn.Id)
-	log := p.log.WithTrace(cmd.Trace).With("cmd", "Prepare", "id", id, "ts", cmd.Timestamp)
+	log = log.WithTrace(cmd.Trace).With("cmd", "Prepare", "id", id, "ts", cmd.Timestamp)
 
 	status, ok := p.status[id]
 	if ok {
@@ -177,9 +179,9 @@ func (p *Manager) applyPrepare(cmd *data.Prepare) (*data.TxnStatus, error) {
 	return status, nil
 }
 
-func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record, completion, error) {
+func (p *Manager) applyCommit(log logging.Logger, cmd *data.Commit) (*data.TxnStatus, []mvcc.Record, completion, error) {
 	id := newId(cmd.Id)
-	log := p.log.WithTrace(cmd.Trace).With("cmd", "Commit", "id", id, "ts", cmd.Timestamp)
+	log = log.WithTrace(cmd.Trace).With("cmd", "Commit", "id", id, "ts", cmd.Timestamp)
 
 	status, ok := p.status[id]
 	if !ok {
@@ -233,9 +235,9 @@ func (p *Manager) applyCommit(cmd *data.Commit) (*data.TxnStatus, []mvcc.Record,
 	return status, writes, completion, nil
 }
 
-func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
+func (p *Manager) applyAbort(log logging.Logger, cmd *data.Abort) (*data.TxnStatus, error) {
 	id := newId(cmd.Id)
-	log := p.log.WithTrace(cmd.Trace).With("cmd", "Abort", "id", id, "ts", cmd.Timestamp)
+	log = log.WithTrace(cmd.Trace).With("cmd", "Abort", "id", id, "ts", cmd.Timestamp)
 
 	status, ok := p.status[id]
 	if !ok {
@@ -270,9 +272,9 @@ func (p *Manager) applyAbort(cmd *data.Abort) (*data.TxnStatus, error) {
 	}
 }
 
-func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, error) {
+func (p *Manager) applyStoreDecision(log logging.Logger, cmd *data.StoreDecision) (*data.TxnStatus, error) {
 	id := newId(cmd.Decision.Id)
-	log := p.log.WithTrace(cmd.Trace).With("cmd", "StoreDecision", "id", id, "ts", cmd.Timestamp, "commit_ts", cmd.Decision.CommitTimestamp)
+	log = log.WithTrace(cmd.Trace).With("cmd", "StoreDecision", "id", id, "ts", cmd.Timestamp, "commit_ts", cmd.Decision.CommitTimestamp)
 
 	status, ok := p.status[id]
 	if !ok {
@@ -319,9 +321,9 @@ func (p *Manager) applyStoreDecision(cmd *data.StoreDecision) (*data.TxnStatus, 
 	}
 }
 
-func (p *Manager) applyMarkTimedout(cmd *data.MarkTimedout) (*data.TxnStatus, error) {
+func (p *Manager) applyMarkTimedout(log logging.Logger, cmd *data.MarkTimedout) (*data.TxnStatus, error) {
 	id := newId(cmd.Id)
-	log := p.log.WithTrace(cmd.Trace).With("cmd", "MarkTimedout", "id", id, "ts", cmd.Timestamp, "release", cmd.ReleaseLocks)
+	log = log.WithTrace(cmd.Trace).With("cmd", "MarkTimedout", "id", id, "ts", cmd.Timestamp, "release", cmd.ReleaseLocks)
 
 	status, ok := p.status[id]
 	if !ok {

@@ -70,7 +70,7 @@ func (s *service) GetNodes(_ context.Context, _ *emptypb.Empty) (*Nodes, error) 
 	}, nil
 }
 
-func (s *service) Create(_ context.Context, req *CreateRequest) (*emptypb.Empty, error) {
+func (s *service) CreateNode(_ context.Context, req *CreateRequest) (*emptypb.Empty, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -103,7 +103,7 @@ func (s *service) Create(_ context.Context, req *CreateRequest) (*emptypb.Empty,
 	return nil, nil
 }
 
-func (s *service) Start(_ context.Context, req *Ids) (*Status, error) {
+func (s *service) StartNode(_ context.Context, req *Ids) (*Status, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -129,7 +129,7 @@ func (s *service) Start(_ context.Context, req *Ids) (*Status, error) {
 	return &Status{FailureCount: int32(failures)}, nil
 }
 
-func (s *service) Stop(_ context.Context, req *Ids) (*Status, error) {
+func (s *service) StopNode(_ context.Context, req *Ids) (*Status, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -155,7 +155,7 @@ func (s *service) Stop(_ context.Context, req *Ids) (*Status, error) {
 	return &Status{FailureCount: int32(failures)}, nil
 }
 
-func (s *service) Reset(_ context.Context, req *Ids) (*Status, error) {
+func (s *service) ResetNode(_ context.Context, req *Ids) (*Status, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -177,7 +177,7 @@ func (s *service) Reset(_ context.Context, req *Ids) (*Status, error) {
 	return &Status{FailureCount: int32(failures)}, nil
 }
 
-func (s *service) Remove(_ context.Context, req *Ids) (*Status, error) {
+func (s *service) RemoveNode(_ context.Context, req *Ids) (*Status, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -528,6 +528,7 @@ func (s *service) makeVMConfig(id string) (sdk.Config, error) {
 				IsReadOnly:   utils.PointerOf(false),
 				PathOnHost:   utils.PointerOf(s.getNodeWorkFSFile(id)),
 				IoEngine:     utils.PointerOf("Async"),
+				CacheType:    utils.PointerOf("Writeback"),
 			},
 		},
 		NetNS: s.getNetNSFile(id),

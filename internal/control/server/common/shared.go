@@ -56,7 +56,7 @@ func (n *Shared) Discover(ctx context.Context, _ *emptypb.Empty) (*control.Disco
 		}
 	}
 
-	log.WithContext(ctx).Debug("Discover success", "servers", servers)
+	log.WithContext(ctx).Trace("Discover success", "servers", servers)
 
 	return &control.DiscoverResponse{
 		Servers:           servers,

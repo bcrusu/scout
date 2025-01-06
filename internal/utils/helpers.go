@@ -90,3 +90,12 @@ func CloneMap[K comparable, V any](orig map[K]V) map[K]V {
 	}
 	return result
 }
+
+// RepeatElem returns a new slice filled with the provided element.
+func RepeatElem[T any](val T, count int) []T {
+	result := make([]T, count)
+	for i := range count {
+		result[i] = val
+	}
+	return result
+}

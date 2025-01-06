@@ -44,7 +44,7 @@ func (s *streamer) StreamPartition(req *data.StreamRequest, stream grpc.ServerSt
 	}
 
 	log := s.log.WithContext(stream.Context())
-	log.Debug("Starting partition stream...", "partition", req.PartitionId, "min_index", req.MinIndex)
+	log.Debug("Starting partition stream...", "pid", req.PartitionId, "min_index", req.MinIndex)
 
 	iter, err := s.db.GetStream(req.PartitionId, start)
 	if err != nil {

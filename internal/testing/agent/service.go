@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/utils"
@@ -12,13 +14,28 @@ import (
 )
 
 var (
-	_ ServiceServer = (*service)(nil)
+	_ utils.Lifecycle = (*service)(nil)
+	_ ServiceServer   = (*service)(nil)
 )
 
 type service struct {
 	UnsafeServiceServer
-	lock        sync.Mutex
-	serviceType ServiceType
+	cmdChan      chan any
+	cancelFunc   context.CancelFunc
+	nemesisCount atomic.Int32
+	lock         sync.Mutex
+	serviceType  ServiceType
+}
+
+type runCmd struct {
+	Name        string
+	Nemesis     Nemesis
+	Duration    time.Duration
+	ServiceType ServiceType
+}
+
+type stopAllCmd struct {
+	DoneCh chan any
 }
 
 func newService() *service {
@@ -29,8 +46,18 @@ func newService() *service {
 	}
 
 	return &service{
+		cmdChan:     make(chan any, 1),
 		serviceType: serviceType,
 	}
+}
+
+func (s *service) Start(ctx context.Context) error {
+	s.cancelFunc = utils.RunAsync(ctx, s.mainLoop)
+	return nil
+}
+
+func (s *service) Stop() {
+	s.cancelFunc()
 }
 
 func (s *service) GetStatus(ctx context.Context, _ *emptypb.Empty) (*Status, error) {
@@ -54,10 +81,11 @@ func (s *service) GetStatus(ctx context.Context, _ *emptypb.Empty) (*Status, err
 		ServiceType:   s.serviceType,
 		ServiceActive: active,
 		Time:          now,
+		NemesisCount:  uint32(s.nemesisCount.Load()),
 	}, nil
 }
 
-func (s *service) Config(ctx context.Context, req *ConfigRequest) (*emptypb.Empty, error) {
+func (s *service) ConfigService(ctx context.Context, req *ConfigRequest) (*emptypb.Empty, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -94,7 +122,7 @@ func (s *service) Config(ctx context.Context, req *ConfigRequest) (*emptypb.Empt
 	return nil, nil
 }
 
-func (s *service) Start(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *service) StartService(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -109,7 +137,7 @@ func (s *service) Start(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, 
 	return nil, nil
 }
 
-func (s *service) Stop(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *service) StopService(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -124,7 +152,7 @@ func (s *service) Stop(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, e
 	return nil, nil
 }
 
-func (s *service) Restart(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *service) RestartService(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -139,11 +167,29 @@ func (s *service) Restart(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty
 	return nil, nil
 }
 
-func (s *service) Reset(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+func (s *service) ResetService(ctx context.Context, req *ResetRequest) (*emptypb.Empty, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	if s.serviceType == ServiceType_None {
+	if req.Nemesis {
+		cmd := stopAllCmd{DoneCh: make(chan any)}
+		s.cmdChan <- cmd
+		<-cmd.DoneCh
+	}
+
+	if req.Time != nil {
+		if err := utils.SetTime(req.Time.AsTime()); err != nil {
+			return nil, err
+		}
+	}
+
+	if req.TruncateLogs && !req.Service {
+		if err := os.Truncate(LogFile, 0); err != nil && !os.IsNotExist(err) {
+			return nil, errors.Wrap(err, "failed to truncate log file")
+		}
+	}
+
+	if !req.Service || s.serviceType == ServiceType_None {
 		return nil, nil
 	} else if s.serviceType == ServiceType_Unknown {
 		if err := stopAllServices(); err != nil {
@@ -175,4 +221,96 @@ func (s *service) GetLogs(ctx context.Context, _ *emptypb.Empty) (*Logs, error) 
 	}
 
 	return &Logs{Data: data}, nil
+}
+
+func (s *service) RunNemesis(ctx context.Context, req *NemesisRequest) (*emptypb.Empty, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if !s.serviceType.IsValid() {
+		return nil, errors.FailedPrecondition
+	}
+
+	s.cmdChan <- runCmd{
+		Name:        req.Name(),
+		Nemesis:     req.Nemesis(),
+		Duration:    req.Duration.AsDuration(),
+		ServiceType: s.serviceType,
+	}
+
+	s.nemesisCount.Add(1)
+	return nil, nil
+}
+
+func (s *service) mainLoop(parentCtx context.Context) {
+	type runInfo struct {
+		id      int
+		name    string
+		nemesis Nemesis
+		ctx     context.Context
+		cancel  context.CancelFunc
+	}
+
+	resultCh := make(chan runInfo)
+	run := func(info runInfo) {
+		log := log.With("name", info.name, "id", info.id)
+		log.Debug("Starting nemesis...")
+
+		if err := info.nemesis.Run(info.ctx); err != nil {
+			log.WithError(err).Error("Nemesis failed.")
+		} else {
+			log.Debug("Nemesis success.")
+		}
+
+		resultCh <- info
+	}
+
+	running := map[int]runInfo{}
+	stopAll := func() {
+		for _, info := range running {
+			info.cancel()
+		}
+		for range len(running) {
+			<-resultCh
+		}
+		clear(running)
+		s.nemesisCount.Store(0)
+	}
+
+	counter := 0
+
+	for {
+		select {
+		case cmd := <-s.cmdChan:
+			switch x := cmd.(type) {
+			case runCmd:
+				counter++
+				ctx, cancel := context.WithTimeout(parentCtx, x.Duration)
+				ctx = withServiceType(ctx, x.ServiceType)
+
+				info := runInfo{
+					id:      counter,
+					name:    x.Name,
+					nemesis: x.Nemesis,
+					ctx:     ctx,
+					cancel:  cancel,
+				}
+
+				running[info.id] = info
+				go run(info)
+			case stopAllCmd:
+				stopAll()
+				close(x.DoneCh)
+			default:
+				log.Errorf("Unknown cmd type %T", cmd)
+			}
+		case info := <-resultCh:
+			info.cancel()
+			delete(running, info.id)
+			s.nemesisCount.Add(-1)
+		case <-parentCtx.Done():
+			stopAll()
+			return
+		}
+	}
 }

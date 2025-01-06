@@ -184,7 +184,7 @@ func newReplicaStatus(pid uint32, replica *control.Partition_Replica) *replicaSt
 		LastUpdate:   replica.LastUpdate,
 		AppliedIndex: replica.AppliedIndex,
 		Ready:        replica.Ready,
-		Labels:       metrics.NewLabels("partition", pid, "replica_name", replica.Name),
+		Labels:       metrics.NewLabels("pid", pid, "replica", replica.Name),
 	}
 }
 
@@ -233,7 +233,7 @@ func (t *statusTracker) recordReplicaStatus(updates map[uint32]*control.DataServ
 
 		leaderChanged := update.IsLeader && update.LeaderTerm > pStatus.LeaderTerm
 		if leaderChanged {
-			logS.Debug("Partition leader changed.", "partition", id, "old", pStatus.Leader, "new", update.Name, "term", update.LeaderTerm)
+			logS.Debug("Partition leader changed.", "pid", id, "old", pStatus.Leader, "new", update.Name, "term", update.LeaderTerm)
 
 			pStatus.Leader = update.Name
 			pStatus.LeaderTerm = update.LeaderTerm

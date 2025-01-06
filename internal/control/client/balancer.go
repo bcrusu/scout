@@ -55,8 +55,11 @@ func (b *balancerImpl) UpdateClientConnState(state balancer.ClientConnState) err
 		logLB.Error("UpdateClientConnState invoked with bad config.")
 		return balancer.ErrBadResolverState
 	} else if cfg.leaderAddress == b.leaderAddress {
+		logLB.Trace("UpdateClientConnState leader did not change.", "address", b.leaderAddress)
 		return nil
 	}
+
+	logLB.Debug("UpdateClientConnState leader changed.", "old_addr", b.leaderAddress, "new_addr", cfg.leaderAddress)
 
 	b.conn.SetLog(logLB)
 	b.conn.SetReconnectInterval(cfg.reconnectInterval)

@@ -1,6 +1,9 @@
 package errors
 
 var (
+	// InternalError signals an internal service error.
+	InternalError = Error("internal error")
+
 	// InvalidRequest is a generic error that signals an invalid request.
 	// For more specific errors should use ValidationError instead.
 	InvalidRequest = Error("invalid request")

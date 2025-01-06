@@ -9,6 +9,7 @@ import (
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/hlc"
+	"github.com/bcrusu/scout/internal/testing/agent"
 	"github.com/bcrusu/scout/internal/tracing"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -39,6 +40,11 @@ type mop = [3]any // https://github.com/jepsen-io/jepsen/blob/main/txn/src/jepse
 type txnWriter struct {
 	history *history
 	process any
+}
+
+type nemesisWriter struct {
+	history *history
+	process string
 }
 
 func mopWrite(key, value any) mop {
@@ -97,10 +103,17 @@ func (h *history) Write(ctx context.Context, op operation) error {
 	return nil
 }
 
-func (h *history) TxnWriter(process any) *txnWriter {
+func (h *history) TxnWriter(workerId int) *txnWriter {
 	return &txnWriter{
 		history: h,
-		process: process,
+		process: workerId,
+	}
+}
+
+func (h *history) NemesisWriter(nemesis string) *nemesisWriter {
+	return &nemesisWriter{
+		history: h,
+		process: nemesis,
 	}
 }
 
@@ -143,7 +156,7 @@ func (w *txnWriter) Success(ctx context.Context, value txn, timestamp *timestamp
 
 func (w *txnWriter) Failure(ctx context.Context, value txn, err error) error {
 	typ := typeFail
-	if errors.IsContextError(err) {
+	if errors.IsContextError(err) || errors.Is(err, errors.InternalError) {
 		typ = typeInfo
 	}
 
@@ -153,5 +166,24 @@ func (w *txnWriter) Failure(ctx context.Context, value txn, err error) error {
 		Process: w.process,
 		Value:   value,
 		Error:   err.Error(),
+	})
+}
+
+func (w *nemesisWriter) Write(node string, req *agent.NemesisRequest) error {
+	type value struct {
+		Node     string        `json:"node"`
+		Config   agent.Nemesis `json:"config,omitempty"`
+		Duration uint32        `json:"duration"`
+	}
+
+	return w.history.Write(context.Background(), operation{
+		Type:    typeInfo,
+		Func:    req.Name(),
+		Process: w.process,
+		Value: value{
+			Node:     node,
+			Config:   req.Nemesis(),
+			Duration: uint32(req.Duration.AsDuration() / time.Millisecond),
+		},
 	})
 }

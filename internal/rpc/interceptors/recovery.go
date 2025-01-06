@@ -4,6 +4,7 @@ import (
 	"context"
 	"runtime"
 
+	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
 	"google.golang.org/grpc"
 )
@@ -43,5 +44,5 @@ func handlePanic(ctx context.Context, p any) error {
 	stack = stack[:runtime.Stack(stack, false)]
 
 	logRecovery.WithContext(ctx).Error("Recovered.", "panic", p, "stack", stack)
-	return errInternal
+	return errors.InternalError
 }

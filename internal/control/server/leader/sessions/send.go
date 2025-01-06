@@ -41,7 +41,7 @@ func (t *Tracker) sessionSendLoop(sess *session, stream sessionStream) {
 				t.meters.MsgSendSuccess.Add(1)
 				continue
 			case errors.IsContextError(err) || errors.Is(err, io.EOF):
-				sess.log.WithError(err).Debug("Session send loop done.")
+				sess.log.WithError(err).Trace("Session send loop done.")
 			default:
 				t.meters.MsgSendError.Add(1)
 				sess.log.WithError(err).Error("Session send failed.")
@@ -72,12 +72,6 @@ func (s *session) trySend(out *control.SessionOut) {
 	default:
 		s.tracker.meters.MsgSendDropped.Add(1)
 		s.log.Warnf("Session send buffer is full. Message %T was dropped.", out)
-	}
-}
-
-func (s sessionsByServer) trySendAll(out *control.SessionOut) {
-	for _, sess := range s {
-		sess.trySend(out)
 	}
 }
 

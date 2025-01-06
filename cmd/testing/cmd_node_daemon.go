@@ -2,7 +2,6 @@ package main
 
 import (
 	"path"
-	"syscall"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
@@ -54,6 +53,10 @@ func newNodeDaemonCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(c *cobra.Command, args []string) error {
+			// Esentially, the CNI is the main reason the daemon exists in the first place
+			// as it requires root to makes changes to the net namespaces and network configs
+			// during VM creation. This approach enables all the other testing commands to run
+			// with non-root privileges by calling the daemon to perfom the actual VM actions.
 			if err := checkRoot(); err != nil {
 				return err
 			}
@@ -80,16 +83,4 @@ func newNodeDaemonCmd() *cobra.Command {
 	c.PersistentFlags().String("log-level", "Info", "Firecracker VM log level: Error, Warning, Info, Debug (case-sensitive).")
 
 	return c
-}
-
-// Esentially, the CNI is the main reason the daemon exists in the first place
-// as it requires root to makes changes to the net namespaces and network configs
-// during VM creation. This approach enables all the other testing commands to run
-// with non-root privileges by calling the daemon to perfom the actual VM actions.
-func checkRoot() error {
-	uid := syscall.Getuid()
-	if uid != 0 {
-		return errors.Error("not running as root")
-	}
-	return nil
 }

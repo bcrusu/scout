@@ -36,6 +36,7 @@ func setDefaultsRec(val reflect.Value) error {
 			if err := setDefaultsRec(val.Field(i)); err != nil {
 				return err
 			}
+			continue
 		}
 
 		defaultValue, ok := field.Tag.Lookup("default")
@@ -56,15 +57,15 @@ func setDefaultsRec(val reflect.Value) error {
 }
 
 func setFieldDefault(val reflect.Value, defaultValue string) error {
-	typeName := val.Type().String()
-	switch typeName {
-	case "time.Duration":
+	iface := val.Interface()
+	switch iface.(type) {
+	case time.Duration:
 		v, err := time.ParseDuration(defaultValue)
 		if err != nil {
 			return err
 		}
 		val.Set(reflect.ValueOf(v))
-	case "utils.Bytes":
+	case Bytes:
 		val.SetString(defaultValue)
 	default:
 		switch val.Kind() {
@@ -95,7 +96,7 @@ func setFieldDefault(val reflect.Value, defaultValue string) error {
 			}
 			val.SetFloat(v)
 		default:
-			return errors.Errorf("unsupported type %s", typeName)
+			return errors.Errorf("unsupported type %T", iface)
 		}
 	}
 	return nil

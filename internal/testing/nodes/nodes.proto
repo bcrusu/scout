@@ -10,11 +10,11 @@ import "google/protobuf/empty.proto";
 service Service {
     rpc GetNode(Id) returns (Node);
     rpc GetNodes(google.protobuf.Empty) returns (Nodes);
-    rpc Create(CreateRequest) returns (google.protobuf.Empty);
-    rpc Start(Ids) returns (Status);
-    rpc Stop(Ids) returns (Status);
-    rpc Reset(Ids) returns (Status);
-    rpc Remove(Ids) returns (Status);
+    rpc CreateNode(CreateRequest) returns (google.protobuf.Empty);
+    rpc StartNode(Ids) returns (Status);
+    rpc StopNode(Ids) returns (Status);
+    rpc ResetNode(Ids) returns (Status);
+    rpc RemoveNode(Ids) returns (Status);
 }
 
 message Id {

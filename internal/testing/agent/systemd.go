@@ -10,29 +10,70 @@ import (
 )
 
 func startService(serviceType ServiceType) error {
-	if active, err := isServiceActive(serviceType); err != nil {
-		return err
-	} else if active {
-		return nil
-	}
-
-	_, err := runSystemctl("start", getServiceName(serviceType))
-	if err != nil {
-		return errors.Wrap(err, "failed to start service")
-	}
-	return nil
+	return runSystemctlIfActive(serviceType, "start", false)
 }
 
 func stopService(serviceType ServiceType) error {
+	return runSystemctlIfActive(serviceType, "stop", true)
+}
+
+func restartService(serviceType ServiceType) error {
+	return runSystemctlIfActive(serviceType, "restart", true)
+}
+
+func freezeService(serviceType ServiceType) error {
+	return runSystemctlIfActive(serviceType, "freeze", true)
+}
+
+func thawService(serviceType ServiceType) error {
+	return runSystemctlIfActive(serviceType, "thaw", true)
+}
+
+func killService(serviceType ServiceType, signal string) error {
+	signalParam := fmt.Sprintf("--signal=%s", signal)
+	return runSystemctlIfActive(serviceType, "kill", true, signalParam)
+}
+
+func isServiceActive(serviceType ServiceType) (bool, error) {
+	serviceName := getServiceName(serviceType)
+	out, err := runSystemctl("show", "-P", "ActiveState", serviceName)
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to determine %s active state", serviceName)
+	}
+
+	active := strings.TrimSpace(string(out)) == "active"
+	return active, nil
+}
+
+func runSystemctl(args ...string) ([]byte, error) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := exec.Command("systemctl", args...)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return nil, errors.Wrapf(err, "systemctl %v failed", args)
+	}
+
+	return stdout.Bytes(), nil
+}
+
+func runSystemctlIfActive(serviceType ServiceType, cmd string, ifActive bool, cmdArgs ...string) error {
+	serviceName := getServiceName(serviceType)
 	if active, err := isServiceActive(serviceType); err != nil {
 		return err
-	} else if !active {
+	} else if active != ifActive {
 		return nil
 	}
 
-	_, err := runSystemctl("stop", getServiceName(serviceType))
+	allArgs := []string{cmd, serviceName}
+	allArgs = append(allArgs, cmdArgs...)
+
+	_, err := runSystemctl(allArgs...)
 	if err != nil {
-		return errors.Wrap(err, "failed to stop service")
+		return errors.Wrapf(err, "failed to %s %s", cmd, serviceName)
 	}
 	return nil
 }
@@ -53,30 +94,6 @@ func stopAllServices() error {
 	return nil
 }
 
-func restartService(serviceType ServiceType) error {
-	if active, err := isServiceActive(serviceType); err != nil {
-		return err
-	} else if !active {
-		return nil
-	}
-
-	_, err := runSystemctl("restart", getServiceName(serviceType))
-	if err != nil {
-		return errors.Wrap(err, "failed to restart service")
-	}
-	return nil
-}
-
-func isServiceActive(serviceType ServiceType) (bool, error) {
-	out, err := runSystemctl("show", "-P", "ActiveState", getServiceName(serviceType))
-	if err != nil {
-		return false, errors.Wrap(err, "failed to determine service state")
-	}
-
-	active := strings.TrimSpace(string(out)) == "active"
-	return active, nil
-}
-
 func getServiceName(serviceType ServiceType) string {
 	switch serviceType {
 	case ServiceType_Control:
@@ -88,20 +105,4 @@ func getServiceName(serviceType ServiceType) string {
 	default:
 		panic(fmt.Sprintf("Unknown service type %s", serviceType))
 	}
-}
-
-func runSystemctl(args ...string) ([]byte, error) {
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd := exec.Command("systemctl", args...)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-
-	err := cmd.Run()
-	if err != nil {
-		log.WithError(err).Error("systemctl cmd failed", "args", args, "stdout", stdout.String(), "stderr", stderr.String())
-		return nil, err
-	}
-
-	return stdout.Bytes(), nil
 }

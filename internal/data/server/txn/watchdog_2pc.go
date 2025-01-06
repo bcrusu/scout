@@ -67,7 +67,7 @@ func newWatchdog2PC(pid uint32, writer *writer, manager *Manager, client data.Se
 		manager:   manager,
 		writer:    writer,
 		client:    client,
-		log:       logging.New("2pc_watchdog").With("partition", pid),
+		log:       logging.New("2pc_watchdog").With("pid", pid),
 		requestCh: make(chan running, 1),
 		breaker:   utils.NewRateLimiter(config.RetryBreakerLimit, time.Second),
 	}
@@ -94,12 +94,12 @@ func (w *watchdog2PC) mainLoop(ctx context.Context) {
 	doneCh := make(chan bool, 1)
 	inFlight := 0
 
-	checkTimedout := func(queue dogQueue, timeout time.Duration, resolve dogResolve) {
+	checkTimedout := func(queue dogQueue, timeout time.Duration, expectedState data.TxnStatus_State, resolve dogResolve) {
 		oldest := hlc.FromTime(time.Now().Add(-timeout))
 		for {
 			if peek, ok := queue.PeekFront(); !ok || peek.Timestamp > oldest {
 				break
-			} else if txn, _ := queue.PopFront(); !all[txn.Id] {
+			} else if txn, _ := queue.PopFront(); all[txn.Id] != expectedState {
 				continue
 			} else {
 				inFlight++
@@ -122,18 +122,18 @@ func (w *watchdog2PC) mainLoop(ctx context.Context) {
 
 			switch status.State {
 			case data.TxnStatus_Prepared:
-				all[status.Id] = true
+				all[status.Id] = status.State
 				prepared.PushBack(status)
 			case data.TxnStatus_Decided:
-				all[status.Id] = true
+				all[status.Id] = status.State
 				decided.PushBack(status)
 			case data.TxnStatus_Committed, data.TxnStatus_Aborted:
 				delete(all, status.Id) // checkTimedout above will later clear from queue
 			}
 		case <-tickerPhase1.C:
-			checkTimedout(prepared, w.config.Phase1Timeout, w.abort)
+			checkTimedout(prepared, w.config.Phase1Timeout, data.TxnStatus_Prepared, w.abort)
 		case <-tickerPhase2.C:
-			checkTimedout(decided, w.config.Phase2Timeout, w.commit)
+			checkTimedout(decided, w.config.Phase2Timeout, data.TxnStatus_Decided, w.commit)
 		case <-doneCh:
 			inFlight--
 		case <-ctx.Done():
@@ -170,20 +170,14 @@ func (w *watchdog2PC) UpdateStatus(status *data.TxnStatus, prepared *data.Txn, d
 	w.requestCh <- s
 }
 
-func (w *watchdog2PC) loadRunning() (map[id]bool, dogQueue, dogQueue) {
+func (w *watchdog2PC) loadRunning() (map[id]data.TxnStatus_State, dogQueue, dogQueue) {
 	trunning := w.manager.getRunning()
 
-	all := map[id]bool{}
+	all := map[id]data.TxnStatus_State{}
 	prepared := make([]running, 0, len(trunning))
 	decided := make([]running, 0, len(trunning))
 
 	for _, p := range trunning {
-		if p.Id.PrincipalPid != w.pid {
-			continue
-		}
-
-		all[p.Id] = true
-
 		switch p.State {
 		case data.TxnStatus_Prepared:
 			prepared = append(prepared, p)
@@ -196,7 +190,12 @@ func (w *watchdog2PC) loadRunning() (map[id]bool, dogQueue, dogQueue) {
 			// release the locks. Add it to prepared queue and the ticker will invoke
 			// the abort goroutine on the first tick.
 			prepared = append(prepared, p)
+		default:
+			w.log.Warn("Unexpected running txn.", "id", p.Id, "state", p.State)
+			continue
 		}
+
+		all[p.Id] = p.State
 	}
 
 	cmpFn := func(a, b running) int { return int(a.Timestamp - b.Timestamp) }
@@ -226,6 +225,8 @@ func (w *watchdog2PC) abort(ctx context.Context, txn running) {
 				if errors.Is(err, errors.NotFound) {
 					return nil
 				}
+
+				w.log.WithContext(ctx).WithError(err).Error("Failed to abort. Retrying...", "id", txn.Id, "participant", pid)
 				return err
 			case !status.State.IsFinal():
 				return errors.Errorf("participant %d failed with state %s.", pid, status.State)
@@ -275,11 +276,13 @@ func (w *watchdog2PC) markTimedout(ctx context.Context, txn running, releaseLock
 
 		switch {
 		case err != nil:
-			if errors.Is(err, errors.FailedPrecondition) {
+			if errors.IsAny(err, errors.NotFound, errors.FailedPrecondition) {
 				// the API server was faster
 				success = false
 				return nil
 			}
+
+			w.log.WithContext(ctx).WithError(err).Error("Failed to mark timedout. Retrying...", "id", txn.Id)
 			return err
 		default:
 			success = true
@@ -312,7 +315,12 @@ func (w *watchdog2PC) commit(ctx context.Context, txn running) {
 
 			switch {
 			case err != nil:
-				return errors.Wrapf(err, "participant %d failed.", pid)
+				if errors.Is(err, errors.NotFound) {
+					return nil
+				}
+
+				w.log.WithContext(ctx).WithError(err).Error("Failed to commit. Retrying...", "id", txn.Id, "participant", pid)
+				return err
 			case status.State != data.TxnStatus_Committed:
 				return errors.Errorf("participant %d failed with state %s.", pid, status.State)
 			default:

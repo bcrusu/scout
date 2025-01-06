@@ -5,17 +5,19 @@ package agent;
 option go_package = "github.com/bcrusu/scout/internal/testing/agent";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
 // Service represents the agent service.
 service Service {
     rpc GetStatus(google.protobuf.Empty) returns (Status);
-    rpc Config(ConfigRequest) returns (google.protobuf.Empty);
-    rpc Start(google.protobuf.Empty) returns (google.protobuf.Empty);
-    rpc Stop(google.protobuf.Empty) returns (google.protobuf.Empty);
-    rpc Restart(google.protobuf.Empty) returns (google.protobuf.Empty);
-    rpc Reset(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc ConfigService(ConfigRequest) returns (google.protobuf.Empty);
+    rpc StartService(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc StopService(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc RestartService(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc ResetService(ResetRequest) returns (google.protobuf.Empty);
     rpc GetLogs(google.protobuf.Empty) returns (Logs);
+    rpc RunNemesis(NemesisRequest) returns (google.protobuf.Empty);
 }
 
 enum ServiceType {
@@ -30,6 +32,7 @@ message Status {
     ServiceType service_type = 1;
     bool service_active = 2;
     google.protobuf.Timestamp time = 3;
+    uint32 nemesis_count = 4;
 }
 
 message ConfigRequest {
@@ -39,4 +42,49 @@ message ConfigRequest {
 
 message Logs {
     bytes data = 1;
+}
+
+message ResetRequest {
+    google.protobuf.Timestamp time = 1;
+    bool service = 2;
+    bool nemesis = 3;
+    bool truncate_logs = 4;
+}
+
+message NemesisRequest {
+    google.protobuf.Duration duration = 1;
+
+    oneof payload {
+        Kill kill = 2;
+        Pause pause = 3;
+        Restart restart = 4;
+        BumpTime bump_time = 5;
+        StrobeTime strobe_time = 6;
+    }
+}
+
+// Kills the service using SIGKILL signal and systemd will auto restart it.
+// Can be used to simulate hard crash-restart fault.
+message Kill {}
+
+// Pauses the service and then resumes it.
+// Can be used to simulate a GC pause.
+message Pause {}
+
+// Stops the service until ctx in done and then starts it back again.
+// Can be used to simulate soft restart as in normal maintenance ops.
+message Restart {}
+
+// Changes the current system time by the provided delta and then restores
+// it to the original value. Delta is expected in millis.
+message BumpTime {
+    int32 delta = 1;
+}
+
+// StrobeTime changes the current system time back and forth by adding
+// then removing the provided delta, repeatedly, in each period.
+// Delta and period are expected in millis.
+message StrobeTime {
+    int32 delta = 1;
+    uint32 period = 2;
 }

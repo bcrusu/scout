@@ -53,9 +53,9 @@ func newServiceConfigCmd() *cobra.Command {
 	c.PersistentFlags().String("config-control", "configs/config-control.yaml", "Control server config template.")
 	c.PersistentFlags().String("config-data", "configs/config-data.yaml", "Data server config template.")
 	c.PersistentFlags().String("config-api", "configs/config-api.yaml", "API server config template.")
-	c.PersistentFlags().Int("nodes-control", 1, "Control server node count.")
+	c.PersistentFlags().Int("nodes-control", 3, "Control server node count.")
 	c.PersistentFlags().Int("nodes-data", 0, "Data server node count. A value of 0 specifies all the remaining nodes.")
-	c.PersistentFlags().Int("nodes-api", 1, "API server node count.")
+	c.PersistentFlags().Int("nodes-api", 2, "API server node count.")
 
 	return c
 }

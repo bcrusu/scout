@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"slices"
 	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/bcrusu/scout/internal/validation"
 	"github.com/bcrusu/scout/pkg/client"
 	"golang.org/x/time/rate"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -23,21 +25,27 @@ var (
 )
 
 type Config struct {
-	RunId          int           `validate:"required"`
-	ClusterName    string        `validate:"required,maxLen:100"`
-	SocketPath     string        `validate:"exists:socket"`
-	OutputDir      string        `validate:"notExists"`
-	Concurrency    int           `validate:"min:1"`
-	Duration       time.Duration `validate:"min:1s"`
-	ReadWriteRatio float64       `validate:"min:0.1,max:10"`
-	RequestRate    int           `validate:"min:1,max:1000"` // per second
-	RequestMinKeys int           `validate:"min:1,max:100"`
-	RequestMaxKeys int           `validate:"min:1,max:100"`
+	RunId           int           `validate:"required"`
+	ClusterName     string        `validate:"required,maxLen:100"`
+	SocketPath      string        `validate:"exists:socket"`
+	OutputDir       string        `validate:"notExists"`
+	Concurrency     int           `validate:"min:1"`
+	Duration        time.Duration `validate:"min:1s"`
+	ReadWriteRatio  float64       `validate:"min:0.1,max:10"`
+	RequestRate     int           `validate:"min:1,max:1000"` // per second
+	RequestMinKeys  int           `validate:"min:1,max:100"`
+	RequestMaxKeys  int           `validate:"min:1,max:100"`
+	NemesisDelay    time.Duration `validate:"min:1s"`
+	NemesisInterval time.Duration `validate:"min:1s"`
+	SlowDown        time.Duration `validate:"min:1ms"`
+	NemesisEnabled  []string
+	TruncateLogs    bool
 }
 
 type Runner struct {
 	config     Config
 	cluster    *cluster
+	clients    []client.Client
 	limiter    *rate.Limiter
 	workload   *workload
 	history    *history
@@ -52,9 +60,14 @@ type node struct {
 }
 
 type cluster struct {
+	All     []*node
 	Control []*node
 	Data    []*node
 	API     []*node
+}
+
+type nemesis interface {
+	Run(context.Context)
 }
 
 func NewRunner(ctx context.Context, config Config) *Runner {
@@ -70,6 +83,15 @@ func (r *Runner) Start(ctx context.Context) error {
 
 	cluster, err := r.getCluster(ctx)
 	if err != nil {
+		return err
+	}
+
+	clients, err := r.makeClients(cluster)
+	if err != nil {
+		return err
+	}
+
+	if err := r.resetNodes(ctx, cluster.All); err != nil {
 		return err
 	}
 
@@ -90,6 +112,7 @@ func (r *Runner) Start(ctx context.Context) error {
 	}
 
 	r.cluster = cluster
+	r.clients = clients
 	r.limiter = utils.NewRateLimiter(r.config.RequestRate, time.Second)
 	r.workload = newWorkload(r.config)
 	r.history = newHistory(historyFile)
@@ -104,32 +127,28 @@ func (r *Runner) Stop() {
 		log.WithError(err).Error("Failed to close history.")
 	}
 
-	closeClients := func(nodes []*node) {
-		for _, n := range nodes {
-			n.Agent.Close()
-		}
+	for _, client := range r.clients {
+		client.Stop()
 	}
 
-	closeClients(r.cluster.Control)
-	closeClients(r.cluster.Data)
-	closeClients(r.cluster.API)
+	for _, n := range r.cluster.All {
+		n.Agent.Close()
+	}
 }
 
-func (r *Runner) mainLoop(ctx context.Context) {
+func (r *Runner) mainLoop(parentCtx context.Context) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	timer := time.NewTimer(r.config.Duration)
 	defer ticker.Stop()
 	defer timer.Stop()
 
+	ctx, cancel := context.WithCancel(parentCtx)
 	nextId := 0
 	doneCh := make(chan int)
-	stopCh := make(chan any)
 	running := 0
 
 	startWorker := func() {
 		id := nextId
-		log.Info("Starting worker...", "id", id)
-
 		worker, err := r.newWorker(id)
 		nextId++
 		if err != nil {
@@ -137,10 +156,16 @@ func (r *Runner) mainLoop(ctx context.Context) {
 			return
 		}
 
+		log.Info("Starting worker...", "id", id)
 		running++
 		go func() {
-			if err := worker.Run(stopCh); err != nil {
+			if err := worker.Run(ctx); err != nil {
 				log.WithError(err).Error("Worker failed.", "id", id)
+
+				// slow down on internal errors
+				if errors.Is(err, errors.InternalError) {
+					time.Sleep(r.config.SlowDown)
+				}
 			} else {
 				log.Info("Worker done.", "id", id)
 			}
@@ -148,9 +173,32 @@ func (r *Runner) mainLoop(ctx context.Context) {
 		}()
 	}
 
+	startNemesis := func(instance nemesis, name string) {
+		if !slices.Contains(r.config.NemesisEnabled, name) {
+			return
+		}
+
+		running++
+		go func() {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(utils.AddJitter(r.config.NemesisDelay)):
+				log.Info("Starting nemesis...", "name", name)
+			}
+
+			instance.Run(ctx)
+			log.Info("Nemesis done.", "name", name)
+			doneCh <- -666
+		}()
+	}
+
 	for range r.config.Concurrency {
 		startWorker()
 	}
+
+	startNemesis(r.newTimeNemesis())
+	startNemesis(r.newServiceNemesis())
 
 	for {
 		select {
@@ -163,7 +211,7 @@ func (r *Runner) mainLoop(ctx context.Context) {
 		case <-timer.C:
 			utils.GracefulShutdown("Run duration elapsed.")
 		case <-ctx.Done():
-			close(stopCh)
+			cancel()
 
 			for range running {
 				<-doneCh
@@ -186,13 +234,17 @@ func (r *Runner) getCluster(ctx context.Context) (*cluster, error) {
 		return nil, err
 	}
 
-	result := &cluster{}
+	result := &cluster{
+		All: make([]*node, len(resp.Nodes)),
+	}
 
-	for _, node := range resp.Nodes {
+	for i, node := range resp.Nodes {
 		info, err := r.getNode(ctx, node)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get node %s info", node.Id)
 		}
+
+		result.All[i] = info
 
 		switch info.Type {
 		case agent.ServiceType_Control:
@@ -231,28 +283,57 @@ func (r *Runner) getNode(ctx context.Context, n *nodes.Node) (*node, error) {
 }
 
 func (r *Runner) newWorker(id int) (*worker, error) {
-	client, err := r.newClient(id)
-	if err != nil {
-		return nil, err
-	}
-
 	return &worker{
 		runId:    r.config.RunId,
 		workerId: id,
-		client:   client,
+		client:   r.clients[id%len(r.clients)],
 		limiter:  r.limiter,
 		workload: r.workload,
 		history:  r.history.TxnWriter(id),
 	}, nil
 }
 
-func (r *Runner) newClient(workerId int) (client.Client, error) {
+func (r *Runner) newTimeNemesis() (nemesis, string) {
+	return &timeNemesis{
+		cluster:  r.cluster,
+		interval: r.config.NemesisInterval,
+		history:  r.history.NemesisWriter("time_nemesis"),
+		log:      logging.New("time_nemesis"),
+	}, "time"
+}
+
+func (r *Runner) newServiceNemesis() (nemesis, string) {
+	return &serviceNemesis{
+		cluster:  r.cluster,
+		interval: r.config.NemesisInterval,
+		history:  r.history.NemesisWriter("service_nemesis"),
+		log:      logging.New("service_nemesis"),
+	}, "service"
+}
+
+func (r *Runner) makeClients(cluster *cluster) ([]client.Client, error) {
 	// Round robin API servers just to balance the initial discovery stage, and because
 	// the API server is not running in proxy mode, each client instance will individually
 	// discover all other API servers and balance requests accordingly.
-	idx := workerId % len(r.cluster.API)
-	address := r.cluster.API[idx].Ip
 
+	result := make([]client.Client, r.config.Concurrency)
+
+	for i := range r.config.Concurrency {
+		idx := i % len(cluster.API)
+		address := cluster.API[idx].Ip
+
+		client, err := r.newClient(address)
+		if err != nil {
+			return nil, err
+		}
+
+		result[i] = client
+	}
+
+	return result, nil
+}
+
+func (r *Runner) newClient(address string) (client.Client, error) {
 	client := client.New(
 		client.WithClusterName(r.config.ClusterName),
 		client.WithAddress(address))
@@ -268,5 +349,22 @@ func (c Config) Validate() error {
 	if c.RequestMinKeys > c.RequestMaxKeys {
 		return errors.Error("invalid RequestMinKeys/RequestMaxKeys fields")
 	}
+	return nil
+}
+
+func (r *Runner) resetNodes(ctx context.Context, nodes []*node) error {
+	for _, node := range nodes {
+		req := &agent.ResetRequest{
+			Time:         timestamppb.Now(),
+			Service:      false,
+			Nemesis:      true,
+			TruncateLogs: r.config.TruncateLogs,
+		}
+
+		if _, err := node.Agent.ResetService(ctx, req); err != nil {
+			return errors.Wrapf(err, "failed to reset node %s", node.Id)
+		}
+	}
+
 	return nil
 }

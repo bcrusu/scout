@@ -17,8 +17,11 @@ RUN set -eux; \
     apt-get update && apt-get upgrade -y; \
     apt-get install -y --no-install-recommends \
         udev \
+        dbus \
         systemd-sysv \
         openssh-server \
+        iputils-ping \
+        nftables \
         iproute2; \
     echo "scout" > /etc/hostname; \
     passwd -d root; \

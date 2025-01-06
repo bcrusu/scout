@@ -1,11 +1,16 @@
 package agent
 
 import (
+	"fmt"
 	"os"
+	"reflect"
+	"strings"
+	"time"
 
 	"github.com/bcrusu/scout/internal/errors"
 	"github.com/bcrusu/scout/internal/logging"
 	"github.com/bcrusu/scout/internal/utils"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 const (
@@ -77,6 +82,81 @@ func (x *ConfigRequest) Validate() error {
 	return nil
 }
 
+func (x *ResetRequest) Validate() error {
+	if x == nil {
+		return errors.Error("ResetRequest is nil")
+	}
+
+	if !x.Time.IsValid() {
+		return errors.Error("ResetRequest has invalid fields")
+	}
+
+	return nil
+}
+
+func (x *NemesisRequest) Validate() error {
+	if x == nil {
+		return errors.Error("NemesisRequest is nil")
+	}
+
+	if x.Payload == nil || !x.Duration.IsValid() || x.Duration.AsDuration() <= time.Millisecond {
+		return errors.Error("NemesisRequest has invalid fields")
+	}
+
+	return nil
+}
+
+func (x *NemesisRequest) Name() string {
+	if x.Payload == nil {
+		return ""
+	}
+
+	name := reflect.TypeOf(x.Payload).String()
+	i := strings.LastIndex(name, "_")
+	return name[i+1:]
+}
+
+func (x *NemesisRequest) Nemesis() Nemesis {
+	switch n := x.Payload.(type) {
+	case *NemesisRequest_Kill:
+		return n.Kill
+	case *NemesisRequest_Pause:
+		return n.Pause
+	case *NemesisRequest_Restart:
+		return n.Restart
+	case *NemesisRequest_BumpTime:
+		return n.BumpTime
+	case *NemesisRequest_StrobeTime:
+		return n.StrobeTime
+	default:
+		panic(fmt.Sprintf("Unknown nemesis type %T", x.Nemesis))
+	}
+}
+
 func (x ServiceType) IsValid() bool {
 	return x == ServiceType_Control || x == ServiceType_Data || x == ServiceType_Api
+}
+
+func NewNemesisRequest(nemesis Nemesis, duration time.Duration) *NemesisRequest {
+	var payload isNemesisRequest_Payload
+
+	switch x := nemesis.(type) {
+	case *Kill:
+		payload = &NemesisRequest_Kill{Kill: x}
+	case *Pause:
+		payload = &NemesisRequest_Pause{Pause: x}
+	case *Restart:
+		payload = &NemesisRequest_Restart{Restart: x}
+	case *BumpTime:
+		payload = &NemesisRequest_BumpTime{BumpTime: x}
+	case *StrobeTime:
+		payload = &NemesisRequest_StrobeTime{StrobeTime: x}
+	default:
+		panic(fmt.Sprintf("Unknown nemesis type %T", nemesis))
+	}
+
+	return &NemesisRequest{
+		Duration: durationpb.New(duration),
+		Payload:  payload,
+	}
 }

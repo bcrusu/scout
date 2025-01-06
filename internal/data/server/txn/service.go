@@ -35,7 +35,7 @@ type RaftStore interface {
 }
 
 func NewServiceLeader(pid uint32, manager *Manager, db mvcc.DB, raftStore RaftStore, client data.ServiceClient) *Service {
-	log := logging.New("txn").With("partition", pid)
+	log := logging.New("txn").With("pid", pid)
 	writer := newWriter(raftStore, log)
 	reader := newReader(pid, manager, writer, db)
 	watchdog2PC := newWatchdog2PC(pid, writer, manager, client)
@@ -62,7 +62,7 @@ func NewServiceFollower(pid uint32, manager *Manager, db mvcc.DB) *Service {
 		isLeader:   false,
 		reader:     reader,
 		manager:    manager,
-		log:        logging.New("txn").With("partition", pid),
+		log:        logging.New("txn").With("pid", pid),
 		components: []utils.Lifecycle{reader},
 	}
 }

@@ -58,7 +58,7 @@ func (r *RocksDB) Stop() {
 	for pid, cf := range r.getCFMap() {
 		// flush happens during destroy, but does not hurt to be safe
 		if err := flushCF(r.db, cf); err != nil {
-			log.WithError(err).Error("Failed to flush column family.", "partition", pid)
+			log.WithError(err).Error("Failed to flush column family.", "pid", pid)
 		}
 
 		cf.Destroy()

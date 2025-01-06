@@ -20,13 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Service_GetNode_FullMethodName  = "/nodes.Service/GetNode"
-	Service_GetNodes_FullMethodName = "/nodes.Service/GetNodes"
-	Service_Create_FullMethodName   = "/nodes.Service/Create"
-	Service_Start_FullMethodName    = "/nodes.Service/Start"
-	Service_Stop_FullMethodName     = "/nodes.Service/Stop"
-	Service_Reset_FullMethodName    = "/nodes.Service/Reset"
-	Service_Remove_FullMethodName   = "/nodes.Service/Remove"
+	Service_GetNode_FullMethodName    = "/nodes.Service/GetNode"
+	Service_GetNodes_FullMethodName   = "/nodes.Service/GetNodes"
+	Service_CreateNode_FullMethodName = "/nodes.Service/CreateNode"
+	Service_StartNode_FullMethodName  = "/nodes.Service/StartNode"
+	Service_StopNode_FullMethodName   = "/nodes.Service/StopNode"
+	Service_ResetNode_FullMethodName  = "/nodes.Service/ResetNode"
+	Service_RemoveNode_FullMethodName = "/nodes.Service/RemoveNode"
 )
 
 // ServiceClient is the client API for Service service.
@@ -37,11 +37,11 @@ const (
 type ServiceClient interface {
 	GetNode(ctx context.Context, in *Id, opts ...grpc.CallOption) (*Node, error)
 	GetNodes(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*Nodes, error)
-	Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Start(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
-	Stop(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
-	Reset(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
-	Remove(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
+	CreateNode(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	StartNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
+	StopNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
+	ResetNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
+	RemoveNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error)
 }
 
 type serviceClient struct {
@@ -72,50 +72,50 @@ func (c *serviceClient) GetNodes(ctx context.Context, in *emptypb.Empty, opts ..
 	return out, nil
 }
 
-func (c *serviceClient) Create(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *serviceClient) CreateNode(ctx context.Context, in *CreateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Service_Create_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_CreateNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Start(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) StartNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Service_Start_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_StartNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Stop(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) StopNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Service_Stop_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_StopNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Reset(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) ResetNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Service_Reset_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_ResetNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *serviceClient) Remove(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
+func (c *serviceClient) RemoveNode(ctx context.Context, in *Ids, opts ...grpc.CallOption) (*Status, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(Status)
-	err := c.cc.Invoke(ctx, Service_Remove_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, Service_RemoveNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,11 +130,11 @@ func (c *serviceClient) Remove(ctx context.Context, in *Ids, opts ...grpc.CallOp
 type ServiceServer interface {
 	GetNode(context.Context, *Id) (*Node, error)
 	GetNodes(context.Context, *emptypb.Empty) (*Nodes, error)
-	Create(context.Context, *CreateRequest) (*emptypb.Empty, error)
-	Start(context.Context, *Ids) (*Status, error)
-	Stop(context.Context, *Ids) (*Status, error)
-	Reset(context.Context, *Ids) (*Status, error)
-	Remove(context.Context, *Ids) (*Status, error)
+	CreateNode(context.Context, *CreateRequest) (*emptypb.Empty, error)
+	StartNode(context.Context, *Ids) (*Status, error)
+	StopNode(context.Context, *Ids) (*Status, error)
+	ResetNode(context.Context, *Ids) (*Status, error)
+	RemoveNode(context.Context, *Ids) (*Status, error)
 	mustEmbedUnimplementedServiceServer()
 }
 
@@ -151,20 +151,20 @@ func (UnimplementedServiceServer) GetNode(context.Context, *Id) (*Node, error) {
 func (UnimplementedServiceServer) GetNodes(context.Context, *emptypb.Empty) (*Nodes, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodes not implemented")
 }
-func (UnimplementedServiceServer) Create(context.Context, *CreateRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Create not implemented")
+func (UnimplementedServiceServer) CreateNode(context.Context, *CreateRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateNode not implemented")
 }
-func (UnimplementedServiceServer) Start(context.Context, *Ids) (*Status, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
+func (UnimplementedServiceServer) StartNode(context.Context, *Ids) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartNode not implemented")
 }
-func (UnimplementedServiceServer) Stop(context.Context, *Ids) (*Status, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
+func (UnimplementedServiceServer) StopNode(context.Context, *Ids) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopNode not implemented")
 }
-func (UnimplementedServiceServer) Reset(context.Context, *Ids) (*Status, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Reset not implemented")
+func (UnimplementedServiceServer) ResetNode(context.Context, *Ids) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetNode not implemented")
 }
-func (UnimplementedServiceServer) Remove(context.Context, *Ids) (*Status, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Remove not implemented")
+func (UnimplementedServiceServer) RemoveNode(context.Context, *Ids) (*Status, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RemoveNode not implemented")
 }
 func (UnimplementedServiceServer) mustEmbedUnimplementedServiceServer() {}
 func (UnimplementedServiceServer) testEmbeddedByValue()                 {}
@@ -223,92 +223,92 @@ func _Service_GetNodes_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_CreateNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Create(ctx, in)
+		return srv.(ServiceServer).CreateNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Create_FullMethodName,
+		FullMethod: Service_CreateNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Create(ctx, req.(*CreateRequest))
+		return srv.(ServiceServer).CreateNode(ctx, req.(*CreateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_StartNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Ids)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Start(ctx, in)
+		return srv.(ServiceServer).StartNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Start_FullMethodName,
+		FullMethod: Service_StartNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Start(ctx, req.(*Ids))
+		return srv.(ServiceServer).StartNode(ctx, req.(*Ids))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_StopNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Ids)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Stop(ctx, in)
+		return srv.(ServiceServer).StopNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Stop_FullMethodName,
+		FullMethod: Service_StopNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Stop(ctx, req.(*Ids))
+		return srv.(ServiceServer).StopNode(ctx, req.(*Ids))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Reset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_ResetNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Ids)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Reset(ctx, in)
+		return srv.(ServiceServer).ResetNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Reset_FullMethodName,
+		FullMethod: Service_ResetNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Reset(ctx, req.(*Ids))
+		return srv.(ServiceServer).ResetNode(ctx, req.(*Ids))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Service_Remove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Service_RemoveNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Ids)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServiceServer).Remove(ctx, in)
+		return srv.(ServiceServer).RemoveNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Service_Remove_FullMethodName,
+		FullMethod: Service_RemoveNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).Remove(ctx, req.(*Ids))
+		return srv.(ServiceServer).RemoveNode(ctx, req.(*Ids))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -329,24 +329,24 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Service_GetNodes_Handler,
 		},
 		{
-			MethodName: "Create",
-			Handler:    _Service_Create_Handler,
+			MethodName: "CreateNode",
+			Handler:    _Service_CreateNode_Handler,
 		},
 		{
-			MethodName: "Start",
-			Handler:    _Service_Start_Handler,
+			MethodName: "StartNode",
+			Handler:    _Service_StartNode_Handler,
 		},
 		{
-			MethodName: "Stop",
-			Handler:    _Service_Stop_Handler,
+			MethodName: "StopNode",
+			Handler:    _Service_StopNode_Handler,
 		},
 		{
-			MethodName: "Reset",
-			Handler:    _Service_Reset_Handler,
+			MethodName: "ResetNode",
+			Handler:    _Service_ResetNode_Handler,
 		},
 		{
-			MethodName: "Remove",
-			Handler:    _Service_Remove_Handler,
+			MethodName: "RemoveNode",
+			Handler:    _Service_RemoveNode_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

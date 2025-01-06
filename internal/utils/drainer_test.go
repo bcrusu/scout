@@ -15,7 +15,7 @@ import (
 )
 
 func newTestDrainer() *utils.Drainer {
-	return utils.NewDrainer(context.Background(), logging.New("drainer_tests"))
+	return utils.NewDrainer(logging.New("drainer_tests"))
 }
 
 var _ = Describe("Drainer tests", func() {

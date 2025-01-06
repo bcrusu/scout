@@ -129,7 +129,6 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 	dsUpdateCh, dsUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
 	asUpdateCh, asUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
 	dsConfigsUpdateCh, dsConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
-	asConfigsUpdateCh, asConfigsUpdateChDb := utils.MakeDebounceChan[bool](ctx, debounceInterval, 1)
 
 	servers := t.store.Servers()
 	partitions := t.store.Partitions()
@@ -250,10 +249,10 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 
 			servers = newServers
 			status.syncServers(newServers)
-			dsUpdateCh <- true
-			asUpdateCh <- true
-			dsConfigsUpdateCh <- true
-			asConfigsUpdateCh <- true
+			t.updateDataServerList(sessionsById, servers, partitions, status)
+			t.updateApiServerList(sessionsById, servers, status)
+			dsConfigs = t.updateDataServerConfigs(sessionsById, servers, partitions)
+			asConfigs = t.updateApiServerConfigs(sessionsById, servers)
 		case newPartitions := <-partitionsSub.Items():
 			if newPartitions.AssignmentsVersion == partitions.AssignmentsVersion {
 				continue
@@ -271,8 +270,6 @@ func (t *Tracker) mainLoop(ctx context.Context) {
 			t.updateApiServerList(sessionsById, servers, status)
 		case <-dsConfigsUpdateChDb:
 			dsConfigs = t.updateDataServerConfigs(sessionsById, servers, partitions)
-		case <-asConfigsUpdateChDb:
-			asConfigs = t.updateApiServerConfigs(sessionsById, servers)
 		case <-ctx.Done():
 			goto SHUTDOWN
 		}

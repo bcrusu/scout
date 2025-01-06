@@ -224,10 +224,10 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 	if !routing.snapshotRead {
 		switch {
 		case part.leader == "":
-			logLB.Debug("Leader connection not available.", "partition", part.id)
+			logLB.Debug("Leader connection not available.", "pid", part.id)
 			return balancer.PickResult{}, unavailableErr()
 		case !p.conn.IsReady(part.leader):
-			logLB.Debug("Leader connection not ready.", "partition", part.id)
+			logLB.Debug("Leader connection not ready.", "pid", part.id)
 			return balancer.PickResult{}, unavailableErr()
 		case hasPreferred && preferred.enforce && preferred.serverID != part.leaderId:
 			return balancer.PickResult{}, errPreferredUnavailable
@@ -281,7 +281,7 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		}, nil
 	}
 
-	logLB.Debug("Read connections not ready.", "partition", part.id)
+	logLB.Debug("Read connections not ready.", "pid", part.id)
 	return balancer.PickResult{}, balancer.ErrNoSubConnAvailable
 }
 

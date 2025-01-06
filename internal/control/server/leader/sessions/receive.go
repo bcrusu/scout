@@ -17,7 +17,7 @@ func (t *Tracker) sessionRecvLoop(sess *session, stream sessionStream) {
 		in, err := stream.Recv()
 		if err != nil {
 			if errors.IsContextError(err) || errors.Is(err, io.EOF) {
-				sess.log.WithError(err).Debug("Session receive loop done.")
+				sess.log.WithError(err).Trace("Session receive loop done.")
 				endSession(nil)
 			} else {
 				t.meters.MsgReceiveError.Add(1)

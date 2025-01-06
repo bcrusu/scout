@@ -105,7 +105,7 @@ func getRPCError(ctx context.Context, err error, method string) error {
 		return status.Error(codes.OutOfRange, "Time out of range")
 	case errors.FailedPrecondition:
 		return status.Error(codes.FailedPrecondition, "Failed Precondition")
-	case errInternal:
+	case errors.InternalError:
 		return errInternal
 	}
 
@@ -168,6 +168,8 @@ func getGoError(err error) error {
 		}
 	case codes.FailedPrecondition:
 		return errors.FailedPrecondition
+	case codes.Internal:
+		return errors.InternalError
 	}
 
 	return err

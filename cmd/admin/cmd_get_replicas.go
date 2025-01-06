@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bcrusu/scout/internal/control"
 	"github.com/spf13/cobra"
@@ -44,10 +45,12 @@ func newGetReplicasCmd() *cobra.Command {
 							return strings.Compare(a.repl.Name, b.repl.Name)
 						}
 					},
-					func(x pair) []string {
-						return []string{
+					func(rowNo int, x pair) row {
+						hl := time.Since(x.repl.LastUpdate.AsTime()) > 10*time.Second
+						return row{
+							formatInt(rowNo),
 							formatUint(x.part.Id),
-							x.repl.Name,
+							highlight(x.repl.Name, hl),
 							formatServer(info.Cluster, x.repl.ServerId),
 							x.repl.State.String(),
 							formatFlase(x.repl.Ready),
@@ -55,11 +58,9 @@ func newGetReplicasCmd() *cobra.Command {
 							fmt.Sprintf("%d/%d", x.repl.AppliedIndex, x.part.CommitedIndex),
 							formatTime(x.repl.CreatedTime),
 							formatTime(x.repl.StateTransitionTime),
-							formatTime(x.repl.LastUpdate),
+							highlight(formatTime(x.repl.LastUpdate), hl),
 						}
-					},
-					true,
-				))
+					}))
 
 			fmt.Printf("Max imbalance: %d\n", info.Cluster.Partitions.MaxImbalance)
 

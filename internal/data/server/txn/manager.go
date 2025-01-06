@@ -45,7 +45,7 @@ func NewManager(pid uint32, db mvcc.DB) *Manager {
 		db:         mvcc.NewDBBreaker(db),
 		cleanAfter: cleanAfter,
 		meters:     newManagerMeters(pid),
-		log:        logging.New("txn").With("partition", pid),
+		log:        logging.New("txn").With("pid", pid),
 		status:     map[id]*data.TxnStatus{},
 		prepared:   map[id]*data.Prepared{},
 	}
@@ -123,7 +123,7 @@ func (p *Manager) getRunning() []running {
 	result := make([]running, 0, len(p.prepared))
 
 	for id, prepared := range p.prepared {
-		if prepared.LocksReleased {
+		if id.PrincipalPid != p.pid || prepared.LocksReleased {
 			continue
 		}
 
