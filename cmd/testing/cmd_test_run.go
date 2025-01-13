@@ -88,9 +88,9 @@ func newTestRunCmd() *cobra.Command {
 	c.PersistentFlags().Int("max-keys", 8, "Request max key count.")
 	c.PersistentFlags().StringSliceP("nemesis", "n", []string{"time", "service"}, "Nemesis list to enable.")
 	c.PersistentFlags().Duration("nemesis-delay", 5*time.Second, "Initial delay duration before nemesis starts.")
-	c.PersistentFlags().Duration("nemesis-interval", 5*time.Second, "Duration between nemesis operations.")
+	c.PersistentFlags().Duration("nemesis-interval", 10*time.Second, "Duration between nemesis operations.")
 	c.PersistentFlags().Bool("truncate-logs", false, "Truncate service logs before running the test.")
-	c.PersistentFlags().Duration("slow-down", 200*time.Millisecond, "Worker slow down on internal errors and similar scenarios.")
+	c.PersistentFlags().Duration("slow-down", 100*time.Millisecond, "Worker slow down on internal errors and similar scenarios.")
 
 	return c
 }

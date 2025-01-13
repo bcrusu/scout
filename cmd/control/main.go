@@ -18,6 +18,4 @@ func main() {
 		log.WithError(err).Error("Unexpected error")
 		os.Exit(1)
 	}
-
-	log.Info("Done")
 }

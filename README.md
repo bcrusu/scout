@@ -1,18 +1,45 @@
 # ScoutDB
 
-ScoutDB is a distributed key-value database.
+Scout is a distributed key-value database.
 
 ## Features
 
-- Distributed
-- Strongly consistent
-- Two-phase commit transactions for multi-key operations
-- Plugable storage backend (currently using [RocksDB](https://github.com/facebook/rocksdb/))
+- [Strong serializable](https://jepsen.io/consistency/models/strong-serializable) consistency model validated using [jepsen/elle](https://github.com/jepsen-io/elle)
 - Globally-consistent and causality-preserving snapshots enabled by:
-  - MVCC storage
+  - Distributed transactions using two-phase commit protocol ([details](/internal/data/server/txn/watchdog_2pc.go))
   - Hybrid Logical Clocks ([pdf](https://cse.buffalo.edu/tech-reports/2014-04.pdf))
+  - MVCC storage
 - Time travel queries
-- Automated replica rebalance and data streaming
+- Scalability without downtime enabled by automated replica rebalance and data streaming
+- Plugable storage backend with [RocksDB](https://github.com/facebook/rocksdb/) as the default implementation
+
+## Architecture
+
+The system is composed of three major components: the control plane, data plane, and API nodes:
+
+![Architecture](docs/img/arch.png)
+
+### Control plane
+ - stateful service with state stored and replicated in a dedicated Raft group
+ - maintains long-running sessions with all other cluster nodes
+ - handles service registration and discovery
+ - tracks node and replica status
+ - performs partition assignment and rebalance
+
+### Data nodes
+ - stateful service with state stored in a single embedded RocksDB instance
+ - exposes the low-level transactional key-value API
+ - handles replica lifecycle (*joining*, *serving*, and *leaving* state transitions)
+ - performs data streaming for *joining* replicas
+ - implements data layers for raw key-value and MVCC retrieval
+ - implements the transactional data access and mutual exclusion logic via two-phase locking
+ - acts as two-phase commit protocol watchdog and secondary coordinator
+
+### API nodes
+ - stateless service
+ - exposes the high-level APIs
+ - acts as a gateway for external clients
+ - initiates and coordinates transactions in a best-effort basis, backed by the data node acting as secondary coordinator
 
 ## Building
 
@@ -24,6 +51,7 @@ Simply run `make docker_images` to build everything as Docker images. The proces
 - scout/data: the data plane server
 - scout/api: the front-end API server
 - scout/admin: the admin CLI tool
+- scout/testing: the end-to-end system testing tool ([details](docs/testing.md)).
 
 ### Dev environment setup
 
@@ -72,9 +100,10 @@ To interact with the cluster:
 - or use the admin command to query detailed info about the cluster:
   - `docker run -it --rm --network scout_default --entrypoint /bin/sh scout/admin` to run the admin CLI container attached to the demo network
   - and from inside it run the `admin get` command to fetch details about the cluster, servers, partitions, and replicas:
-  - for example, `admin get replicas --server control1` lists all replicas and their state:
+  - for example, `admin get replicas --server control1` lists all replicas and their state.
+  - or as a single command: `docker run --rm --network scout_default scout/admin get replicas --server control1`
 ```
------+------+---------+--------------+-------+-------+--------+------------------+----------------------+----------------------+----------------------+
++-----+------+---------+--------------+-------+-------+--------+------------------+----------------------+----------------------+----------------------+
 |  #  | PART | REPLICA |    SERVER    | STATE | READY | LEADER | APPLIED/COMMITED |       CREATED        |      TRANSITION      |       UPDATED        |
 +-----+------+---------+--------------+-------+-------+--------+------------------+----------------------+----------------------+----------------------+
 |   1 |    0 | p0_r1   | data_11 (11) | Voter | ✓     | ✗      | 30/30            | 2024-11-18T12:00:42Z | 2024-11-18T12:00:42Z | 2024-11-18T12:02:31Z |
@@ -94,10 +123,6 @@ To modify the cluster configuration, update:
 - the [.env](demo/.env) file, and
 - the config files in [scout](demo/scout) dir,
 - then restart using `make restart` to apply the changes.
-
-## Architecture
-
-TODO: Add a nice diagram here
 
 ## Improvements
 
@@ -122,21 +147,36 @@ Essentially all system components can be improved in many ways, with some notabl
 
 - Use [SST file ingestion](https://github.com/facebook/rocksdb/wiki/Creating-and-Ingesting-SST-files) for joining replicas: the current implementation uses an iterator to stream the RocksDB column family contents from a sponsor replica to the newly joining replica. This works just fine when the number of stored keys is small, but sub-optimal when the data size grows past a certain size. A better approach makes use of RocksDB [checkpointing](https://github.com/facebook/rocksdb/wiki/Checkpoints) feature to [export](https://github.com/facebook/rocksdb/blob/9a136e18b353e6d9c1b325103a4cef7d85a3ceea/include/rocksdb/utilities/checkpoint.h#L58) all column familiy SST files as hard-links to a specified directory from where they can be rsync-ed to the joining replica and ingested.
 
+- Leader replica load leveling: to avoid scenarios where a node becomes leader for a disproportionate number of its assigned replicas, and thus incurring above average load compared to its peers, the system should actively monitor each node and trigger Raft leadership transfer/s to bring the number of leader replicas per node to the desired average. Could be implemented either in a:
+  - centralized manner where the control plane, which already gathers the replicas status, decides how leadership should change and instructs each node to take action/s
+  - distributed manner where each node only needs to know the desired setpoint and can initiate leadership transfer for a randomly selected replica when it goes above this value.
+
 ### Transactions/Storage
 
-- Advance the snapshot read *safe* timestamp in absence of writes. Similar to the problem described in [Google Spanner](https://research.google/pubs/spanner-googles-globally-distributed-database-2/) paper, in section 4.2.4 Refinements, when a partition stops receiving write requests, the system needs to explicitly advance the *safe* timestamp to allow snapshot/replica reads past last written transaction timestamp. The simple fix would be to have the partition leader force and empty txn write after a timeout while the better approach involves a leader *lease* system as described in Spanner. A similar approach is also employed by CockroachDB [closed timestamps](https://www.cockroachlabs.com/docs/v24.2/architecture/transaction-layer#closed-timestamps) where the range leaseholder provides the promise to follower replicas to not accept any new writes below the closed timestamp which enables the [follower reads](https://www.cockroachlabs.com/docs/v24.2/follower-reads#how-stale-follower-reads-work) feature.
+- ~~Advance the snapshot read *safe* timestamp in absence of writes. Similar to the problem described in [Google Spanner](https://research.google/pubs/spanner-googles-globally-distributed-database-2/) paper, in section 4.2.4 Refinements, when a partition stops receiving write requests, the system needs to explicitly advance the *safe* timestamp to allow snapshot/replica reads past last written transaction timestamp. The simple fix would be to have the partition leader force and empty txn write after a timeout while the better approach involves a leader *lease* system as described in Spanner. A similar approach is also employed by CockroachDB [closed timestamps](https://www.cockroachlabs.com/docs/v24.2/architecture/transaction-layer#closed-timestamps) where the range leaseholder provides the promise to follower replicas to not accept any new writes below the closed timestamp which enables the [follower reads](https://www.cockroachlabs.com/docs/v24.2/follower-reads#how-stale-follower-reads-work) feature~~.
 
-- RocksDB [compaction filter](https://github.com/facebook/rocksdb/wiki/Compaction-Filter): to prune old MVCC versions and enable a configurable historical data retention period.
+- Better deadlock/livelock prevention: currently, when the `LockFailed` error status is received during txn prepare operation, the request is retried using random backoff in the hope that the other transaction holding the lock has completed and released it. This approach helps in some cases, but can result in both transactions failing to make progress and timing-out waiting for each other's locks in more contended scenarios. To improve the chances of success, will need to implement the *wait-die* non-preemptive deadlock prevention scheme where only the txn with higher priority is allowed to wait, while to lower priority txn aborts, releases the locks, and possibly retries later. 
 
 - Support for interactive transactions: with client-driven multi read/write operations.
 
-- Testing with [Jepsen](https://github.com/jepsen-io/jepsen): one of the main reasons I built the whole thing.
+- RocksDB [compaction filter](https://github.com/facebook/rocksdb/wiki/Compaction-Filter): to prune old MVCC versions and enable a configurable historical data retention period.
 
-### Features
+- ~~Testing with [Jepsen](https://github.com/jepsen-io/jepsen): one of the main reasons I built the whole thing.~~ Remaining to add nemeses for injecting network faults/partititons and cluster membership changes.
 
-TODO
-- Nodes monitor/decommission
+### Other
+
+- Node failure detector: a simple approch would check the last heartbeat/status update is not older than a configurable threshold while a more sophisticated approach could use the Phi Accrual Failure Detector to compute the probability/confidence of node failure.
+
+- Node remove/decommission tools to forcefully/gracefully remove cluster nodes.
+
+- Data backup and repair tools: even though I could not get into a data corrution/loss scenario during testing, no production-ready DB should miss this functionalitiy.
+
+- Better metrics and dashboards.
+
+- More unit/integration tests (you can never have too many).
+
+- and many other...
 
 ## License
 
-What use has a license nowadays...
+The project is licensed under the [GNU Affero General Public License v3.0](LICENSE), but what use has a license nowadays?

@@ -9,7 +9,7 @@ FC_TAR=$(FC_BIN).tgz
 CNI_VER=v1.6.0
 CNI_TAR=cni-plugins-linux-amd64-$(CNI_VER).tgz
 
-all: dirs testing $(WORK)/firecracker fs cni $(WORK)/configs
+all: dirs testing admin $(WORK)/firecracker fs cni $(WORK)/configs docker_image_elle_cli $(DOWNLOADS)/$(VMLINUX)
 
 .PHONY: dirs
 dirs:
