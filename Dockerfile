@@ -71,6 +71,8 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,source=./,target=./src \
     set -eux; \
     cd src; \
+    go env -w GO111MODULE=on; \
+    go env -w GOPROXY=https://mirrors.aliyun.com/goproxy/,direct; \
     go mod download; \
     go install -ldflags "$LD_FLAGS" github.com/bcrusu/scout/cmd/${CMD_NAME};
 
